@@ -1,16 +1,83 @@
-# React + Vite
+# 🏠 HOMES — Brokerage Operating System for Egypt
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **Swipe to Your Next Home**
 
-Currently, two official plugins are available:
+A comprehensive, multi-system brokerage operating platform designed for the Egyptian real estate market. Built with React + Vite, featuring a dual-hub architecture with **Backoffice Hub** and **Agent Platform**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![Homes](https://img.shields.io/badge/Version-1.0-E8672A?style=for-the-badge)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🏗️ Architecture
 
-## Expanding the ESLint configuration
+| System | Pages | Description |
+|--------|-------|-------------|
+| **Backoffice Hub** | 32+ | Operations, CRM, Finance, HR, Recruitment, Master Data, Reporting |
+| **Agent Platform** | 8 | Onboarding journey, Learning, Products, Performance, Documents |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## ✨ Features
+
+- **40+ fully functional pages** with static data simulation
+- **10 switchable personas** (Super Admin, Ops Manager, Sales Manager, HR, Finance, Agents)
+- **Dual-theme design** — Light professional backoffice + Dark agent portal
+- **Official HOMES branding** with orange accent (#E8672A)
+- **BRD V1.3 compliant** — All business requirements mapped to pages
+
+## 📦 Modules
+
+### Backoffice Hub
+| Module | Pages |
+|--------|-------|
+| Operations | Dashboard, Agents List, Onboarding Pipeline, Documents Review, Staff Management |
+| CRM | Lead Management, Deals Pipeline, Tasks & Calendar |
+| Compliance | Training Compliance |
+| Financial Mgmt | Overview, Deals & Revenue, Commission Engine, Agent Dues |
+| HR & Payroll | Employee Profiles, Payroll |
+| Recruitment | Candidate Pipeline, Job Vacancies |
+| Master Data | Developers, Projects, Compounds, Unit Types, Cities, Areas, Branches, Teams, Employment Categories, Commission Policies, Payout Cycles, Expense Categories, Lead Sources |
+| Data & Reporting | Marketplace Dashboard, Audit Logs, Executive Dashboard, Exceptions & Issues |
+| System | Roles & Permissions, Departments, Settings |
+
+### Agent Platform
+Dashboard, Products & Services, Learning (Viva), Performance, Profile, Documents, Notifications, Help
+
+## 🚀 Getting Started
+
+```bash
+# Clone
+git clone https://github.com/Salheen10/Homes-Brokerage-OS.git
+cd Homes-Brokerage-OS
+
+# Install
+npm install
+
+# Run dev server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## 🛠️ Tech Stack
+
+- **React 19** — Component framework
+- **React Router** — Client-side routing
+- **Vite 8** — Build tool
+- **Lucide React** — Icon library
+- **Vanilla CSS** — Custom design system with CSS variables
+
+## 📋 BRD Alignment
+
+This platform implements the HOMES Business Requirements Document (BRD) V1.3, covering:
+
+- **Section 6** — Organizational Model (Departments, Roles, Branches)
+- **Section 7** — Property & Location Master Data
+- **Section 8** — Operational Modules (CRM, Deals, Tasks, Marketplace, Onboarding, Recruitment, Training, HR, Finance)
+- **Section 9** — Executive Reporting
+- **Section 10** — Audit & Compliance
+
+## 📄 License
+
+Private — Homes Brokerage © 2024
