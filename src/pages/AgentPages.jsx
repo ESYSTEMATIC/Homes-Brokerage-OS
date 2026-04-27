@@ -109,3 +109,32 @@ export const AgentNotifications = () => (
     </div>
   </div>
 );
+
+export const AgentHelp = () => (
+  <div>
+    <h1 className="page-title">Help & Support</h1>
+    <p className="page-subtitle" style={{marginBottom:24}}>FAQs, onboarding guides, and ticket management</p>
+    <div className="kpi-grid kpi-grid-3" style={{marginBottom:24}}>
+      <div className="kpi-card"><div><div className="kpi-label">Open Tickets</div><div className="kpi-value">1</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🎫</span></div></div>
+      <div className="kpi-card"><div><div className="kpi-label">Resolved Tickets</div><div className="kpi-value">4</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>✅</span></div></div>
+      <div className="kpi-card"><div><div className="kpi-label">Avg Response Time</div><div className="kpi-value">2h</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>⏱️</span></div></div>
+    </div>
+    <div className="data-panel" style={{padding: 24, background: '#fff', borderRadius: 12, border: '1px solid var(--card-border)'}}>
+      <h3 style={{fontWeight: 700, marginBottom: 16}}>Frequently Asked Questions</h3>
+      <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+        <div style={{padding: 16, border: '1px solid var(--border-color)', borderRadius: 8}}>
+          <div style={{fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6}}>How do I request CRM access?</div>
+          <div style={{color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5}}>CRM access is automatically granted once all required training courses are completed and your background check is approved by HR.</div>
+        </div>
+        <div style={{padding: 16, border: '1px solid var(--border-color)', borderRadius: 8}}>
+          <div style={{fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6}}>When are commissions paid?</div>
+          <div style={{color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5}}>Commissions are processed in two cycles: the 10th and 25th of each month, provided the developer has cleared the payment.</div>
+        </div>
+        <div style={{padding: 16, border: '1px solid var(--border-color)', borderRadius: 8}}>
+          <div style={{fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6}}>Who do I contact for MLS ID issues?</div>
+          <div style={{color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5}}>Please open a support ticket from this page and route it to the "Operations" department.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+);

@@ -19,74 +19,130 @@ export const BackofficeLayout = ({ children }) => {
   const [hrOpen, setHrOpen] = useState(false);
   const [masterOpen, setMasterOpen] = useState(false);
 
+  const accessMatrix = {
+    backofficeAdmin: 'ALL',
+    salesManager: ['dashboard', 'operations', 'crm', 'recruitment'],
+    salesDirector: ['dashboard', 'operations', 'crm', 'recruitment', 'data'],
+    hrRecruiter: ['dashboard', 'operations', 'compliance', 'hr', 'recruitment'],
+    financeOfficer: ['dashboard', 'finance', 'hr', 'data'],
+    marketingAdmin: ['dashboard', 'data', 'crm', 'master'],
+    executive: ['dashboard', 'data', 'finance', 'hr'],
+    systemAdmin: ['dashboard', 'system', 'master', 'data']
+  };
+
+  const hasAccess = (module) => {
+    if (personaKey === 'backofficeAdmin') return true;
+    const allowed = accessMatrix[personaKey] || [];
+    return allowed.includes(module);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand"><HomesLogoFull /></div>
         <nav className="sidebar-nav">
-          <div className="sidebar-section">Operations</div>
-          <Sub label="Agents" icon={<Users size={16}/>} open={agentsOpen} toggle={()=>setAgentsOpen(!agentsOpen)}>
-            <Link to="/backoffice/agents">Agents List</Link>
-            <Link to="/backoffice/onboarding">Onboarding</Link>
-            <Link to="/backoffice/documents">Documents Review</Link>
-          </Sub>
-          <Link to="/backoffice/dashboard"><LayoutDashboard size={16}/>Dashboard</Link>
-          <Link to="/backoffice/staff"><UsersRound size={16}/>Staff Management</Link>
+          {hasAccess('operations') && (
+            <>
+              <div className="sidebar-section">Operations</div>
+              <Sub label="Agents" icon={<Users size={16}/>} open={agentsOpen} toggle={()=>setAgentsOpen(!agentsOpen)}>
+                <Link to="/backoffice/agents">Agents List</Link>
+                <Link to="/backoffice/onboarding">Onboarding</Link>
+                <Link to="/backoffice/documents">Documents Review</Link>
+              </Sub>
+              <Link to="/backoffice/staff"><UsersRound size={16}/>Staff Management</Link>
+            </>
+          )}
 
-          <div className="sidebar-section">CRM</div>
-          <Link to="/backoffice/crm"><Target size={16}/>Lead Management</Link>
-          <Link to="/backoffice/deals"><Briefcase size={16}/>Deals Pipeline</Link>
-          <Link to="/backoffice/tasks"><ClipboardList size={16}/>Tasks & Calendar</Link>
+          {hasAccess('dashboard') && <Link to="/backoffice/dashboard"><LayoutDashboard size={16}/>Dashboard</Link>}
 
-          <div className="sidebar-section">Compliance</div>
-          <Link to="/backoffice/training"><ShieldCheck size={16}/>Training Compliance</Link>
+          {hasAccess('crm') && (
+            <>
+              <div className="sidebar-section">CRM</div>
+              <Link to="/backoffice/crm"><Target size={16}/>Lead Management</Link>
+              <Link to="/backoffice/deals"><Briefcase size={16}/>Deals Pipeline</Link>
+              <Link to="/backoffice/tasks"><ClipboardList size={16}/>Tasks & Calendar</Link>
+            </>
+          )}
 
-          <div className="sidebar-section">Finance</div>
-          <Sub label="Financial Mgmt" icon={<BadgeDollarSign size={16}/>} open={financeOpen} toggle={()=>setFinanceOpen(!financeOpen)}>
-            <Link to="/backoffice/finance/overview">Overview</Link>
-            <Link to="/backoffice/finance/deals-revenue">Deals & Revenue</Link>
-            <Link to="/backoffice/finance/commission">Commission Engine</Link>
-            <Link to="/backoffice/finance/agent-dues">Agent Dues</Link>
-          </Sub>
-          <Sub label="HR & Payroll" icon={<UserSquare2 size={16}/>} open={hrOpen} toggle={()=>setHrOpen(!hrOpen)}>
-            <Link to="/backoffice/hr/profiles">Employee Profiles</Link>
-            <Link to="/backoffice/hr/payroll">Payroll</Link>
-          </Sub>
+          {hasAccess('compliance') && (
+            <>
+              <div className="sidebar-section">Compliance</div>
+              <Link to="/backoffice/training"><ShieldCheck size={16}/>Training Compliance</Link>
+            </>
+          )}
 
-          <div className="sidebar-section">Recruitment</div>
-          <Link to="/backoffice/recruitment"><Users size={16}/>Candidate Pipeline</Link>
-          <Link to="/backoffice/jobs"><Briefcase size={16}/>Job Vacancies</Link>
+          {(hasAccess('finance') || hasAccess('hr')) && (
+            <>
+              <div className="sidebar-section">Finance</div>
+              {hasAccess('finance') && (
+                <Sub label="Financial Mgmt" icon={<BadgeDollarSign size={16}/>} open={financeOpen} toggle={()=>setFinanceOpen(!financeOpen)}>
+                  <Link to="/backoffice/finance/overview">Overview</Link>
+                  <Link to="/backoffice/finance/deals-revenue">Deals & Revenue</Link>
+                  <Link to="/backoffice/finance/commission">Commission Engine</Link>
+                  <Link to="/backoffice/finance/agent-dues">Agent Dues</Link>
+                </Sub>
+              )}
+              {hasAccess('hr') && (
+                <Sub label="HR & Payroll" icon={<UserSquare2 size={16}/>} open={hrOpen} toggle={()=>setHrOpen(!hrOpen)}>
+                  <Link to="/backoffice/hr/profiles">Employee Profiles</Link>
+                  <Link to="/backoffice/hr/payroll">Payroll</Link>
+                </Sub>
+              )}
+            </>
+          )}
 
-          <div className="sidebar-section">Data & Reporting</div>
-          <Sub label="Master Data" icon={<Database size={16}/>} open={masterOpen} toggle={()=>setMasterOpen(!masterOpen)}>
-            <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Property</div>
-            <Link to="/backoffice/master/developers">Developers</Link>
-            <Link to="/backoffice/master/projects">Projects</Link>
-            <Link to="/backoffice/master/compounds">Compounds</Link>
-            <Link to="/backoffice/master/unit-types">Unit Types</Link>
-            <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Location</div>
-            <Link to="/backoffice/master/cities">Cities</Link>
-            <Link to="/backoffice/master/areas">Areas / Districts</Link>
-            <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Organization</div>
-            <Link to="/backoffice/master/branches">Branches</Link>
-            <Link to="/backoffice/master/teams">Teams</Link>
-            <Link to="/backoffice/master/emp-categories">Employment Categories</Link>
-            <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Finance & Sales</div>
-            <Link to="/backoffice/master/comm-policies">Commission Policies</Link>
-            <Link to="/backoffice/master/payout-cycles">Payout Cycles</Link>
-            <Link to="/backoffice/master/expense-categories">Expense Categories</Link>
-            <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Other</div>
-            <Link to="/backoffice/master/lead-sources">Lead Sources</Link>
-          </Sub>
-          <Link to="/backoffice/exceptions"><AlertTriangle size={16}/>Exceptions & Issues</Link>
-          <Link to="/backoffice/marketplace"><BarChart3 size={16}/>Marketplace Dashboard</Link>
-          <Link to="/backoffice/audit"><ScrollText size={16}/>Audit Logs</Link>
-          <Link to="/backoffice/executive"><Building2 size={16}/>Executive Dashboard</Link>
+          {hasAccess('recruitment') && (
+            <>
+              <div className="sidebar-section">Recruitment</div>
+              <Link to="/backoffice/recruitment"><Users size={16}/>Candidate Pipeline</Link>
+              <Link to="/backoffice/jobs"><Briefcase size={16}/>Job Vacancies</Link>
+            </>
+          )}
 
-          <div className="sidebar-section">System</div>
-          <Link to="/backoffice/roles"><ShieldCheck size={16}/>Roles & Permissions</Link>
-          <Link to="/backoffice/departments"><Building2 size={16}/>Departments</Link>
-          <Link to="/backoffice/settings"><Settings size={16}/>Settings</Link>
+          {(hasAccess('data') || hasAccess('master')) && (
+            <>
+              <div className="sidebar-section">Data & Reporting</div>
+              {hasAccess('master') && (
+                <Sub label="Master Data" icon={<Database size={16}/>} open={masterOpen} toggle={()=>setMasterOpen(!masterOpen)}>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Property</div>
+                  <Link to="/backoffice/master/developers">Developers</Link>
+                  <Link to="/backoffice/master/projects">Projects</Link>
+                  <Link to="/backoffice/master/compounds">Compounds</Link>
+                  <Link to="/backoffice/master/unit-types">Unit Types</Link>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Location</div>
+                  <Link to="/backoffice/master/cities">Cities</Link>
+                  <Link to="/backoffice/master/areas">Areas / Districts</Link>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Organization</div>
+                  <Link to="/backoffice/master/branches">Branches</Link>
+                  <Link to="/backoffice/master/teams">Teams</Link>
+                  <Link to="/backoffice/master/emp-categories">Employment Categories</Link>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Finance & Sales</div>
+                  <Link to="/backoffice/master/comm-policies">Commission Policies</Link>
+                  <Link to="/backoffice/master/payout-cycles">Payout Cycles</Link>
+                  <Link to="/backoffice/master/expense-categories">Expense Categories</Link>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Other</div>
+                  <Link to="/backoffice/master/lead-sources">Lead Sources</Link>
+                </Sub>
+              )}
+              {hasAccess('data') && (
+                <>
+                  <Link to="/backoffice/exceptions"><AlertTriangle size={16}/>Exceptions & Issues</Link>
+                  <Link to="/backoffice/marketplace"><BarChart3 size={16}/>Marketplace Dashboard</Link>
+                  <Link to="/backoffice/audit"><ScrollText size={16}/>Audit Logs</Link>
+                  <Link to="/backoffice/executive"><Building2 size={16}/>Executive Dashboard</Link>
+                </>
+              )}
+            </>
+          )}
+
+          {hasAccess('system') && (
+            <>
+              <div className="sidebar-section">System</div>
+              <Link to="/backoffice/roles"><ShieldCheck size={16}/>Roles & Permissions</Link>
+              <Link to="/backoffice/departments"><Building2 size={16}/>Departments</Link>
+              <Link to="/backoffice/settings"><Settings size={16}/>Settings</Link>
+            </>
+          )}
         </nav>
       </aside>
 

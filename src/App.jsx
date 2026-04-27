@@ -33,7 +33,7 @@ import { ExceptionsIssues, Settings } from './pages/SystemPages';
 // Agent Pages
 import { AgentPortalDashboard } from './pages/AgentPortalDashboard';
 import { AgentLearning } from './pages/AgentLearning';
-import { AgentProducts, AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications } from './pages/AgentPages';
+import { AgentProducts, AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications, AgentHelp } from './pages/AgentPages';
 
 const AppRoutes = () => {
   const { persona } = useApp();
@@ -50,7 +50,7 @@ const AppRoutes = () => {
           <Route path="/agent/profile" element={<AgentProfile />} />
           <Route path="/agent/documents" element={<AgentDocuments />} />
           <Route path="/agent/notifications" element={<AgentNotifications />} />
-          <Route path="/agent/help" element={<div className="page-header"><h1 className="page-title">Help & Support</h1><p className="page-subtitle">FAQs, onboarding guides, and ticket management</p></div>} />
+          <Route path="/agent/help" element={<AgentHelp />} />
           <Route path="*" element={<Navigate to="/agent/dashboard" />} />
         </Routes>
       </AgentLayout>
