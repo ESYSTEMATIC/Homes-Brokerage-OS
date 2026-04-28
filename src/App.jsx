@@ -1,113 +1,142 @@
-import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { BackofficeLayout } from './components/BackofficeLayout';
 import { AgentLayout } from './components/AgentLayout';
+import { Modal, Drawer, ConfirmDialog, Toaster } from './components/UI';
+
+// Login (no layout)
+import { LoginPage } from './pages/Login';
+
 // Backoffice Pages
 import { BackofficeDashboard } from './pages/BackofficeDashboard';
 import { AgentsList } from './pages/AgentsList';
 import { Onboarding } from './pages/Onboarding';
 import { DocumentsReview } from './pages/DocumentsReview';
 import { StaffManagement } from './pages/StaffManagement';
-import { CRMLeads } from './pages/CRMLeads';
-import { DealsPipeline } from './pages/DealsPipeline';
-import { TasksCalendar } from './pages/TasksCalendar';
 import { TrainingCompliance } from './pages/TrainingCompliance';
 import { FinancialManagement } from './pages/FinancialManagement';
 import { HRPayroll } from './pages/HRPayroll';
 import { RecruitmentPipeline } from './pages/RecruitmentPipeline';
 import { JobVacancies } from './pages/JobVacancies';
-import { MarketplaceDashboard } from './pages/MarketplaceDashboard';
 import { AuditLogs } from './pages/AuditLogs';
 import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
 import { RolesPermissions } from './pages/RolesPermissions';
 import { Departments } from './pages/Departments';
-// Finance sub-pages
 import { FinanceOverview, DealsRevenue, CommissionEngine, AgentDues } from './pages/FinancePages';
-// HR sub-pages
-import { EmployeeProfiles, Payroll } from './pages/HRPages';
-// Master Data
+import { EmployeeProfiles } from './pages/HRPages';
 import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
-// System
 import { ExceptionsIssues, Settings } from './pages/SystemPages';
-// Agent Pages
-import { AgentPortalDashboard } from './pages/AgentPortalDashboard';
+
+// Federated system placeholders (CRM, Marketplace Dashboard) launched via SSO from the Employee Board.
+import { CRMLeads, DealsPipeline, TasksCalendar, MarketplaceDashboard } from './pages/ExternalSystem';
+
+// Employee Board (universal landing)
+import { EmployeeBoardDashboard } from './pages/EmployeeBoardDashboard';
 import { AgentLearning } from './pages/AgentLearning';
-import { AgentProducts, AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications, AgentHelp } from './pages/AgentPages';
+import { AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications } from './pages/AgentPages';
 
 const AppRoutes = () => {
-  const { persona } = useApp();
+  const { authenticated, personaKey } = useApp();
 
-  if (persona.hub === 'agent') {
+  // Not signed in → only the login page.
+  if (!authenticated) {
     return (
-      <AgentLayout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/agent/dashboard" />} />
-          <Route path="/agent/dashboard" element={<AgentPortalDashboard />} />
-          <Route path="/agent/products" element={<AgentProducts />} />
-          <Route path="/agent/learning" element={<AgentLearning />} />
-          <Route path="/agent/performance" element={<AgentPerformance />} />
-          <Route path="/agent/profile" element={<AgentProfile />} />
-          <Route path="/agent/documents" element={<AgentDocuments />} />
-          <Route path="/agent/notifications" element={<AgentNotifications />} />
-          <Route path="/agent/help" element={<AgentHelp />} />
-          <Route path="*" element={<Navigate to="/agent/dashboard" />} />
-        </Routes>
-      </AgentLayout>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     );
   }
 
+  // Backoffice access matrix (controls whether direct /backoffice/* URLs render under
+  // the Backoffice layout). Without access, redirect to Employee Board.
+  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
+
   return (
-    <BackofficeLayout>
-      <Routes>
-        <Route path="/" element={<Navigate to="/backoffice/dashboard" />} />
-        <Route path="/backoffice/dashboard" element={<BackofficeDashboard />} />
-        <Route path="/backoffice/agents" element={<AgentsList />} />
-        <Route path="/backoffice/onboarding" element={<Onboarding />} />
-        <Route path="/backoffice/documents" element={<DocumentsReview />} />
-        <Route path="/backoffice/staff" element={<StaffManagement />} />
-        <Route path="/backoffice/crm" element={<CRMLeads />} />
-        <Route path="/backoffice/deals" element={<DealsPipeline />} />
-        <Route path="/backoffice/tasks" element={<TasksCalendar />} />
-        <Route path="/backoffice/training" element={<TrainingCompliance />} />
-        {/* Finance sub-pages */}
-        <Route path="/backoffice/finance" element={<FinancialManagement />} />
-        <Route path="/backoffice/finance/overview" element={<FinanceOverview />} />
-        <Route path="/backoffice/finance/deals-revenue" element={<DealsRevenue />} />
-        <Route path="/backoffice/finance/commission" element={<CommissionEngine />} />
-        <Route path="/backoffice/finance/agent-dues" element={<AgentDues />} />
-        {/* HR sub-pages */}
-        <Route path="/backoffice/hr" element={<HRPayroll />} />
-        <Route path="/backoffice/hr/profiles" element={<EmployeeProfiles />} />
-        <Route path="/backoffice/hr/payroll" element={<Payroll />} />
-        <Route path="/backoffice/recruitment" element={<RecruitmentPipeline />} />
-        <Route path="/backoffice/jobs" element={<JobVacancies />} />
-        {/* Master Data */}
-        <Route path="/backoffice/master/developers" element={<Developers />} />
-        <Route path="/backoffice/master/projects" element={<MasterProjects />} />
-        <Route path="/backoffice/master/compounds" element={<Compounds />} />
-        <Route path="/backoffice/master/unit-types" element={<UnitTypes />} />
-        <Route path="/backoffice/master/cities" element={<Cities />} />
-        <Route path="/backoffice/master/areas" element={<AreasDistricts />} />
-        <Route path="/backoffice/master/branches" element={<Branches />} />
-        <Route path="/backoffice/master/teams" element={<Teams />} />
-        <Route path="/backoffice/master/emp-categories" element={<EmploymentCategories />} />
-        <Route path="/backoffice/master/comm-policies" element={<MasterCommPolicies />} />
-        <Route path="/backoffice/master/payout-cycles" element={<PayoutCycles />} />
-        <Route path="/backoffice/master/expense-categories" element={<ExpenseCategories />} />
-        <Route path="/backoffice/master/lead-sources" element={<LeadSources />} />
-        {/* Data & Reporting */}
-        <Route path="/backoffice/exceptions" element={<ExceptionsIssues />} />
-        <Route path="/backoffice/marketplace" element={<MarketplaceDashboard />} />
-        <Route path="/backoffice/audit" element={<AuditLogs />} />
-        <Route path="/backoffice/executive" element={<ExecutiveDashboard />} />
-        {/* System */}
-        <Route path="/backoffice/roles" element={<RolesPermissions />} />
-        <Route path="/backoffice/departments" element={<Departments />} />
-        <Route path="/backoffice/settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to="/backoffice/dashboard" />} />
-      </Routes>
-    </BackofficeLayout>
+    <Routes>
+      {/* ─── Employee Board (universal hub for every signed-in user) ─── */}
+      <Route path="/board/*" element={
+        <AgentLayout>
+          <Routes>
+            <Route path="/" element={<Navigate to="/board/dashboard" />} />
+            <Route path="/dashboard" element={<EmployeeBoardDashboard />} />
+            <Route path="/learning" element={<AgentLearning />} />
+            <Route path="/performance" element={<AgentPerformance />} />
+            <Route path="/profile" element={<AgentProfile />} />
+            <Route path="/documents" element={<AgentDocuments />} />
+            <Route path="/notifications" element={<AgentNotifications />} />
+            <Route path="*" element={<Navigate to="/board/dashboard" />} />
+          </Routes>
+        </AgentLayout>
+      } />
+
+      {/* ─── Federated systems (placeholders) — also rendered inside Employee Board chrome ─── */}
+      <Route path="/system/*" element={
+        <AgentLayout>
+          <Routes>
+            <Route path="/crm" element={<CRMLeads />} />
+            <Route path="/crm/leads" element={<CRMLeads />} />
+            <Route path="/crm/deals" element={<DealsPipeline />} />
+            <Route path="/crm/tasks" element={<TasksCalendar />} />
+            <Route path="/marketplace-dashboard" element={<MarketplaceDashboard />} />
+            <Route path="*" element={<Navigate to="/board/dashboard" />} />
+          </Routes>
+        </AgentLayout>
+      } />
+
+      {/* ─── Backoffice Admin Portal (separate system, role-gated) ─── */}
+      <Route path="/backoffice/*" element={
+        BACKOFFICE_ROLES.includes(personaKey) ? (
+          <BackofficeLayout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/backoffice/dashboard" />} />
+              <Route path="/dashboard" element={<BackofficeDashboard />} />
+              <Route path="/agents" element={<AgentsList />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/documents" element={<DocumentsReview />} />
+              <Route path="/staff" element={<StaffManagement />} />
+              <Route path="/training" element={<TrainingCompliance />} />
+              <Route path="/finance" element={<FinancialManagement />} />
+              <Route path="/finance/overview" element={<FinanceOverview />} />
+              <Route path="/finance/deals-revenue" element={<DealsRevenue />} />
+              <Route path="/finance/commission" element={<CommissionEngine />} />
+              <Route path="/finance/agent-dues" element={<AgentDues />} />
+              <Route path="/hr" element={<HRPayroll />} />
+              <Route path="/hr/profiles" element={<EmployeeProfiles />} />
+              <Route path="/recruitment" element={<RecruitmentPipeline />} />
+              <Route path="/jobs" element={<JobVacancies />} />
+              <Route path="/master/developers" element={<Developers />} />
+              <Route path="/master/projects" element={<MasterProjects />} />
+              <Route path="/master/compounds" element={<Compounds />} />
+              <Route path="/master/unit-types" element={<UnitTypes />} />
+              <Route path="/master/cities" element={<Cities />} />
+              <Route path="/master/areas" element={<AreasDistricts />} />
+              <Route path="/master/branches" element={<Branches />} />
+              <Route path="/master/teams" element={<Teams />} />
+              <Route path="/master/emp-categories" element={<EmploymentCategories />} />
+              <Route path="/master/comm-policies" element={<MasterCommPolicies />} />
+              <Route path="/master/payout-cycles" element={<PayoutCycles />} />
+              <Route path="/master/expense-categories" element={<ExpenseCategories />} />
+              <Route path="/master/lead-sources" element={<LeadSources />} />
+              <Route path="/exceptions" element={<ExceptionsIssues />} />
+              <Route path="/audit" element={<AuditLogs />} />
+              <Route path="/executive" element={<ExecutiveDashboard />} />
+              <Route path="/roles" element={<RolesPermissions />} />
+              <Route path="/departments" element={<Departments />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/backoffice/dashboard" />} />
+            </Routes>
+          </BackofficeLayout>
+        ) : (
+          <Navigate to="/board/dashboard" replace />
+        )
+      } />
+
+      {/* Default landing for any signed-in user */}
+      <Route path="/" element={<Navigate to="/board/dashboard" replace />} />
+      <Route path="/login" element={<Navigate to="/board/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/board/dashboard" replace />} />
+    </Routes>
   );
 };
 
@@ -116,6 +145,10 @@ function App() {
     <AppProvider>
       <HashRouter>
         <AppRoutes />
+        <Modal />
+        <Drawer />
+        <ConfirmDialog />
+        <Toaster />
       </HashRouter>
     </AppProvider>
   );

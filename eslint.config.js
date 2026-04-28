@@ -17,5 +17,11 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // React 19 JSX transform doesn't require React in scope; allow it as harmless.
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^(React|_)', args: 'none' }],
+      // Helpful in this multi-export module structure; demote to warning.
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])

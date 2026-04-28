@@ -1,11 +1,31 @@
 import React from 'react';
-import { TRAINING } from '../data/staticData';
+import { useApp } from '../context/AppContext';
 import { CheckCircle, Play, Lock, ExternalLink } from 'lucide-react';
 
 export const AgentLearning = () => {
-  const required = TRAINING.filter(c=>c.required);
-  const optional = TRAINING.filter(c=>!c.required);
+  const { state, updateItem, openConfirm, openModal, toast, writeAudit } = useApp();
+  const required = state.training.filter(c=>c.required);
+  const optional = state.training.filter(c=>!c.required);
   const completed = required.filter(c=>c.status==='Completed').length;
+
+  const launchViva = (c) => {
+    toast(`Opening ${c.title} in Viva Learning…`, 'info');
+    writeAudit('Course Opened', c.id, 'Training', c.title);
+    // simulate progress bump
+    if (c.progress < 100) {
+      setTimeout(() => {
+        const newProgress = Math.min(100, c.progress + 15);
+        const newStatus = newProgress >= 100 ? 'Completed' : 'In Progress';
+        updateItem('training', c.id, { progress: newProgress, status: newStatus, score: newStatus === 'Completed' ? 90 : c.score }, { action: 'Course Progress', module: 'Training', target: c.id, detail: `${c.progress}% → ${newProgress}%` });
+        toast(`${c.title} → ${newProgress}%`);
+      }, 800);
+    }
+  };
+
+  const startCourse = (c) => openConfirm({
+    title: `Start "${c.title}"?`, message: 'You will be redirected to Microsoft Viva Learning. Progress will sync back automatically.',
+    onConfirm: () => launchViva(c),
+  });
 
   return (
     <div>
@@ -40,7 +60,7 @@ export const AgentLearning = () => {
             <div>
               {c.status==='Completed'?<span className="badge badge-success">Completed</span>:
                c.status==='Locked'?<span style={{fontSize:13,color:'var(--text-tertiary)'}}>Locked</span>:
-               <button className="btn btn-outline btn-sm"><ExternalLink size={14}/>Continue in Viva</button>}
+               <button className="btn btn-outline btn-sm" onClick={()=>launchViva(c)}><ExternalLink size={14}/>Continue in Viva</button>}
             </div>
           </div>
         ))}
@@ -61,7 +81,7 @@ export const AgentLearning = () => {
                 </div>
               </div>
             </div>
-            <button className="btn btn-outline btn-sm">{c.progress>0?'Continue':'Start'}</button>
+            <button className="btn btn-outline btn-sm" onClick={()=>c.progress>0 ? launchViva(c) : startCourse(c)}>{c.progress>0?'Continue':'Start'}</button>
           </div>
         ))}
       </div>
