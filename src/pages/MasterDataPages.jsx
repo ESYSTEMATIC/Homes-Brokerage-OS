@@ -1,14 +1,83 @@
-import React from 'react';
-import { Eye, Pencil } from 'lucide-react';
+import React, { useState } from 'react';
+import { Eye, Pencil, Search, Plus } from 'lucide-react';
 
-const MasterTable = ({ title, subtitle, breadcrumb, columns, data, addLabel }) => (
-  <div>
-    <div className="page-header"><div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Master Data</span><span>&gt;</span><span className="current">{breadcrumb}</span></div><h1 className="page-title">{title}</h1><p className="page-subtitle">{subtitle}</p></div>
-    <div className="data-panel"><div className="data-toolbar"><div className="data-toolbar-left"><input className="data-search" placeholder={`Search ${title.toLowerCase()}...`} /></div><button className="btn btn-primary">+ {addLabel||`Add ${breadcrumb}`}</button></div>
-    <div className="data-scroll"><table className="data-table"><thead><tr>{columns.map(c=><th key={c}>{c}</th>)}<th style={{textAlign:'right'}}>Actions</th></tr></thead>
-    <tbody>{data.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j} className={j===0?'muted':j===1?'bold':''}>{cell}</td>)}<td><div className="action-icons" style={{justifyContent:'flex-end'}}><span className="action-icon"><Eye size={16}/></span><span className="action-icon"><Pencil size={16}/></span></div></td></tr>)}</tbody></table></div></div>
-  </div>
-);
+const MasterTable = ({ title, subtitle, breadcrumb, columns, data, addLabel }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredData = data.filter(row => 
+    row.some(cell => 
+      typeof cell === 'string' && cell.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const handleAction = (action, row) => {
+    alert(`${action} triggered for ${row[1] || 'item'}`);
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="page-header">
+        <div className="page-breadcrumb">
+          <span>Dashboard</span><span>&gt;</span><span>Master Data</span><span>&gt;</span><span className="current">{breadcrumb}</span>
+        </div>
+        <h1 className="page-title">{title}</h1>
+        <p className="page-subtitle">{subtitle}</p>
+      </div>
+      <div className="data-panel">
+        <div className="data-toolbar">
+          <div className="data-toolbar-left">
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+              <input 
+                className="data-search" 
+                placeholder={`Search ${title.toLowerCase()}...`} 
+                style={{ paddingLeft: 44 }}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={() => alert(`Adding new ${breadcrumb}...`)}>
+            <Plus size={14} /> {addLabel || `Add ${breadcrumb}`}
+          </button>
+        </div>
+        <div className="data-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                {columns.map(c => <th key={c}>{c}</th>)}
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.length > 0 ? filteredData.map((row, i) => (
+                <tr key={i}>
+                  {row.map((cell, j) => (
+                    <td key={j} className={j === 0 ? 'muted' : j === 1 ? 'bold' : ''}>
+                      {cell}
+                    </td>
+                  ))}
+                  <td>
+                    <div className="action-icons" style={{ justifyContent: 'flex-end' }}>
+                      <span className="action-icon" onClick={() => handleAction('View', row)} title="View"><Eye size={16} /></span>
+                      <span className="action-icon" onClick={() => handleAction('Edit', row)} title="Edit"><Pencil size={16} /></span>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={columns.length + 1} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                    No results found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const Developers = () => <MasterTable title="Developers" subtitle="Manage developer partners — Property" breadcrumb="Developers" addLabel="Add Developer" columns={['#','Name','Country','Projects','Status']}
   data={[['1','Palm Hills','Egypt','12',<span className="badge badge-success">Active</span>],['2','Ora Developers','Egypt','8',<span className="badge badge-success">Active</span>],['3','SODIC','Egypt','6',<span className="badge badge-success">Active</span>],['4','Mountain View','Egypt','10',<span className="badge badge-success">Active</span>],['5','Hyde Park','Egypt','4',<span className="badge badge-success">Active</span>],['6','Talaat Moustafa','Egypt','15',<span className="badge badge-success">Active</span>],['7','City Edge','Egypt','5',<span className="badge badge-success">Active</span>],['8','Better Home','Egypt','3',<span className="badge badge-warning">Pending</span>]]}/>;

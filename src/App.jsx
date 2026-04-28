@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { BackofficeLayout } from './components/BackofficeLayout';
 import { AgentLayout } from './components/AgentLayout';
+import { Login } from './pages/Login';
 // Backoffice Pages
 import { BackofficeDashboard } from './pages/BackofficeDashboard';
 import { AgentsList } from './pages/AgentsList';
@@ -30,13 +31,19 @@ import { EmployeeProfiles, Payroll } from './pages/HRPages';
 import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
 // System
 import { ExceptionsIssues, Settings } from './pages/SystemPages';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { ProfilePage } from './pages/ProfilePage';
 // Agent Pages
 import { AgentPortalDashboard } from './pages/AgentPortalDashboard';
 import { AgentLearning } from './pages/AgentLearning';
-import { AgentProducts, AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications, AgentHelp } from './pages/AgentPages';
+import { AgentProducts, AgentPerformance, AgentDocuments, AgentHelp } from './pages/AgentPages';
 
 const AppRoutes = () => {
-  const { persona } = useApp();
+  const { persona, isLoggedIn } = useApp();
+
+  if (!isLoggedIn) {
+    return <Login />;
+  }
 
   if (persona.hub === 'agent') {
     return (
@@ -47,9 +54,9 @@ const AppRoutes = () => {
           <Route path="/agent/products" element={<AgentProducts />} />
           <Route path="/agent/learning" element={<AgentLearning />} />
           <Route path="/agent/performance" element={<AgentPerformance />} />
-          <Route path="/agent/profile" element={<AgentProfile />} />
+          <Route path="/agent/profile" element={<ProfilePage />} />
           <Route path="/agent/documents" element={<AgentDocuments />} />
-          <Route path="/agent/notifications" element={<AgentNotifications />} />
+          <Route path="/agent/notifications" element={<NotificationsPage />} />
           <Route path="/agent/help" element={<AgentHelp />} />
           <Route path="*" element={<Navigate to="/agent/dashboard" />} />
         </Routes>
@@ -70,6 +77,8 @@ const AppRoutes = () => {
         <Route path="/backoffice/deals" element={<DealsPipeline />} />
         <Route path="/backoffice/tasks" element={<TasksCalendar />} />
         <Route path="/backoffice/training" element={<TrainingCompliance />} />
+        <Route path="/backoffice/notifications" element={<NotificationsPage />} />
+        <Route path="/backoffice/profile" element={<ProfilePage />} />
         {/* Finance sub-pages */}
         <Route path="/backoffice/finance" element={<FinancialManagement />} />
         <Route path="/backoffice/finance/overview" element={<FinanceOverview />} />

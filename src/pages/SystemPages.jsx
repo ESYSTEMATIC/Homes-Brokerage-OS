@@ -13,7 +13,7 @@ const statusBadge = s => s==='Open'?'badge-danger':s==='Pending'?'badge-warning'
 
 export const ExceptionsIssues = () => (
   <div>
-    <div className="page-header"><div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Exceptions & Issues</span></div><h1 className="page-title">Exceptions & Issues</h1><p className="page-subtitle">Track and resolve operational exceptions — BRD 10.4</p></div>
+    <div className="page-header"><div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Exceptions & Issues</span></div><h1 className="page-title">Exceptions & Issues</h1><p className="page-subtitle">Track and resolve operational exceptions</p></div>
     <div className="kpi-grid kpi-grid-4">
       <div className="kpi-card"><div><div className="kpi-label">Open</div><div className="kpi-value">{EXCEPTIONS.filter(e=>e.status==='Open').length}</div></div><div className="kpi-icon red"><span style={{fontSize:20}}>🔴</span></div></div>
       <div className="kpi-card"><div><div className="kpi-label">Pending</div><div className="kpi-value">{EXCEPTIONS.filter(e=>e.status==='Pending').length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🟡</span></div></div>

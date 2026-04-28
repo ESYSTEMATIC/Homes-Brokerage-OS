@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA (BRD-ALIGNED)
+// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA
 // ═══════════════════════════════════════════════════════════════
 
-// ── PERSONAS (BRD Section 5) ──
+// ── PERSONAS ──
 export const PERSONAS = {
   backofficeAdmin: { label: "Super Admin", scope: "Full platform access", hub: "backoffice", email: "admin@homesbrokerage.eg" },
   salesManager: { label: "Sales Manager", scope: "Managed teams Alpha + Beta", hub: "backoffice", email: "nour@homesbrokerage.eg" },
@@ -16,7 +16,7 @@ export const PERSONAS = {
   teamLeader: { label: "Omar Sherif", scope: "Team Leader · Alpha Team", hub: "agent", email: "omar@homesbrokerage.eg", role: "Team Leader" },
 };
 
-// ── DEPARTMENTS (BRD Section 6.2) ──
+// ── DEPARTMENTS ──
 export const DEPARTMENTS = [
   { id: "DEP-001", name: "Sales", head: "Nour El-Din", teams: 3, employees: 12, status: "Active" },
   { id: "DEP-002", name: "HR / Recruitment", head: "Dina Samir", teams: 1, employees: 4, status: "Active" },
@@ -27,7 +27,7 @@ export const DEPARTMENTS = [
   { id: "DEP-007", name: "Executive", head: "CEO", teams: 0, employees: 2, status: "Active" },
 ];
 
-// ── STAFF / EMPLOYEES (BRD Sections 6, 8.9) ──
+// ── STAFF / EMPLOYEES ──
 export const STAFF = [
   { id: "A001", name: "Ahmed Hassan", department: "Sales", title: "Senior Sales Executive", branch: "New Cairo", manager: "Karim Mostafa", status: "Active", type: "Employee" },
   { id: "A002", name: "Fatma Ibrahim", department: "Sales", title: "Sales Agent", branch: "6th October", manager: "Omar Sherif", status: "Active", type: "Employee" },
@@ -39,7 +39,7 @@ export const STAFF = [
   { id: "A008", name: "Omar Sherif", department: "Sales", title: "Team Leader", branch: "6th October", manager: "Nour El-Din", status: "Active", type: "Team Leader" },
 ];
 
-// ── LEADS (BRD Section 8.2) ──
+// ── LEADS ──
 export const LEADS = [
   { id: "L-1001", name: "Mohamed Hassan", phone: "+20 100 111 2244", email: "m.hassan@mail.com", source: "Marketplace", campaign: "New Cairo Launch", project: "Palm Hills New Cairo", developer: "Palm Hills", budget: 8500000, stage: "Qualified", owner: "Ahmed Hassan", team: "Alpha", duplicate: "Clear", priority: "Hot", created: "2024-01-15" },
   { id: "L-1002", name: "Sara Ali", phone: "+20 111 888 3000", email: "sara.ali@mail.com", source: "Referral", campaign: "Broker Referral", project: "ZED East", developer: "Ora", budget: 12200000, stage: "Negotiation", owner: "Fatma Ibrahim", team: "Alpha", duplicate: "Clear", priority: "Hot", created: "2024-01-14" },
@@ -51,7 +51,7 @@ export const LEADS = [
   { id: "L-1008", name: "Mona Fawzy", phone: "+20 100 666 3344", email: "mona@mail.com", source: "Walk-in", campaign: "Branch Walk-in", project: "Mountain View", developer: "Mountain View", budget: 7000000, stage: "Contacted", owner: "Omar Sherif", team: "Beta", duplicate: "Review", priority: "Warm", created: "2024-01-18" },
 ];
 
-// ── DEALS (BRD Section 8.6) ──
+// ── DEALS ──
 export const DEALS = [
   { id: "D-501", lead: "Sara Ali", owner: "Fatma Ibrahim", team: "Alpha", project: "ZED East", developer: "Ora", stage: "Negotiation", value: 12200000, commission: 2.0, status: "Active", created: "2024-01-14" },
   { id: "D-502", lead: "Youssef Tarek", owner: "Fatma Ibrahim", team: "Alpha", project: "Hyde Park", developer: "Hyde Park", stage: "Reservation", value: 11200000, commission: 1.8, status: "Active", created: "2024-01-10" },
@@ -60,7 +60,7 @@ export const DEALS = [
   { id: "D-505", lead: "Tarek Mansour", owner: "Ahmed Hassan", team: "Alpha", project: "Midtown", developer: "Better Home", stage: "Closed Lost", value: 4500000, commission: 1.5, lostReason: "Budget exceeded", status: "Closed", created: "2024-01-10" },
 ];
 
-// ── TASKS (BRD Section 8.7) ──
+// ── TASKS ──
 export const TASKS = [
   { id: "T-001", title: "Follow up with Mohamed Hassan", type: "Call", owner: "Ahmed Hassan", lead: "L-1001", due: "2024-01-18", priority: "High", status: "Pending" },
   { id: "T-002", title: "Schedule tour - ZED East", type: "Tour", owner: "Fatma Ibrahim", lead: "L-1002", due: "2024-01-19", priority: "High", status: "Completed" },
@@ -70,7 +70,7 @@ export const TASKS = [
   { id: "T-006", title: "Finance follow-up on Hacienda deal", type: "Finance", owner: "Hana Mahmoud", lead: "L-1004", due: "2024-01-22", priority: "High", status: "Pending" },
 ];
 
-// ── ONBOARDING APPLICATIONS (BRD Section 8.9) ──
+// ── ONBOARDING APPLICATIONS ──
 export const ONBOARDING = [
   { id: "APP001", applicant: "Mona Fawzy", type: "Agent", date: "2024-01-15", status: "Submitted", department: "Sales", branch: "New Cairo" },
   { id: "APP002", applicant: "Khaled Magdy", type: "Employee", date: "2024-01-10", status: "Under Review", department: "Sales", branch: "6th October" },
@@ -81,7 +81,7 @@ export const ONBOARDING = [
   { id: "APP007", applicant: "Nadia Gamal", type: "Employee", date: "2023-12-01", status: "Rejected", department: "HR", branch: "New Cairo" },
 ];
 
-// ── DOCUMENTS (BRD Section 8.12) ──
+// ── DOCUMENTS ──
 export const DOCUMENTS = [
   { id: "DOC001", doc: "National ID", type: "Identity", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review" },
   { id: "DOC002", doc: "Tax Card", type: "Financial", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review" },
@@ -93,7 +93,7 @@ export const DOCUMENTS = [
   { id: "DOC008", doc: "Contract Agreement", type: "Legal", agent: "Omar Sherif", date: "2024-01-05", status: "Approved" },
 ];
 
-// ── RECRUITMENT / JOB VACANCIES (BRD Section 8.10) ──
+// ── RECRUITMENT / JOB VACANCIES ──
 export const JOBS = [
   { id: "JOB-001", title: "Senior Sales Agent", department: "Sales", location: "New Cairo", type: "Full-time", mode: "On-site", headcount: 3, hiringManager: "Karim Mostafa", status: "Published", applicants: 12, created: "2024-01-05" },
   { id: "JOB-002", title: "Junior Sales Agent", department: "Sales", location: "6th October", type: "Full-time", mode: "On-site", headcount: 5, hiringManager: "Omar Sherif", status: "Published", applicants: 28, created: "2024-01-08" },
@@ -110,7 +110,7 @@ export const CANDIDATES = [
   { id: "CAN-006", name: "Khaled Samir", job: "HR Coordinator", stage: "Applied", score: null, source: "LinkedIn", applied: "2024-01-17", interviewer: null },
 ];
 
-// ── TRAINING COURSES (BRD Section 8.11) ──
+// ── TRAINING COURSES ──
 export const TRAINING = [
   { id: "CRS-001", title: "Real Estate Fundamentals", progress: 100, score: 92, due: "2024-11-30", status: "Completed", required: true },
   { id: "CRS-002", title: "Anti-Money Laundering Compliance", progress: 65, score: null, due: "2024-12-15", status: "In Progress", required: true },
@@ -121,7 +121,7 @@ export const TRAINING = [
   { id: "CRS-007", title: "Customer Communication Excellence", progress: 0, score: null, due: "2025-03-01", status: "Not Started", required: false },
 ];
 
-// ── COMMISSION POLICIES (BRD Section 8.13) ──
+// ── COMMISSION POLICIES ──
 export const COMMISSION_POLICIES = [
   { id: "COM-001", developer: "Palm Hills", project: "Palm Hills New Cairo", rate: 2.0, override: false, status: "Active" },
   { id: "COM-002", developer: "Ora", project: "ZED East", rate: 2.0, override: false, status: "Active" },
@@ -131,7 +131,7 @@ export const COMMISSION_POLICIES = [
   { id: "COM-006", developer: "Sodic", project: "Sodic West", rate: 1.8, override: false, status: "Active" },
 ];
 
-// ── AUDIT LOGS (BRD Section 10.3) ──
+// ── AUDIT LOGS ──
 export const AUDIT_LOGS = [
   { id: "AUD-001", action: "Lead Assigned", actor: "Nour El-Din", target: "L-1001 → Ahmed Hassan", module: "CRM", timestamp: "2024-01-15 09:23:44", detail: "Lead assigned from manager queue" },
   { id: "AUD-002", action: "Role Created", actor: "System Admin", target: "Senior Agent Role", module: "Backoffice", timestamp: "2024-01-14 14:11:02", detail: "New role with 12 permissions created" },
@@ -143,7 +143,7 @@ export const AUDIT_LOGS = [
   { id: "AUD-008", action: "SSO Login", actor: "Ahmed Hassan", target: "Agent Session", module: "Security", timestamp: "2024-01-18 08:00:00", detail: "SSO authenticated via Microsoft Entra" },
 ];
 
-// ── ROLES & PERMISSIONS (BRD Section 6.3) ──
+// ── ROLES & PERMISSIONS ──
 export const ROLES = [
   { id: "ROLE-001", name: "Sales Agent", department: "Sales", permissions: 8, users: 4, status: "Active", desc: "Standard CRM access for lead management, tasks, and deals" },
   { id: "ROLE-002", name: "Team Leader", department: "Sales", permissions: 14, users: 2, status: "Active", desc: "Team oversight, lead distribution, and reporting" },
@@ -154,7 +154,7 @@ export const ROLES = [
   { id: "ROLE-007", name: "Super Admin", department: "System", permissions: 45, users: 1, status: "Active", desc: "Full platform access and configuration" },
 ];
 
-// ── MARKETPLACE / PROJECTS (BRD Section 8.1, 8.5) ──
+// ── MARKETPLACE / PROJECTS ──
 export const PROJECTS = [
   { id: "PRJ-001", name: "Palm Hills New Cairo", developer: "Palm Hills", location: "New Cairo", units: 450, available: 120, type: "Compound", status: "Published", delivery: "2026-Q2", priceFrom: 5500000 },
   { id: "PRJ-002", name: "ZED East", developer: "Ora", location: "New Cairo", units: 680, available: 210, type: "Mixed-Use", status: "Published", delivery: "2025-Q4", priceFrom: 8200000 },

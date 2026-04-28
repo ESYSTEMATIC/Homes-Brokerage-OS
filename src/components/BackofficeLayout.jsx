@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { HomesLogoFull } from './HomesLogo';
-import { LayoutDashboard, Users, UsersRound, ShieldCheck, BadgeDollarSign, UserSquare2, Database, ChevronDown, Bell, Building2, ClipboardList, FileSearch, BarChart3, ScrollText, Settings, Briefcase, Target, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, UsersRound, ShieldCheck, BadgeDollarSign, UserSquare2, Database, ChevronDown, Bell, Building2, ClipboardList, FileSearch, BarChart3, ScrollText, Settings, Briefcase, Target, AlertTriangle, LogOut } from 'lucide-react';
 
 const Sub = ({ label, icon, open, toggle, children }) => (
   <>
@@ -13,7 +13,7 @@ const Sub = ({ label, icon, open, toggle, children }) => (
 const Link = ({ to, children }) => <NavLink to={to} className={({isActive})=>`sidebar-link ${isActive?'active':''}`}>{children}</NavLink>;
 
 export const BackofficeLayout = ({ children }) => {
-  const { persona, personaKey, setPersonaKey, PERSONAS } = useApp();
+  const { persona, personaKey, login, logout, PERSONAS } = useApp();
   const [agentsOpen, setAgentsOpen] = useState(true);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [hrOpen, setHrOpen] = useState(false);
@@ -144,6 +144,11 @@ export const BackofficeLayout = ({ children }) => {
             </>
           )}
         </nav>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <button className="sidebar-link" onClick={() => logout()} style={{ color: 'var(--text-tertiary)' }}>
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
       </aside>
 
       <main className="main-content">
@@ -151,10 +156,12 @@ export const BackofficeLayout = ({ children }) => {
           <div></div>
           <div className="topbar-right">
             <div className="topbar-status"><div className="topbar-status-dot"></div>All systems operational</div>
-            <div className="topbar-bell"><Bell size={18}/><span className="topbar-bell-badge">4</span></div>
+            <NavLink to="/backoffice/notifications" className="topbar-bell">
+              <Bell size={18}/><span className="topbar-bell-badge">4</span>
+            </NavLink>
             <div className="topbar-user">
-              <div className="topbar-user-info"><div className="topbar-user-name">{persona.label}</div><div className="topbar-user-email">{persona.email}</div></div>
-              <div className="topbar-avatar">{persona.label.substring(0,2).toUpperCase()}</div>
+              <div className="topbar-user-info"><div className="topbar-user-name">{persona.label}</div><div className="topbar-user-email">{persona.scope}</div></div>
+              <NavLink to="/backoffice/profile" className="topbar-avatar">{persona.label.substring(0,2).toUpperCase()}</NavLink>
             </div>
           </div>
         </header>
@@ -163,7 +170,7 @@ export const BackofficeLayout = ({ children }) => {
 
       <div className="persona-switcher">
         <label>Simulate Persona</label>
-        <select value={personaKey} onChange={e=>setPersonaKey(e.target.value)}>
+        <select value={personaKey} onChange={e=>login(e.target.value)}>
           {Object.entries(PERSONAS).map(([k,p])=><option key={k} value={k}>{p.label} ({p.hub})</option>)}
         </select>
         <div className="scope">{persona.scope}</div>

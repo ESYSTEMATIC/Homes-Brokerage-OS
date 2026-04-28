@@ -6,7 +6,7 @@ export const HRPayroll = () => (
     <div className="page-header">
       <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">HR & Payroll</span></div>
       <h1 className="page-title">HR & Payroll</h1>
-      <p className="page-subtitle">Employee records and HR operations — BRD 8.12</p>
+      <p className="page-subtitle">Employee records and HR operations</p>
     </div>
     <div className="kpi-grid kpi-grid-4">
       <div className="kpi-card"><div><div className="kpi-label">Total Employees</div><div className="kpi-value">{STAFF.length}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>👥</span></div></div>

@@ -1,0 +1,326 @@
+/* Login specific styles */
+.login-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background: var(--content-bg);
+  overflow: hidden;
+  font-family: var(--font);
+}
+
+.login-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 40px;
+  max-width: 600px;
+  background: #ffffff;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.03);
+  z-index: 10;
+  overflow-y: auto;
+}
+
+.login-brand {
+  margin-bottom: 24px;
+}
+
+.login-content {
+  margin: auto 0;
+}
+
+.login-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.sso-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.sso-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.sso-icon {
+  color: var(--accent);
+}
+
+.sso-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.persona-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.persona-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font);
+  text-align: left;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+}
+
+.persona-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 8px 16px var(--accent-light);
+  transform: translateY(-2px);
+}
+
+.persona-btn.authenticating {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.persona-btn-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.persona-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
+}
+
+.persona-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.persona-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.persona-email {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.persona-role {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 4px;
+  background: var(--info-bg);
+  padding: 2px 8px;
+  border-radius: 12px;
+  width: fit-content;
+  font-weight: 600;
+}
+
+.login-footer {
+  margin-top: 32px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* Login Right Side (Showcase) */
+.login-right {
+  flex: 1.2;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-right::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at top right, rgba(235, 90, 40, 0.15) 0%, transparent 40%);
+}
+
+.login-showcase {
+  max-width: 480px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.showcase-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  padding: 24px;
+  margin-bottom: 40px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
+
+.sc-header {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.sc-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+}
+
+.sc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sc-line {
+  height: 8px; border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  width: 100%;
+}
+.sc-line.short { width: 60%; }
+
+.sc-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 100px;
+  margin-top: 16px;
+}
+
+.sc-bar {
+  flex: 1;
+  background: var(--accent);
+  border-radius: 4px 4px 0 0;
+  opacity: 0.8;
+}
+
+.sc-bar:nth-child(2) { background: #EB5A28; opacity: 0.9; }
+
+.showcase-title {
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.showcase-desc {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+  color: var(--accent);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .login-right { display: none; }
+  .login-left { max-width: 100%; }
+}
+
+/* Logo Showcase */
+.logo-showcase-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 60px;
+  width: 100%;
+}
+
+.logo-glow-orb {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(235, 90, 40, 0.4) 0%, transparent 70%);
+  filter: blur(40px);
+  z-index: -1;
+  animation: pulse 4s infinite alternate;
+}
+
+.logo-3d-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-style: preserve-3d;
+  animation: float 6s ease-in-out infinite;
+}
+
+.logo-svg-premium {
+  filter: drop-shadow(0 0 20px rgba(235, 90, 40, 0.5));
+}
+
+.logo-text-premium {
+  color: #ffffff;
+  font-size: 56px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  margin-top: 24px;
+  text-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+
+.logo-tagline-premium {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  font-weight: 500;
+  font-style: italic;
+  margin-top: 12px;
+  letter-spacing: 0.05em;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotateX(5deg); }
+  50% { transform: translateY(-20px) rotateX(10deg); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(1.2); opacity: 0.6; }
+}

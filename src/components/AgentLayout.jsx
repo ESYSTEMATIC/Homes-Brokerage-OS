@@ -5,7 +5,7 @@ import { LayoutDashboard, ShoppingBag, GraduationCap, BarChart3, User, FileText,
 import { HomesLogoAgent } from './HomesLogo';
 
 export const AgentLayout = ({ children }) => {
-  const { persona, personaKey, setPersonaKey, PERSONAS } = useApp();
+  const { persona, personaKey, login, logout, PERSONAS } = useApp();
 
   return (
     <div className="app-shell">
@@ -41,7 +41,7 @@ export const AgentLayout = ({ children }) => {
           </NavLink>
         </nav>
         <div style={{padding:'16px 12px',borderTop:'1px solid rgba(255,255,255,.06)'}}>
-          <button className="sidebar-link" style={{color:'#94a3b8'}}><LogOut size={16} />Sign Out</button>
+          <button className="sidebar-link" style={{color:'#94a3b8'}} onClick={() => logout()}><LogOut size={16} />Sign Out</button>
         </div>
       </aside>
 
@@ -49,13 +49,17 @@ export const AgentLayout = ({ children }) => {
         <header className="topbar">
           <div></div>
           <div className="topbar-right">
-            <div className="topbar-bell"><Bell size={18} /><span className="topbar-bell-badge">2</span></div>
+            <NavLink to="/agent/notifications" className="topbar-bell">
+              <Bell size={18}/><span className="topbar-bell-badge">2</span>
+            </NavLink>
             <div className="topbar-user">
               <div className="topbar-user-info">
                 <div className="topbar-user-name">{persona.label}</div>
                 <div className="topbar-user-email">{persona.role || 'Agent'}</div>
               </div>
-              <div className="topbar-avatar" style={{background:'var(--gold)'}}>{persona.label.substring(0,2).toUpperCase()}</div>
+              <NavLink to="/agent/profile" className="topbar-avatar" style={{ background: 'var(--gold)' }}>
+                {persona.label.substring(0, 2).toUpperCase()}
+              </NavLink>
             </div>
           </div>
         </header>
@@ -64,7 +68,7 @@ export const AgentLayout = ({ children }) => {
 
       <div className="persona-switcher">
         <label>Simulate Persona</label>
-        <select value={personaKey} onChange={e => setPersonaKey(e.target.value)}>
+        <select value={personaKey} onChange={e => login(e.target.value)}>
           {Object.entries(PERSONAS).map(([k,p]) => <option key={k} value={k}>{p.label} ({p.hub})</option>)}
         </select>
         <div className="scope">{persona.scope}</div>

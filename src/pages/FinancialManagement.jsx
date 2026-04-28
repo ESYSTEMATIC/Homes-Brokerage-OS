@@ -7,7 +7,7 @@ export const FinancialManagement = () => (
     <div className="page-header">
       <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Financial Management</span></div>
       <h1 className="page-title">Financial Management</h1>
-      <p className="page-subtitle">Commission policies, overrides, and forecasts — BRD 8.13</p>
+      <p className="page-subtitle">Commission policies, overrides, and forecasts</p>
     </div>
     <div className="kpi-grid kpi-grid-4">
       <div className="kpi-card"><div><div className="kpi-label">Total Commission Due</div><div className="kpi-value" style={{fontSize:20}}>{fmt(621000)}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>💰</span></div></div>

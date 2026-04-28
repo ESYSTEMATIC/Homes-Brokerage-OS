@@ -31,7 +31,7 @@ const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-war
 
 export const FinanceOverview = () => (
   <div>
-    <div className="page-header"><div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Financial Mgmt</span><span>&gt;</span><span className="current">Overview</span></div><h1 className="page-title">Financial Overview</h1><p className="page-subtitle">Revenue, commissions, and financial health — BRD 8.13</p></div>
+    <div className="page-header"><div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Financial Mgmt</span><span>&gt;</span><span className="current">Overview</span></div><h1 className="page-title">Financial Overview</h1><p className="page-subtitle">Revenue, commissions, and financial health</p></div>
     <div className="kpi-grid kpi-grid-4">
       <div className="kpi-card"><div><div className="kpi-label">Total Revenue</div><div className="kpi-value" style={{fontSize:20}}>{fmt(790000)}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💰</span></div></div>
       <div className="kpi-card"><div><div className="kpi-label">Total Commission Pool</div><div className="kpi-value" style={{fontSize:20}}>{fmt(1185000)}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📊</span></div></div>

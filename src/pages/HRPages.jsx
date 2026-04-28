@@ -1,24 +1,91 @@
-import React from 'react';
-import { STAFF } from '../data/staticData';
-const fmt = v => 'EGP ' + v.toLocaleString();
-const PAYROLL = [
-  { name:'Ahmed Hassan',title:'Senior Sales Executive',base:18000,commission:37500,deductions:3200,net:52300,period:'January 2024',status:'Approved' },
-  { name:'Mohamed Ali',title:'Team Leader',base:25000,commission:66000,deductions:4500,net:86500,period:'January 2024',status:'Approved' },
-  { name:'Nour El-Din',title:'Sales Manager',base:35000,commission:135000,deductions:6200,net:163800,period:'January 2024',status:'Draft' },
-  { name:'Omar Sherif',title:'Team Leader',base:22000,commission:54000,deductions:3800,net:72200,period:'January 2024',status:'Approved' },
-  { name:'Sara Nabil',title:'Sales Executive',base:15000,commission:28500,deductions:2800,net:40700,period:'January 2024',status:'Paid' },
-  { name:'Hana Mahmoud',title:'Junior Sales',base:12000,commission:0,deductions:2100,net:9900,period:'January 2024',status:'Draft' },
-];
-const statusBadge = s => s==='Approved'?'badge-success':s==='Draft'?'badge-gray':'badge-info';
+import React, { useState } from 'react';
+import { STAFF, DEPARTMENTS } from '../data/staticData';
+import { Search, Eye, UserCog, Mail } from 'lucide-react';
 
-export const EmployeeProfiles = () => (
-  <div>
-    <div className="page-header"><div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>HR & Payroll</span><span>&gt;</span><span className="current">Employee Profiles</span></div><h1 className="page-title">Employee Profiles</h1><p className="page-subtitle">Employee management and records</p></div>
-    <div className="data-panel"><div className="data-toolbar"><div className="data-toolbar-left"><input className="data-search" placeholder="Search employees..." /><select className="data-select"><option>All Departments</option></select></div></div>
-    <div className="data-scroll"><table className="data-table"><thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Title</th><th>Branch</th><th>Manager</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
-    <tbody>{STAFF.map(s=><tr key={s.id}><td className="muted">{s.id}</td><td className="bold">{s.name}</td><td>{s.department}</td><td>{s.title}</td><td>{s.branch}</td><td>{s.manager}</td><td><span className={`badge ${s.status==='Active'?'badge-success':s.status==='Suspended'?'badge-danger':'badge-warning'}`}>{s.status}</span></td><td style={{textAlign:'right'}}><button className="btn btn-outline btn-sm">View Profile</button></td></tr>)}</tbody></table></div></div>
-  </div>
-);
+const fmt = v => 'EGP ' + v.toLocaleString();
+
+export const EmployeeProfiles = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deptFilter, setDeptFilter] = useState('All Departments');
+
+  const filtered = STAFF.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDept = deptFilter === 'All Departments' || s.department === deptFilter;
+    return matchesSearch && matchesDept;
+  });
+
+  return (
+    <div className="animate-fade-in">
+      <div className="page-header">
+        <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>HR & Payroll</span><span>&gt;</span><span className="current">Employee Profiles</span></div>
+        <h1 className="page-title">Employee Profiles</h1>
+        <p className="page-subtitle">Employee management and records</p>
+      </div>
+      <div className="data-panel">
+        <div className="data-toolbar">
+          <div className="data-toolbar-left">
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+              <input 
+                className="data-search" 
+                placeholder="Search employees..." 
+                style={{ paddingLeft: 44 }}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <select className="data-select" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
+              <option>All Departments</option>
+              {(DEPARTMENTS.length > 0 ? DEPARTMENTS.map(d => d.name) : ['Sales', 'HR', 'Finance', 'Marketing', 'Backoffice']).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="data-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Title</th>
+                <th>Branch</th>
+                <th>Manager</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s.id}>
+                  <td className="muted">{s.id}</td>
+                  <td className="bold">{s.name}</td>
+                  <td>{s.department}</td>
+                  <td>{s.title}</td>
+                  <td>{s.branch}</td>
+                  <td>{s.manager}</td>
+                  <td>
+                    <span className={`badge ${s.status === 'Active' ? 'badge-success' : s.status === 'Suspended' ? 'badge-danger' : 'badge-warning'}`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="action-icons" style={{ justifyContent: 'flex-end' }}>
+                      <span className="action-icon" onClick={() => alert(`Viewing profile for ${s.name}`)} title="View Profile"><Eye size={16} /></span>
+                      <span className="action-icon" onClick={() => alert(`Editing permissions for ${s.name}`)} title="Manage Permissions"><UserCog size={16} /></span>
+                      <span className="action-icon" onClick={() => alert(`Emailing ${s.name}`)} title="Contact Employee"><Mail size={16} /></span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const Payroll = () => (
   <div>
