@@ -24,7 +24,7 @@ export const Onboarding = () => {
   };
 
   const newApplication = () => openModal({
-    title: 'New Application', subtitle: 'BRD §8.9 — onboarding intake',
+    title: 'New Application', subtitle: 'Onboarding intake',
     submitLabel: 'Submit application',
     body: (
       <>

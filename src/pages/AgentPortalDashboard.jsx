@@ -19,7 +19,7 @@ export const AgentPortalDashboard = () => {
   };
 
   const lockedView = (msg) => openDrawer({
-    title: 'Access locked', subtitle: 'Training gate (BRD §6.1)',
+    title: 'Access locked', subtitle: 'Training gate',
     content: <div style={{padding:14,background:'#fff7ed',border:'1px solid #fde68a',borderRadius:10,color:'#92400e',fontSize:13,lineHeight:1.6}}>{msg}</div>,
   });
 

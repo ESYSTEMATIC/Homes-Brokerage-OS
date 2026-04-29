@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Target, Building2, GraduationCap, ShieldCheck, FileCheck2, BellRing, User, ChevronRight, KeyRound, Award, UsersRound, CalendarClock, Mail } from 'lucide-react';
 
-// Role → which federated systems are accessible (BRD §6 / §11 entitlements).
+// Role → which federated systems are accessible.
 // Note: the public Marketplace (homes.com.eg) is consumer-facing; employees access only the
 // Marketplace Dashboard (admin + analytics) here.
 const ROLE_ACCESS = {
@@ -74,7 +74,7 @@ export const EmployeeBoardDashboard = () => {
     { label: 'Go Live',     done: false },
   ];
 
-  // For agent personas, gate CRM/Matrix access on onboarding completion (BRD §6.1 training gates).
+  // For agent personas, gate CRM/Matrix access on onboarding completion.
   const isLockedForAgent = (key) => {
     if (!isAgent) return false;
     if (onboardingComplete) return false;
@@ -124,13 +124,13 @@ export const EmployeeBoardDashboard = () => {
   ];
 
   // Internal Employee Board workspaces.
-  // Viva Learning is agent-only (training gates BRD §6.1 / §8.11 are scoped to agents).
+  // Viva Learning is agent-only.
   const internalTiles = [
     ...(isAgent ? [{
       key: 'learning',
       icon: <GraduationCap size={22}/>,
       title: 'Viva Learning',
-      desc: 'Required training and certifications. Linked to access gates per BRD §6.1.',
+      desc: 'Required training and certifications.',
       onClick: () => navigate('/board/learning'),
     }] : []),
     {
@@ -167,7 +167,7 @@ export const EmployeeBoardDashboard = () => {
         </div>
       </div>
 
-      {/* ── Agent-only onboarding journey + status (BRD §8.9) ── */}
+      {/* ── Agent-only onboarding journey + status ── */}
       {isAgent && (
         <>
           <div className="kpi-grid kpi-grid-5" style={{marginBottom:18}}>
@@ -196,7 +196,7 @@ export const EmployeeBoardDashboard = () => {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:18}}>
               <div>
                 <h3 style={{fontSize:16,fontWeight:700}}>Onboarding Journey</h3>
-                <p style={{fontSize:12,color:'var(--text-secondary)',marginTop:4}}>Each step gates downstream system access (BRD §6.1 training gates, §8.9 onboarding flow)</p>
+                <p style={{fontSize:12,color:'var(--text-secondary)',marginTop:4}}>Each step gates downstream system access</p>
               </div>
               <button className="btn btn-outline btn-sm" onClick={()=>navigate('/board/documents')}>Manage steps</button>
             </div>
@@ -299,7 +299,7 @@ export const EmployeeBoardDashboard = () => {
           </div>
           <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2}}>
             {isAgent && !onboardingComplete
-              ? 'CRM and Matrix EGMLS unlock once your training and document gates are cleared by Backoffice (BRD §6.1).'
+              ? 'CRM and Matrix EGMLS unlock once your training and document gates are cleared by Backoffice.'
               : isAgent
                 ? `All systems active — onboarding complete.`
                 : `Access is governed by your role (${persona.label}). Internal Employee Board workspaces are always available.`}

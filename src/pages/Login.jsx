@@ -56,7 +56,7 @@ export const LoginPage = () => {
           </div>
         </div>
 
-        <div className="footer-note">© Homes Brokerage · Cairo · BRD V1.3 · SSO via Microsoft Entra ID</div>
+        <div className="footer-note">© Homes Brokerage · Cairo · V1.3 · SSO via Microsoft Entra ID</div>
       </div>
 
       <div className="login-card-wrap">
@@ -98,7 +98,7 @@ export const LoginPage = () => {
           )}
 
           <div className="terms">
-            By signing in you agree to the Homes <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. SSO sessions are audited per BRD §10.3.
+            By signing in you agree to the Homes <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. SSO sessions are audited.
           </div>
         </div>
       </div>

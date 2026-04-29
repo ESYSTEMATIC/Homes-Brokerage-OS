@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA (BRD V1.3 ALIGNED)
+// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA (V1.3 ALIGNED)
 // ═══════════════════════════════════════════════════════════════
 
 // ── PERSONAS ──
@@ -183,7 +183,7 @@ export const MARKETPLACE_STATS = {
   ],
 };
 
-// ── EXCEPTIONS (BRD 10.4) ──
+// ── EXCEPTIONS ──
 export const EXCEPTIONS = [
   { id:'EXC-001', type:'Commission Dispute', title:'Unauthorized discount on North Edge deal', severity:'Critical', reporter:'Nour El-Din', assignee:'Finance Team', status:'Open', created:'2024-01-15' },
   { id:'EXC-002', type:'Training Overdue', title:'3 agents have overdue mandatory training', severity:'High', reporter:'System', assignee:'HR Team', status:'Open', created:'2024-01-14' },

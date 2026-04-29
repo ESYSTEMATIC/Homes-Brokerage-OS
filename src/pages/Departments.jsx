@@ -49,7 +49,7 @@ export const Departments = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Departments</span></div>
         <h1 className="page-title">Departments</h1>
-        <p className="page-subtitle">Organizational containers — BRD 6.2</p>
+        <p className="page-subtitle">Organizational containers</p>
       </div>
       <div className="data-panel">
         <div className="data-toolbar">

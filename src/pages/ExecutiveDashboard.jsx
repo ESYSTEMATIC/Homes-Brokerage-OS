@@ -253,7 +253,7 @@ export const ExecutiveDashboard = () => {
         <div>
           <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Executive Dashboard</span></div>
           <h1 className="page-title">Executive Dashboard</h1>
-          <p className="page-subtitle">High-level overview for leadership — BRD Section 9</p>
+          <p className="page-subtitle">High-level overview for leadership</p>
         </div>
         <div style={{display:'flex',gap:10,alignItems:'center'}}>
           <select className="data-select" value={period} onChange={e => setPeriod(e.target.value)}><option>This Month</option><option>Last Month</option><option>This Quarter</option><option>YTD</option></select>
