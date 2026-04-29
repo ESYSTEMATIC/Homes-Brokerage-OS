@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Search, Plus, Edit, Trash2, Eye, X, Download } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, X, Download, AlertTriangle } from 'lucide-react';
 
 const STAGES = ['New','Contacted','Qualified','Tour Scheduled','Negotiation','Reservation','Contracting','Closed Won','Closed Lost'];
 const PRIORITIES = ['Hot','Warm','Cold'];
@@ -10,6 +11,7 @@ const prioColor = p => p==='Hot'?'badge-danger':p==='Warm'?'badge-warning':'badg
 
 export const CrmLeads = () => {
   const { state, addRecord, updateRecord, deleteRecord, toast, openDrawer } = useApp();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [fStage, setFStage] = useState('All');
   const [fPrio, setFPrio] = useState('All');
@@ -71,7 +73,7 @@ export const CrmLeads = () => {
           <tr key={l.id} className={sel.includes(l.id)?'row-selected':''}>
             <td><input type="checkbox" checked={sel.includes(l.id)} onChange={()=>toggleSel(l.id)}/></td>
             <td className="muted" style={{fontSize:11}}>{l.id}</td>
-            <td className="bold clickable" onClick={()=>viewDetail(l)}>{l.name}</td>
+            <td className="bold clickable" onClick={()=>navigate(`/system/crm/leads/${l.id}`)}>{l.name}{l.duplicate==='Review'&&<span style={{marginLeft:6}}><AlertTriangle size={12} color="var(--warning)"/></span>}</td>
             <td className="muted">{l.phone||'—'}</td>
             <td className="muted">{l.source}</td>
             <td className="muted">{l.project||'—'}</td>

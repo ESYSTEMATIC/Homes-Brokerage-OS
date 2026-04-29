@@ -614,4 +614,46 @@ body { font-family: var(--font); background: var(--content-bg); color: var(--tex
 .spin-icon { animation: spin 1s linear infinite; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
+/* SSO Splash Overlay */
+.sso-splash { position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,.95); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; color: #fff; }
+.sso-splash h2 { font-size: 24px; font-weight: 800; margin: 0; }
+.sso-splash p { font-size: 14px; color: rgba(255,255,255,.6); margin: 0; }
+.sso-spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.15); border-top-color: var(--brand); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Listing Cards */
+.listing-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: all .2s ease; }
+.listing-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.08); border-color: var(--brand); }
+.listing-card-img { height: 120px; background: linear-gradient(135deg, #f1f5f9, #e2e8f0); display: flex; align-items: center; justify-content: center; }
+
+/* Clickable cells */
+.clickable { cursor: pointer; color: var(--brand); }
+.clickable:hover { text-decoration: underline; }
+
+/* Form groups */
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.form-group input, .form-group select, .form-group textarea { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; transition: border-color .15s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px rgba(232,103,42,.1); }
+
+/* Brand tint utility */
+.brand-tint { background: var(--brand-tint); }
+
+/* Filter select */
+.filter-select { padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-family: inherit; background: #fff; cursor: pointer; color: var(--text-primary); }
+
+/* Search box */
+.search-box { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.search-box input { border: none; outline: none; font-size: 13px; font-family: inherit; flex: 1; }
+
+/* Button sizes */
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-brand { background: var(--brand); color: #fff; border: none; }
+.btn-brand:hover { background: #d55a22; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+.btn-outline:hover { background: #f8fafc; border-color: var(--brand); }
+
+/* Drawer labels */
+.drawer-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .04em; }
+.drawer-value { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-top: 2px; }
 

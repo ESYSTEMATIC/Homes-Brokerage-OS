@@ -34,8 +34,15 @@ import { CRMIntro, MarketplaceDashboard } from './pages/ExternalSystem';
 import { CrmLayout } from './components/CrmLayout';
 import { CrmDashboard } from './pages/crm/CrmDashboard';
 import { CrmLeads } from './pages/crm/CrmLeads';
+import { CrmLeadDetail } from './pages/crm/CrmLeadDetail';
+import { CrmListings } from './pages/crm/CrmListings';
+import { CrmTours } from './pages/crm/CrmTours';
 import { CrmDeals } from './pages/crm/CrmDeals';
+import { CrmContracts } from './pages/crm/CrmContracts';
 import { CrmTasks } from './pages/crm/CrmTasks';
+import { CrmListingShare } from './pages/crm/CrmListingShare';
+import { CrmMiniSite } from './pages/crm/CrmMiniSite';
+import { CrmReports } from './pages/crm/CrmReports';
 
 // Employee Board (universal landing)
 import { EmployeeBoardDashboard } from './pages/EmployeeBoardDashboard';
@@ -83,8 +90,15 @@ const AppRoutes = () => {
           <Routes>
             <Route path="/" element={<CrmDashboard />} />
             <Route path="/leads" element={<CrmLeads />} />
+            <Route path="/leads/:id" element={<CrmLeadDetail />} />
+            <Route path="/listings" element={<CrmListings />} />
+            <Route path="/tours" element={<CrmTours />} />
             <Route path="/deals" element={<CrmDeals />} />
+            <Route path="/contracts" element={<CrmContracts />} />
             <Route path="/tasks" element={<CrmTasks />} />
+            <Route path="/shares" element={<CrmListingShare />} />
+            <Route path="/minisite" element={<CrmMiniSite />} />
+            <Route path="/reports" element={<CrmReports />} />
             <Route path="*" element={<Navigate to="/system/crm" />} />
           </Routes>
         </CrmLayout>

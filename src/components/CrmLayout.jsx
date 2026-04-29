@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, MapPin, FileText, Share2, Globe, BarChart3 } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
 
 export const CrmLayout = ({ children }) => {
@@ -45,11 +45,31 @@ export const CrmLayout = ({ children }) => {
           <NavLink to="/system/crm/leads" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Users size={16} />Leads
           </NavLink>
+          <NavLink to="/system/crm/listings" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Home size={16} />Listings
+          </NavLink>
+          <NavLink to="/system/crm/tours" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <MapPin size={16} />Tours
+          </NavLink>
           <NavLink to="/system/crm/deals" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <KanbanSquare size={16} />Deals Pipeline
           </NavLink>
+          <NavLink to="/system/crm/contracts" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <FileText size={16} />Contracts
+          </NavLink>
           <NavLink to="/system/crm/tasks" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <CalendarCheck2 size={16} />Tasks & Calendar
+          </NavLink>
+
+          <div className="sidebar-section" style={{marginTop:10}}>Tools</div>
+          <NavLink to="/system/crm/shares" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Share2 size={16} />Listing Shares
+          </NavLink>
+          <NavLink to="/system/crm/minisite" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Globe size={16} />Mini-Site
+          </NavLink>
+          <NavLink to="/system/crm/reports" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <BarChart3 size={16} />Reports
           </NavLink>
         </nav>
         <div style={{padding:'14px 12px',borderTop:'1px solid rgba(255,255,255,.06)'}}>
