@@ -357,6 +357,18 @@ export const SUPPORT_TICKETS = [
   { id:'TKT-005', subject:'Payout schedule clarification', category:'Finance', priority:'Low', status:'Resolved', created:'2024-01-05' },
 ];
 
+// ── CRM ACTIVITY LOG ──
+export const CRM_ACTIVITY = [
+  { id: 'ACT-001', action: 'Lead Created', detail: 'Mohamed Hassan added via Marketplace', actor: 'System', time: '2 min ago', type: 'lead' },
+  { id: 'ACT-002', action: 'Deal Stage Changed', detail: 'D-502 Hyde Park → Reservation', actor: 'Fatma Ibrahim', time: '15 min ago', type: 'deal' },
+  { id: 'ACT-003', action: 'Task Completed', detail: 'Schedule tour - ZED East', actor: 'Fatma Ibrahim', time: '1 hour ago', type: 'task' },
+  { id: 'ACT-004', action: 'Lead Assigned', detail: 'L-1001 → Ahmed Hassan', actor: 'Nour El-Din', time: '2 hours ago', type: 'lead' },
+  { id: 'ACT-005', action: 'Call Logged', detail: 'Follow up with Karim Fouad', actor: 'Omar Sherif', time: '3 hours ago', type: 'task' },
+  { id: 'ACT-006', action: 'Deal Created', detail: 'D-504 Palm Hills New Cairo — EGP 8.5M', actor: 'Ahmed Hassan', time: '4 hours ago', type: 'deal' },
+  { id: 'ACT-007', action: 'WhatsApp Sent', detail: 'Payment plan details to Nour Ibrahim', actor: 'Hana Mahmoud', time: '5 hours ago', type: 'task' },
+  { id: 'ACT-008', action: 'Lead Lost', detail: 'Tarek Mansour — Budget exceeded', actor: 'Ahmed Hassan', time: '6 hours ago', type: 'lead' },
+];
+
 // ── REFERENCE LISTS ──
 export const STAGES = ['New', 'Contacted', 'Qualified', 'Tour Scheduled', 'Negotiation', 'Reservation', 'Contracting', 'Closed Won', 'Closed Lost'];
 export const PRIORITIES = ['Hot', 'Warm', 'Cold'];

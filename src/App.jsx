@@ -27,8 +27,15 @@ import { EmployeeProfiles } from './pages/HRPages';
 import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
 import { ExceptionsIssues, Settings } from './pages/SystemPages';
 
-// Federated system placeholders (CRM, Marketplace Dashboard) launched via SSO from the Employee Board.
-import { CRMLeads, DealsPipeline, TasksCalendar, MarketplaceDashboard } from './pages/ExternalSystem';
+// Federated system placeholders (Marketplace Dashboard) launched via SSO from the Employee Board.
+import { MarketplaceDashboard } from './pages/ExternalSystem';
+
+// Real CRM Module (embedded, no separate login)
+import { CrmLayout } from './components/CrmLayout';
+import { CrmDashboard } from './pages/crm/CrmDashboard';
+import { CrmLeads } from './pages/crm/CrmLeads';
+import { CrmDeals } from './pages/crm/CrmDeals';
+import { CrmTasks } from './pages/crm/CrmTasks';
 
 // Employee Board (universal landing)
 import { EmployeeBoardDashboard } from './pages/EmployeeBoardDashboard';
@@ -70,14 +77,23 @@ const AppRoutes = () => {
         </AgentLayout>
       } />
 
-      {/* ─── Federated systems (placeholders) — also rendered inside Employee Board chrome ─── */}
+      {/* ─── Real CRM Module (embedded via SSO, own sidebar/layout) ─── */}
+      <Route path="/system/crm/*" element={
+        <CrmLayout>
+          <Routes>
+            <Route path="/" element={<CrmDashboard />} />
+            <Route path="/leads" element={<CrmLeads />} />
+            <Route path="/deals" element={<CrmDeals />} />
+            <Route path="/tasks" element={<CrmTasks />} />
+            <Route path="*" element={<Navigate to="/system/crm" />} />
+          </Routes>
+        </CrmLayout>
+      } />
+
+      {/* ─── Other Federated Systems (placeholders) ─── */}
       <Route path="/system/*" element={
         <AgentLayout>
           <Routes>
-            <Route path="/crm" element={<CRMLeads />} />
-            <Route path="/crm/leads" element={<CRMLeads />} />
-            <Route path="/crm/deals" element={<DealsPipeline />} />
-            <Route path="/crm/tasks" element={<TasksCalendar />} />
             <Route path="/marketplace-dashboard" element={<MarketplaceDashboard />} />
             <Route path="*" element={<Navigate to="/board/dashboard" />} />
           </Routes>
