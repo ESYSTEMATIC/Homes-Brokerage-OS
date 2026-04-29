@@ -51,6 +51,7 @@ const initialState = {
   sourceHistory: SOURCE_HISTORY,
   duplicateCandidates: DUPLICATE_CANDIDATES,
   assignmentLog: ASSIGNMENT_LOG,
+  activities: [],
   settings: {
     company: 'Homes Brokerage', timezone: 'Africa/Cairo (UTC+2)', language: 'English', currency: 'EGP',
     sso: 'Microsoft Entra ID', ssoMode: 'Enforced', sessionTimeout: '8 hours', mfa: 'Required for admin',

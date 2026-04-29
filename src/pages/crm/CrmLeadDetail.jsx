@@ -16,8 +16,9 @@ export const CrmLeadDetail = () => {
   const [showTourAdd, setShowTourAdd] = useState(false);
   const [showPrefAdd, setShowPrefAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showActivityAdd, setShowActivityAdd] = useState(false);
 
-  const { leads=[], deals=[], tasks=[], tours=[], listingShares=[], contracts=[], buyerPreferences=[], sourceHistory=[], duplicateCandidates=[], assignmentLog=[] } = state;
+  const { leads=[], deals=[], tasks=[], tours=[], listingShares=[], contracts=[], buyerPreferences=[], sourceHistory=[], duplicateCandidates=[], assignmentLog=[], activities=[], staff=[], projects=[] } = state;
 
   const lead = leads.find(l => l.id === id);
   if (!lead) return <div style={{padding:40,textAlign:'center'}}><h2>Lead not found</h2><button className="btn btn-brand" onClick={()=>navigate('/system/crm/leads')}>Back to Leads</button></div>;
@@ -26,6 +27,7 @@ export const CrmLeadDetail = () => {
   const sourceHist = sourceHistory.find(s => s.leadId === id);
   const duplicates = duplicateCandidates.filter(d => d.leadId === id);
   const assignments = assignmentLog.filter(a => a.leadId === id);
+  const linkedActivities = activities.filter(a => a.leadId === id);
   const linkedDeals = deals.filter(d => d.leadName === lead.name);
   const linkedTasks = tasks.filter(t => t.lead === id);
   const linkedTours = tours.filter(t => t.leadId === id || t.leadName === lead.name);
@@ -39,6 +41,7 @@ export const CrmLeadDetail = () => {
   const [tourForm, setTourForm] = useState({property:'', date:'', time:'', agent:'Fatma Ibrahim'});
   const [prefForm, setPrefForm] = useState({propertyTypes:'Apartment', locations:'New Cairo', bedrooms:'3', bathrooms:'2', budgetMin:'5000000', budgetMax:'10000000', timeline:'Within 3 months', notes:''});
   const [editForm, setEditForm] = useState({name:lead.name, phone:lead.phone||'', email:lead.email||'', stage:lead.stage, priority:lead.priority, budget:lead.budget||''});
+  const [activityForm, setActivityForm] = useState({type:'Call', detail:'', sub:''});
 
   const tabs = [
     { id:'overview', label:'Overview', icon:<User size={14}/> },
@@ -167,15 +170,19 @@ export const CrmLeadDetail = () => {
       {/* Tab: Activity */}
       {tab==='activity'&&(
         <div className="data-panel" style={{padding:20}}>
-          <h3 style={{fontSize:14,fontWeight:700,marginBottom:16}}>Activity Timeline</h3>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h3 style={{fontSize:14,fontWeight:700}}>Activity Timeline</h3>
+            <button className="btn btn-brand btn-sm" onClick={()=>setShowActivityAdd(true)}>+ Log Activity</button>
+          </div>
           <div style={{display:'flex',flexDirection:'column',gap:0,position:'relative',paddingLeft:24}}>
             <div style={{position:'absolute',left:7,top:0,bottom:0,width:2,background:'var(--border)'}}/>
             {[...assignments.map(a=>({time:a.date,type:'assignment',detail:`${a.fromAgent?`Reassigned from ${a.fromAgent} to`:'Assigned to'} ${a.toAgent}`,sub:a.reason})),
               ...linkedTours.map(t=>({time:`${t.date} ${t.time}`,type:'tour',detail:`Tour: ${t.property}`,sub:t.feedback||t.status})),
               ...linkedShares.map(s=>({time:s.timestamp,type:'share',detail:`${s.channel} share: ${s.property}`,sub:`Response: ${s.response}`})),
+              ...linkedActivities.map(a=>({time:a.date,type:'activity',detail:`${a.type}: ${a.detail}`,sub:a.sub}))
             ].sort((a,b)=>b.time.localeCompare(a.time)).map((ev,i)=>(
               <div key={i} style={{padding:'12px 0 12px 20px',position:'relative'}}>
-                <div style={{position:'absolute',left:-4,top:16,width:12,height:12,borderRadius:'50%',background:ev.type==='assignment'?'var(--brand)':ev.type==='tour'?'var(--info)':'var(--success)',border:'2px solid #fff'}}/>
+                <div style={{position:'absolute',left:-4,top:16,width:12,height:12,borderRadius:'50%',background:ev.type==='assignment'?'var(--brand)':ev.type==='tour'?'var(--info)':ev.type==='activity'?'var(--warning)':'var(--success)',border:'2px solid #fff'}}/>
                 <div style={{fontSize:11,color:'var(--text-tertiary)',marginBottom:2}}>{ev.time}</div>
                 <div style={{fontSize:13,fontWeight:600}}>{ev.detail}</div>
                 {ev.sub&&<div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2}}>{ev.sub}</div>}
@@ -270,7 +277,7 @@ export const CrmLeadDetail = () => {
       {showReassign&&<div className="modal-overlay" onClick={()=>setShowReassign(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:420}}><div className="modal-header"><h3>Reassign Lead</h3><button className="btn-icon" onClick={()=>setShowReassign(false)}><X size={18}/></button></div>
         <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:16}}>
           <div className="form-group"><label>Current Owner</label><input type="text" value={lead.owner||'Unassigned'} disabled/></div>
-          <div className="form-group"><label>Assign To</label><select value={reassignForm.toAgent} onChange={e=>setReassignForm({...reassignForm,toAgent:e.target.value})}><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
+          <div className="form-group"><label>Assign To</label><select value={reassignForm.toAgent} onChange={e=>setReassignForm({...reassignForm,toAgent:e.target.value})}>{staff.filter(s=>s.department==='Sales').map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
           <div className="form-group"><label>Reason</label><select value={reassignForm.reason} onChange={e=>setReassignForm({...reassignForm,reason:e.target.value})}><option>Territory reassignment</option><option>Workload balancing</option><option>Specialization match</option><option>Manager override</option></select></div>
         </div>
         <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowReassign(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{updateItem('leads',lead.id,{owner:reassignForm.toAgent}); addItem('assignmentLog',{leadId:lead.id,fromAgent:lead.owner,toAgent:reassignForm.toAgent,date:new Date().toISOString().split('T')[0],reason:reassignForm.reason,approver:'System'},'ASG'); toast('Lead reassigned','success');setShowReassign(false);}}>Reassign</button></div></div></div>}
@@ -279,10 +286,10 @@ export const CrmLeadDetail = () => {
       {showTourAdd&&<div className="modal-overlay" onClick={()=>setShowTourAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Schedule Tour</h3><button className="btn-icon" onClick={()=>setShowTourAdd(false)}><X size={18}/></button></div>
         <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div className="form-group"><label>Lead</label><input type="text" value={lead.name} disabled/></div>
-          <div className="form-group"><label>Listing</label><select value={tourForm.property} onChange={e=>setTourForm({...tourForm,property:e.target.value})}><option value="">Select Listing…</option><option>Palm Hills V101</option><option>ZED East A205</option><option>Hyde Park TH-B304</option></select></div>
+          <div className="form-group"><label>Listing</label><select value={tourForm.property} onChange={e=>setTourForm({...tourForm,property:e.target.value})}><option value="">Select Listing…</option>{projects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
           <div className="form-group"><label>Date</label><input type="date" value={tourForm.date} onChange={e=>setTourForm({...tourForm,date:e.target.value})}/></div>
           <div className="form-group"><label>Time</label><input type="time" value={tourForm.time} onChange={e=>setTourForm({...tourForm,time:e.target.value})}/></div>
-          <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select value={tourForm.agent} onChange={e=>setTourForm({...tourForm,agent:e.target.value})}><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select value={tourForm.agent} onChange={e=>setTourForm({...tourForm,agent:e.target.value})}>{staff.filter(s=>s.department==='Sales').map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
         </div>
         <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowTourAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{addItem('tours',{leadId:lead.id,leadName:lead.name,property:tourForm.property,date:tourForm.date,time:tourForm.time,agent:tourForm.agent,status:'Scheduled',rating:null,feedback:''},'TR'); toast('Tour scheduled','success');setShowTourAdd(false);}}>Schedule Tour</button></div></div></div>}
 
@@ -311,6 +318,15 @@ export const CrmLeadDetail = () => {
           <div className="form-group" style={{gridColumn:'span 2'}}><label>Budget</label><input type="number" value={editForm.budget} onChange={e=>setEditForm({...editForm,budget:e.target.value})}/></div>
         </div>
         <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowEdit(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{updateItem('leads',lead.id,{...editForm,budget:Number(editForm.budget)||0}); toast('Lead updated','success');setShowEdit(false);}}>Save Changes</button></div></div></div>}
+
+      {/* Log Activity Modal */}
+      {showActivityAdd&&<div className="modal-overlay" onClick={()=>setShowActivityAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Log Activity</h3><button className="btn-icon" onClick={()=>setShowActivityAdd(false)}><X size={18}/></button></div>
+        <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div className="form-group"><label>Activity Type</label><select value={activityForm.type} onChange={e=>setActivityForm({...activityForm,type:e.target.value})}><option>Call</option><option>Meeting</option><option>Email</option><option>Note</option><option>WhatsApp</option></select></div>
+          <div className="form-group"><label>Summary</label><input type="text" value={activityForm.detail} onChange={e=>setActivityForm({...activityForm,detail:e.target.value})} placeholder="e.g. Discussed budget constraints"/></div>
+          <div className="form-group"><label>Details / Notes</label><textarea rows={3} value={activityForm.sub} onChange={e=>setActivityForm({...activityForm,sub:e.target.value})}/></div>
+        </div>
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowActivityAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{addItem('activities',{leadId:lead.id,date:new Date().toISOString().replace('T',' ').substring(0,16),type:activityForm.type,detail:activityForm.detail,sub:activityForm.sub},'ACT'); toast('Activity logged','success');setShowActivityAdd(false);}}>Log Activity</button></div></div></div>}
     </div>
   );
 };

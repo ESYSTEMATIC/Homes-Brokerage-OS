@@ -90,12 +90,12 @@ export const CrmLeads = () => {
           <div className="form-group"><label>Phone</label><input type="text" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></div>
           <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div>
           <div className="form-group"><label>Source</label><select value={form.source} onChange={e=>setForm({...form,source:e.target.value})}>{SOURCES.map(s=><option key={s}>{s}</option>)}</select></div>
-          <div className="form-group"><label>Project</label><input type="text" value={form.project} onChange={e=>setForm({...form,project:e.target.value})}/></div>
-          <div className="form-group"><label>Developer</label><input type="text" value={form.developer} onChange={e=>setForm({...form,developer:e.target.value})}/></div>
+          <div className="form-group"><label>Project</label><select value={form.project} onChange={e=>setForm({...form,project:e.target.value})}><option value="">None</option>{state.projects?.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+          <div className="form-group"><label>Developer</label><select value={form.developer} onChange={e=>setForm({...form,developer:e.target.value})}><option value="">None</option>{state.developers?.map(d=><option key={d.id} value={d.name}>{d.name}</option>)}</select></div>
           <div className="form-group"><label>Budget (EGP)</label><input type="number" value={form.budget} onChange={e=>setForm({...form,budget:e.target.value})}/></div>
           <div className="form-group"><label>Stage</label><select value={form.stage} onChange={e=>setForm({...form,stage:e.target.value})}>{STAGES.map(s=><option key={s}>{s}</option>)}</select></div>
           <div className="form-group"><label>Priority</label><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select></div>
-          <div className="form-group"><label>Owner</label><input type="text" value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})}/></div>
+          <div className="form-group"><label>Owner</label><select value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})}><option value="">Unassigned</option>{state.staff?.filter(s=>s.department==='Sales').map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
           <div className="form-group" style={{gridColumn:'span 2'}}><label>Notes</label><textarea rows={3} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></div>
         </div><div className="modal-footer"><button type="button" className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button type="submit" className="btn btn-brand">{editLead?'Update':'Create'} Lead</button></div></form></div></div>}
     </div>
