@@ -1,78 +1,56 @@
-import React, { useState } from 'react';
-import { AUDIT_LOGS } from '../data/staticData';
-import { Search, History, Filter } from 'lucide-react';
+import React from 'react';
+import { useApp } from '../context/AppContext';
+import { useTableState, exportCSV, Empty } from '../components/UI';
+import { Download } from 'lucide-react';
+
+const today = () => new Date().toISOString().split('T')[0];
 
 export const AuditLogs = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [moduleFilter, setModuleFilter] = useState('All Modules');
-  const [actionFilter, setActionFilter] = useState('All Actions');
-
-  const filtered = AUDIT_LOGS.filter(a => {
-    const matchesSearch = a.detail.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         a.actor.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         a.target.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModule = moduleFilter === 'All Modules' || a.module === moduleFilter;
-    const matchesAction = actionFilter === 'All Actions' || a.action === actionFilter;
-    return matchesSearch && matchesModule && matchesAction;
+  const { state, toast, writeAudit } = useApp();
+  const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.audit, {
+    searchKeys:['action','actor','target','detail','id'],
+    filters:{ module:'module', action:'action' },
   });
 
-  const uniqueActions = [...new Set(AUDIT_LOGS.map(a => a.action))];
+  const modules = [...new Set(state.audit.map(a=>a.module))];
+  const actions = [...new Set(state.audit.map(a=>a.action))];
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Audit Logs</span></div>
         <h1 className="page-title">Audit Logs</h1>
-        <p className="page-subtitle">Immutable trail of sensitive actions</p>
+        <p className="page-subtitle">Immutable trail of sensitive actions — BRD 10.3</p>
       </div>
       <div className="data-panel">
         <div className="data-toolbar">
           <div className="data-toolbar-left">
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                className="data-search" 
-                placeholder="Search audit logs..." 
-                style={{ paddingLeft: 44 }}
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <select className="data-select" value={moduleFilter} onChange={e => setModuleFilter(e.target.value)}>
-              <option>All Modules</option>
-              <option>CRM</option>
-              <option>Finance</option>
-              <option>HR</option>
-              <option>Backoffice</option>
-              <option>Security</option>
-              <option>Recruitment</option>
+            <input className="data-search" placeholder="Search audit logs..." value={q} onChange={e=>setQ(e.target.value)} />
+            <select className="data-select" value={filterVals.module} onChange={e=>setFilter('module', e.target.value)}>
+              <option value="">All Modules</option>{modules.map(m=><option key={m}>{m}</option>)}
             </select>
-            <select className="data-select" value={actionFilter} onChange={e => setActionFilter(e.target.value)}>
-              <option>All Actions</option>
-              {uniqueActions.map(act => <option key={act} value={act}>{act}</option>)}
+            <select className="data-select" value={filterVals.action} onChange={e=>setFilter('action', e.target.value)}>
+              <option value="">All Actions</option>{actions.map(a=><option key={a}>{a}</option>)}
             </select>
           </div>
-          <button className="btn btn-outline btn-sm" onClick={() => alert('Exporting full audit trail...')}>
-            <Filter size={14} /> Export CSV
-          </button>
+          <button className="btn btn-outline" onClick={()=>{exportCSV(`audit_${today()}`,filtered); toast(`Exported ${filtered.length} logs`); writeAudit('Export','Audit CSV','Security');}}><Download size={14}/> Export</button>
         </div>
         <div className="data-scroll">
           <table className="data-table">
             <thead><tr><th>ID</th><th>Action</th><th>Actor</th><th>Target</th><th>Module</th><th>Timestamp</th><th>Detail</th></tr></thead>
-            <tbody>
-              {filtered.map(a=>(
-                <tr key={a.id}>
-                  <td className="muted">{a.id}</td>
-                  <td className="bold">{a.action}</td>
-                  <td>{a.actor}</td>
-                  <td>{a.target}</td>
-                  <td><span className="badge badge-info">{a.module}</span></td>
-                  <td className="muted" style={{fontSize:11}}>{a.timestamp}</td>
-                  <td style={{maxWidth:260,fontSize:12,color:'var(--text-secondary)'}}>{a.detail}</td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{filtered.map(a=>(
+              <tr key={a.id}>
+                <td className="muted">{a.id}</td>
+                <td className="bold">{a.action}</td>
+                <td>{a.actor}</td>
+                <td>{a.target}</td>
+                <td><span className="badge badge-info">{a.module}</span></td>
+                <td className="muted">{a.timestamp}</td>
+                <td style={{maxWidth:280,fontSize:12,color:'var(--text-secondary)'}}>{a.detail}</td>
+              </tr>
+            ))}</tbody>
           </table>
+          {filtered.length===0 && <Empty message="No audit entries match your filters." />}
         </div>
       </div>
     </div>

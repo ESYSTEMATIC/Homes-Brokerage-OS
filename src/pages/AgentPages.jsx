@@ -1,299 +1,388 @@
-import React from 'react';
-import { PROJECTS } from '../data/staticData';
-import { Building2, MapPin, Layers, Layout, Clock, TrendingUp, DollarSign, User, Mail, Phone, Calendar, Briefcase, ShieldCheck, FileText, CheckCircle, Clock3, AlertCircle, HelpCircle, MessageSquare, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
+import { Search, Plus, Download, Upload, X, Filter } from 'lucide-react';
 
-const fmt = v => new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(v);
+const fmt = v => new Intl.NumberFormat('en-EG',{style:'currency',currency:'EGP',maximumFractionDigits:0}).format(v||0);
+const today = () => new Date().toISOString().split('T')[0];
 
+// ─────────── Products & Services ───────────
 export const AgentProducts = () => {
-  const handleAction = (name) => alert(`Viewing details for ${name}...`);
+  const { state, openDrawer, toast, writeAudit } = useApp();
+  const [q, setQ] = useState('');
+  const [type, setType] = useState('');
+  const [city, setCity] = useState('');
+
+  const projects = state.projects.filter(p =>
+    p.status==='Published' &&
+    (!q || (p.name + ' ' + p.developer + ' ' + p.location).toLowerCase().includes(q.toLowerCase())) &&
+    (!type || p.type === type) &&
+    (!city || p.location === city)
+  );
+
+  const view = (p) => openDrawer({
+    title: p.name, subtitle: `${p.developer} · ${p.location}`,
+    content: (
+      <>
+        <div className="detail-grid">
+          {[['ID',p.id],['Developer',p.developer],['Location',p.location],['Type',p.type],['Units',p.units],['Available',p.available],['Delivery',p.delivery],['Price From',fmt(p.priceFrom)]].map(([k,v])=>(
+            <div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
+        </div>
+        <div style={{marginTop:18,display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className="btn btn-primary" onClick={()=>{toast(`Project shared via WhatsApp link`,'success'); writeAudit('Project Shared',p.id,'Marketing','via WhatsApp link');}}>Share Link</button>
+          <button className="btn btn-outline" onClick={()=>{toast(`Brochure download started`,'info');}}>Download Brochure</button>
+        </div>
+      </>
+    ),
+  });
 
   return (
-    <div className="animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">Products & Services</h1>
-        <p className="page-subtitle">Browse available developer inventory — projects and compounds</p>
+    <div>
+      <h1 className="page-title">Products & Services</h1>
+      <p className="page-subtitle" style={{marginBottom:24}}>Browse available developer inventory — projects and compounds</p>
+      <div className="filter-bar">
+        <div style={{position:'relative',flex:1,maxWidth:340}}>
+          <Search size={14} style={{position:'absolute',left:12,top:11,color:'var(--text-tertiary)'}}/>
+          <input className="data-search" placeholder="Search projects, developers…" value={q} onChange={e=>setQ(e.target.value)} style={{paddingLeft:32, width:'100%'}} />
+        </div>
+        <select value={type} onChange={e=>setType(e.target.value)}>
+          <option value="">All Types</option>{[...new Set(state.projects.map(p=>p.type))].map(t=><option key={t}>{t}</option>)}
+        </select>
+        <select value={city} onChange={e=>setCity(e.target.value)}>
+          <option value="">All Locations</option>{[...new Set(state.projects.map(p=>p.location))].map(c=><option key={c}>{c}</option>)}
+        </select>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
-        {PROJECTS.filter(p => p.status === 'Published').map(p => (
-          <div key={p.id} className="quick-card" style={{ padding: 0, overflow: 'hidden', cursor: 'default' }}>
-            <div style={{ height: 160, background: 'linear-gradient(135deg, #1e3a5f, #2563eb)', position: 'relative', display: 'flex', alignItems: 'flex-end', padding: 20 }}>
-              <div style={{ position: 'absolute', top: 12, right: 12 }}>
-                <span className={`badge ${p.type === 'Resort' ? 'badge-info' : p.type === 'Township' ? 'badge-success' : 'badge-warning'}`}>{p.type}</span>
-              </div>
-              <div>
-                <div style={{ color: '#fff', fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{p.name}</div>
-                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <MapPin size={12} /> {p.location} · {p.developer}
-                </div>
-              </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {projects.map(p=>(
+          <div key={p.id} style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--card-shadow)',cursor:'pointer'}} onClick={()=>view(p)}>
+            <div style={{height:140,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',display:'flex',alignItems:'flex-end',padding:16}}>
+              <div><div style={{color:'#fff',fontWeight:700,fontSize:16}}>{p.name}</div><div style={{color:'rgba(255,255,255,.7)',fontSize:12}}>{p.developer} · {p.location}</div></div>
             </div>
-            <div style={{ padding: 20 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-                <div>
-                  <div className="kpi-label" style={{ fontSize: 10 }}>Total Units</div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{p.units}</div>
-                </div>
-                <div>
-                  <div className="kpi-label" style={{ fontSize: 10 }}>Available</div>
-                  <div style={{ fontWeight: 700, color: 'var(--success)' }}>{p.available}</div>
-                </div>
-                <div>
-                  <div className="kpi-label" style={{ fontSize: 10 }}>Starting From</div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(p.priceFrom)}</div>
-                </div>
-                <div>
-                  <div className="kpi-label" style={{ fontSize: 10 }}>Delivery</div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{p.delivery}</div>
-                </div>
+            <div style={{padding:16}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+                <div><div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase'}}>Units</div><div style={{fontWeight:700}}>{p.units}</div></div>
+                <div><div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase'}}>Available</div><div style={{fontWeight:700,color:'var(--success)'}}>{p.available}</div></div>
+                <div><div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase'}}>From</div><div style={{fontWeight:700}}>{fmt(p.priceFrom)}</div></div>
+                <div><div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase'}}>Delivery</div><div style={{fontWeight:700}}>{p.delivery}</div></div>
               </div>
-              <button className="btn btn-outline btn-sm w-full" onClick={() => handleAction(p.name)}>View Full Inventory</button>
+              <span className={`badge ${p.type==='Resort'?'badge-info':p.type==='Township'?'badge-success':'badge-warning'}`}>{p.type}</span>
             </div>
           </div>
         ))}
+      </div>
+      {projects.length===0 && <Empty message="No projects match your filters." />}
+    </div>
+  );
+};
+
+// ─────────── Performance (Platform §2.3 score + §3.9 analytics) ───────────
+export const AgentPerformance = () => {
+  const { persona, state } = useApp();
+  const onboardingComplete = persona.onboardingComplete === true;
+  const completed = state.training.filter(c=>c.required && c.status==='Completed').length;
+  const total = state.training.filter(c=>c.required).length;
+  const trainingAvg = Math.round(
+    state.training.filter(c=>c.required && c.score).reduce((s,c)=>s+c.score,0)
+    / Math.max(1, state.training.filter(c=>c.required && c.score).length)
+  );
+  const interviewScore = onboardingComplete ? 88 : 82;
+  const agentScore = Math.round(trainingAvg * 0.6 + interviewScore * 0.4);
+
+  // §3.9 Analytics — populated only after onboarding/CRM access.
+  const leads = onboardingComplete ? 18 : 0;
+  const tours = onboardingComplete ? 7 : 0;
+  const deals = onboardingComplete ? 3 : 0;
+  const revenue = onboardingComplete ? 285000 : 0;
+  const conversionTime = onboardingComplete ? '21 days' : '—';
+  const costPerLead = onboardingComplete ? 'EGP 420' : '—';
+  const conversion = leads ? Math.round((deals/leads)*100) : 0;
+
+  return (
+    <div>
+      <h1 className="page-title">Performance</h1>
+      <p className="page-subtitle" style={{marginBottom:24}}>Onboarding score + sales analytics — Platform §2.3, §3.9</p>
+
+      <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>Onboarding Score (Platform §2.3)</h3>
+      <div className="kpi-grid kpi-grid-4" style={{marginBottom:24}}>
+        <div className="kpi-card"><div><div className="kpi-label">Total Score</div><div className="kpi-value" style={{color:agentScore>=85?'var(--success)':'var(--warning)'}}>{agentScore}/100</div><div className="kpi-change up">Used for team allocation</div></div><div className="kpi-icon orange"><span style={{fontSize:20}}>🏆</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Training Avg</div><div className="kpi-value">{trainingAvg}%</div><div className="kpi-change">{completed}/{total} required courses</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>🎓</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Interview Score</div><div className="kpi-value">{interviewScore}%</div><div className="kpi-change">HR-recorded</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>👤</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Score Weight</div><div className="kpi-value" style={{fontSize:18}}>60% / 40%</div><div className="kpi-change">Training / Interview</div></div><div className="kpi-icon gray"><span style={{fontSize:20}}>⚖️</span></div></div>
+      </div>
+
+      <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>Sales Analytics (Platform §3.9)</h3>
+      <div className="kpi-grid kpi-grid-4" style={{marginBottom:16}}>
+        <div className="kpi-card"><div><div className="kpi-label">Number of Leads</div><div className="kpi-value">{leads}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📋</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Tours Completed</div><div className="kpi-value">{tours}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🏠</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Deals Closed</div><div className="kpi-value">{deals}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💼</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Conversion Rate</div><div className="kpi-value">{conversion}%</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📈</span></div></div>
+      </div>
+      <div className="kpi-grid kpi-grid-3">
+        <div className="kpi-card"><div><div className="kpi-label">Revenue Generated</div><div className="kpi-value" style={{fontSize:20}}>EGP {revenue.toLocaleString()}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💰</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Conversion Time</div><div className="kpi-value" style={{fontSize:20}}>{conversionTime}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>⏱️</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Cost per Lead</div><div className="kpi-value" style={{fontSize:20}}>{costPerLead}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>📊</span></div></div>
+      </div>
+      {!onboardingComplete && <div className="info-banner" style={{marginTop:16}}>Sales analytics populate once your onboarding is complete and CRM access is provisioned. Onboarding score is already final.</div>}
+    </div>
+  );
+};
+
+// ─────────── Profile ───────────
+export const AgentProfile = () => {
+  const { persona, openModal, toast } = useApp();
+  const editProfile = () => openModal({
+    title:'Edit Profile', submitLabel:'Save changes',
+    body:(
+      <>
+        <FieldRow>
+          <Field label="Full Name" name="name" defaultValue="Sarah El-Masry" required />
+          <Field label="Email" name="email" type="email" defaultValue="sarah@homesbrokerage.eg" required />
+        </FieldRow>
+        <FieldRow>
+          <Field label="Phone" name="phone" defaultValue="+20 100 123 4567" />
+          <Field label="Branch" name="branch" defaultValue="New Cairo" />
+        </FieldRow>
+      </>
+    ),
+    onSubmit:(d)=>{ toast('Profile saved'); },
+  });
+  return (
+    <div>
+      <h1 className="page-title">Profile</h1>
+      <p className="page-subtitle" style={{marginBottom:24}}>Manage your account and personal information</p>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:24}}>
+        <div style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,padding:24,textAlign:'center'}}>
+          <div style={{width:80,height:80,borderRadius:'50%',background:'var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,fontWeight:800,color:'#fff',margin:'0 auto 16px'}}>SE</div>
+          <div style={{fontWeight:700,fontSize:18}}>Sarah El-Masry</div>
+          <div style={{color:'var(--text-secondary)',fontSize:13,marginTop:4}}>Licensed Agent · New Cairo Branch</div>
+          <span className="badge badge-success" style={{marginTop:12}}>Approved</span>
+          <div style={{marginTop:16,fontSize:12,color:'var(--text-tertiary)'}}>MLS ID: EGMLS-287451</div>
+          <button className="btn btn-primary btn-sm" style={{marginTop:14}} onClick={editProfile}>Edit Profile</button>
+        </div>
+        <div style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,padding:24}}>
+          <h3 style={{fontWeight:700,marginBottom:16}}>Personal Information</h3>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            {[['Full Name','Sarah El-Masry'],['Email','sarah@homesbrokerage.eg'],['Phone','+20 100 123 4567'],['Branch','New Cairo'],['Department','Sales'],['Manager','Karim Mostafa'],['Team','Alpha'],['Join Date','2024-01-01']].map(([l,v])=>(
+              <div key={l}><div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',marginBottom:4}}>{l}</div><div style={{fontWeight:500}}>{v}</div></div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export const AgentPerformance = () => (
-  <div className="animate-fade-in">
-    <div className="page-header">
-      <h1 className="page-title">Performance Metrics</h1>
-      <p className="page-subtitle">Your sales activity and productivity — Live from CRM</p>
-    </div>
-    
-    <div className="kpi-grid kpi-grid-4" style={{ marginBottom: 24 }}>
-      <div className="kpi-card">
-        <div><div className="kpi-label">Leads Assigned</div><div className="kpi-value">0</div></div>
-        <div className="kpi-icon gray"><Briefcase size={20} /></div>
-      </div>
-      <div className="kpi-card">
-        <div><div className="kpi-label">Tours Completed</div><div className="kpi-value">0</div></div>
-        <div className="kpi-icon gray"><MapPin size={20} /></div>
-      </div>
-      <div className="kpi-card">
-        <div><div className="kpi-label">Deals Closed</div><div className="kpi-value">0</div></div>
-        <div className="kpi-icon gray"><CheckCircle size={20} /></div>
-      </div>
-      <div className="kpi-card">
-        <div><div className="kpi-label">Commission Ratio</div><div className="kpi-value">0%</div></div>
-        <div className="kpi-icon gray"><TrendingUp size={20} /></div>
-      </div>
-    </div>
-    
-    <div className="info-banner" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <AlertCircle size={18} />
-      <span>Performance data will populate once CRM access is granted and leads are assigned to your account.</span>
-    </div>
-  </div>
-);
-
-export const AgentProfile = () => (
-  <div className="animate-fade-in">
-    <div className="page-header">
-      <h1 className="page-title">Personal Profile</h1>
-      <p className="page-subtitle">Manage your account and verified credentials</p>
-    </div>
-
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
-      <div className="data-panel" style={{ padding: 32, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'linear-gradient(135deg, #EB5A28, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 800, color: '#fff', marginBottom: 20, boxShadow: '0 8px 16px rgba(235,90,40,0.2)' }}>SE</div>
-        <h2 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>Sarah El-Masry</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Senior Licensed Agent</p>
-        <div className="badge badge-success" style={{ marginTop: 16, padding: '8px 16px' }}>Verified Professional</div>
-        <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-color)', width: '100%', fontSize: 12, color: 'var(--text-tertiary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>MLS ID</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>EGMLS-287451</span></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Member Since</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Jan 2024</span></div>
-        </div>
-      </div>
-      
-      <div className="data-panel" style={{ padding: 32 }}>
-        <h3 className="section-title" style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <User size={18} className="orange" /> Professional Information
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-          {[
-            { label: 'Full Name', value: 'Sarah El-Masry', icon: <User size={14} /> },
-            { label: 'Email Address', value: 'sarah@homesbrokerage.eg', icon: <Mail size={14} /> },
-            { label: 'Phone Number', value: '+20 100 123 4567', icon: <Phone size={14} /> },
-            { label: 'Home Branch', value: 'New Cairo Headquarters', icon: <MapPin size={14} /> },
-            { label: 'Department', value: 'Residential Sales', icon: <Briefcase size={14} /> },
-            { label: 'Reports To', value: 'Karim Mostafa (Team Lead)', icon: <ShieldCheck size={14} /> },
-          ].map((item) => (
-            <div key={item.label}>
-              <div className="kpi-label" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                {item.icon} {item.label}
-              </div>
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-        <button className="btn btn-primary" style={{ marginTop: 32 }}>Request Information Update</button>
-      </div>
-    </div>
-  </div>
-);
-
+// ─────────── Documents (agent self-service) ───────────
 export const AgentDocuments = () => {
-  const handleAction = (doc) => alert(`Initiating upload for ${doc}...`);
+  const { state, updateItem, openModal, toast, writeAudit } = useApp();
+
+  const upload = (d) => openModal({
+    title: `Upload — ${d.doc}`, subtitle: 'Accepted: PDF, JPG, PNG · Max 10MB',
+    submitLabel: 'Upload',
+    body: (
+      <>
+        <Field label="File">
+          <div style={{padding:24,border:'2px dashed var(--border)',borderRadius:8,textAlign:'center',background:'#fafbfc',color:'var(--text-secondary)'}}>
+            <Upload size={20} /> <div style={{marginTop:6,fontSize:12}}>Drag & drop or click to select<br/><span style={{fontSize:10,color:'var(--text-tertiary)'}}>(simulation — file is not actually uploaded)</span></div>
+          </div>
+        </Field>
+        <Field label="Notes" name="notes" type="textarea" placeholder="Optional notes for backoffice review…" />
+      </>
+    ),
+    onSubmit: () => {
+      updateItem('agentDocs', d.id, { status: 'Pending', date: today() }, { action: 'Document Uploaded', module: 'Agent Self-Service', target: d.id });
+      toast(`${d.doc} uploaded — pending backoffice review`);
+    },
+  });
 
   return (
-    <div className="animate-fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">Digital Vault</h1>
-          <p className="page-subtitle">Upload and manage your required professional compliance documents</p>
-        </div>
-        <div className="badge badge-warning" style={{ padding: '8px 16px' }}>2 Documents Required</div>
+    <div>
+      <h1 className="page-title">Documents</h1>
+      <p className="page-subtitle" style={{marginBottom:24}}>Upload and manage your required documents</p>
+      <div className="kpi-grid kpi-grid-3" style={{marginBottom:24}}>
+        <div className="kpi-card"><div><div className="kpi-label">Approved</div><div className="kpi-value">{state.agentDocs.filter(d=>d.status==='Approved').length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>✅</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Pending</div><div className="kpi-value">{state.agentDocs.filter(d=>d.status==='Pending').length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Total Required</div><div className="kpi-value">{state.agentDocs.length}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📄</span></div></div>
       </div>
-
-      <div className="kpi-grid kpi-grid-3" style={{ marginBottom: 32 }}>
-        <div className="kpi-card">
-          <div><div className="kpi-label">Verified</div><div className="kpi-value">7</div></div>
-          <div className="kpi-icon green"><CheckCircle size={20} /></div>
-        </div>
-        <div className="kpi-card">
-          <div><div className="kpi-label">Pending Action</div><div className="kpi-value">2</div></div>
-          <div className="kpi-icon amber"><Clock3 size={20} /></div>
-        </div>
-        <div className="kpi-card">
-          <div><div className="kpi-label">Compliance Status</div><div className="kpi-value" style={{ fontSize: 18 }}>92% Clear</div></div>
-          <div className="kpi-icon blue"><ShieldCheck size={20} /></div>
-        </div>
-      </div>
-
       <div className="data-panel">
         <div className="data-scroll">
           <table className="data-table">
-            <thead>
-              <tr>
-                <th>Document Name</th>
-                <th>Category</th>
-                <th>Verification Status</th>
-                <th>Last Update</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Document</th><th>Type</th><th>Status</th><th>Upload Date</th><th style={{textAlign:'right'}}>Action</th></tr></thead>
             <tbody>
-              {[
-                ['National ID (Front & Back)', 'Identity', 'Approved', 'Jan 14, 2024'],
-                ['Personal Tax Card', 'Financial', 'Approved', 'Jan 14, 2024'],
-                ['Valid RERA License', 'Regulatory', 'Approved', 'Jan 12, 2024'],
-                ['Master Brokerage Agreement', 'Legal', 'Approved', 'Jan 10, 2024'],
-                ['Clean Criminal Record', 'Legal', 'Approved', 'Jan 08, 2024'],
-                ['Official Bank Details', 'Financial', 'Approved', 'Jan 08, 2024'],
-                ['Professional Profile Photo', 'Identity', 'Approved', 'Jan 05, 2024'],
-                ['Proof of Residential Address', 'Identity', 'Pending', '—'],
-                ['Professional Indemnity Insurance', 'Financial', 'Pending', '—']
-              ].map(([doc, type, status, date]) => (
-                <tr key={doc}>
-                  <td className="bold">{doc}</td>
-                  <td className="muted">{type}</td>
-                  <td>
-                    <span className={`badge ${status === 'Approved' ? 'badge-success' : 'badge-warning'}`}>{status}</span>
-                  </td>
-                  <td className="muted">{date}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    {status === 'Pending' ? (
-                      <button className="btn btn-primary btn-sm" onClick={() => handleAction(doc)}>Upload Now</button>
-                    ) : (
-                      <button className="btn btn-outline btn-sm" onClick={() => alert(`Downloading ${doc}...`)}>Download</button>
-                    )}
-                  </td>
+              {state.agentDocs.map(d => (
+                <tr key={d.id}>
+                  <td className="bold">{d.doc}</td>
+                  <td>{d.type}</td>
+                  <td><span className={`badge ${d.status==='Approved'?'badge-success':'badge-warning'}`}>{d.status}</span></td>
+                  <td className="muted">{d.date}</td>
+                  <td style={{textAlign:'right'}}>{d.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>upload(d)}><Upload size={13}/> Upload</button>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <button className="btn btn-primary" style={{ marginTop: 32 }}>Request Information Update</button>
       </div>
     </div>
   );
+};
+
+// ─────────── Notifications (Platform §3.10 — categorized panel) ───────────
+// Categories: Tasks · Lead updates · System alerts · Approval requests
+// Meeting (line 31): "Notifications will include over due tasks and needed updates"
+const CAT_META = {
+  task:     { label: 'Tasks',             icon: '📋', tint: 'var(--warning-bg)',  color: 'var(--warning)' },
+  lead:     { label: 'Lead Updates',      icon: '🎯', tint: 'var(--info-bg)',     color: 'var(--info)' },
+  system:   { label: 'System Alerts',     icon: '🛡️', tint: '#f3f4f6',            color: 'var(--text-secondary)' },
+  approval: { label: 'Approval Requests', icon: '✋', tint: 'var(--brand-tint)',   color: 'var(--brand)' },
+};
+// Categorize each notification — fall back to 'system' if not provided.
+const categorize = (n) => {
+  if (n.category) return n.category;
+  const t = (n.text || '').toLowerCase();
+  if (t.includes('overdue') || t.includes('task') || t.includes('due')) return 'task';
+  if (t.includes('lead') || t.includes('deal') || t.includes('reassign')) return 'lead';
+  if (t.includes('approve') || t.includes('approval') || t.includes('override')) return 'approval';
+  return 'system';
 };
 
 export const AgentNotifications = () => {
-  const handleAction = (text) => alert(`Action taken for: ${text}`);
+  const { state, removeItem, toast } = useApp();
+  const [activeCat, setActiveCat] = useState('all');
+
+  const dismiss = (n) => { removeItem('agentNotifications', n.id, { action: 'Notification Dismissed', module: 'Agent', target: n.id }); toast('Notification dismissed','info'); };
+  const dismissAll = () => { state.agentNotifications.forEach(n => removeItem('agentNotifications', n.id)); toast('All notifications cleared','info'); };
+
+  // Demo: synthesize a couple of overdue/approval entries on top of the persisted ones to illustrate categories.
+  const synthesized = [
+    { id: 'syn-overdue', category: 'task', text: 'Task overdue: Follow up with Mohamed Hassan (L-1001)', time: '15 min ago', type: 'warning' },
+    { id: 'syn-deal',    category: 'lead', text: 'Deal D-503 closed — commission queued for finance', time: '1 hour ago', type: 'success' },
+    { id: 'syn-approval',category: 'approval', text: 'Commission override for D-503 awaiting Sales Director approval', time: '2 hours ago', type: 'info' },
+  ];
+  const merged = [...synthesized, ...state.agentNotifications].map(n => ({ ...n, category: categorize(n) }));
+
+  const counts = merged.reduce((a,n)=>{a[n.category]=(a[n.category]||0)+1; return a;},{});
+  const filtered = activeCat === 'all' ? merged : merged.filter(n=>n.category===activeCat);
 
   return (
-    <div className="animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">Notification Hub</h1>
-        <p className="page-subtitle">Stay updated on your compliance, leads, and platform activity</p>
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+        <div>
+          <h1 className="page-title">Notifications</h1>
+          <p className="page-subtitle">Tasks · Lead updates · System alerts · Approval requests — Platform §3.10</p>
+        </div>
+        {state.agentNotifications.length > 0 && <button className="btn btn-outline btn-sm" onClick={dismissAll}>Clear All</button>}
       </div>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {[
-          { text: 'Your National ID has been successfully verified by Compliance', time: '2 hours ago', type: 'success', icon: <CheckCircle size={18} /> },
-          { text: 'Training module "Anti-Money Laundering" is due for completion in 3 days', time: '5 hours ago', type: 'warning', icon: <Clock3 size={18} /> },
-          { text: 'System Welcome: Complete your onboarding journey to unlock CRM access', time: '1 day ago', type: 'info', icon: <AlertCircle size={18} /> },
-          { text: 'MLS ID verification is currently in progress with EGMLS', time: '2 days ago', type: 'info', icon: <ShieldCheck size={18} /> },
-          { text: 'Urgent: Please upload your "Proof of Address" document for account validation', time: '3 days ago', type: 'warning', icon: <AlertCircle size={18} /> },
-        ].map((n, i) => (
-          <div key={i} className={`alert-card ${n.type === 'warning' ? 'warning' : n.type === 'success' ? 'success' : 'info'}`} style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: `4px solid ${n.type === 'success' ? 'var(--success)' : n.type === 'warning' ? 'var(--warning)' : 'var(--accent)'}`, background: '#fff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ color: n.type === 'success' ? 'var(--success)' : n.type === 'warning' ? 'var(--warning)' : 'var(--accent)' }}>{n.icon}</div>
-              <div>
-                <div className="alert-card-text" style={{ fontWeight: 600, fontSize: 14 }}>{n.text}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>{n.time}</div>
+
+      <div className="tabs" style={{marginBottom:18}}>
+        <button className={`tab ${activeCat==='all'?'active':''}`} onClick={()=>setActiveCat('all')}>All ({merged.length})</button>
+        {Object.entries(CAT_META).map(([k,m])=>(
+          <button key={k} className={`tab ${activeCat===k?'active':''}`} onClick={()=>setActiveCat(k)}>{m.icon} {m.label} ({counts[k]||0})</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 && <div className="empty-state">No notifications in this category.</div>}
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {filtered.map(n=>{
+          const meta = CAT_META[n.category];
+          return (
+            <div key={n.id} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:10,padding:'14px 16px',display:'flex',gap:12,alignItems:'flex-start',borderLeft:`4px solid ${meta.color}`}}>
+              <div style={{width:32,height:32,borderRadius:8,background:meta.tint,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14}}>{meta.icon}</div>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+                  <div style={{fontSize:11,fontWeight:800,color:meta.color,textTransform:'uppercase',letterSpacing:'.06em'}}>{meta.label}</div>
+                  <span style={{fontSize:11,color:'var(--text-tertiary)'}}>{n.time}</span>
+                </div>
+                <div style={{fontSize:13.5,color:'var(--text-primary)',marginTop:4}}>{n.text}</div>
+                <div style={{marginTop:8,display:'flex',gap:8}}>
+                  {n.category === 'approval' && <button className="btn btn-primary btn-sm" onClick={()=>{toast('Approval recorded','success'); !n.id.startsWith('syn-') && dismiss(n);}}>Approve</button>}
+                  {n.category === 'task' && <button className="btn btn-outline btn-sm" onClick={()=>{toast('Task acknowledged','info');}}>Acknowledge</button>}
+                  {!n.id.startsWith('syn-') && <button className="btn btn-outline btn-sm" onClick={()=>dismiss(n)}><X size={12}/> Dismiss</button>}
+                </div>
               </div>
             </div>
-            <span className="alert-card-action" onClick={() => handleAction(n.text)}>Mark as Read</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 };
 
+// ─────────── Help & Support ───────────
 export const AgentHelp = () => {
-  const handleTicket = () => alert('Opening ticket creation form...');
+  const { state, addItem, openModal, toast } = useApp();
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const newTicket = () => openModal({
+    title: 'New Support Ticket', submitLabel: 'Submit ticket',
+    body: (
+      <>
+        <FieldRow>
+          <Field label="Subject" name="subject" required />
+          <Field label="Category" name="category" type="select" required options={['Operations','IT Support','Finance','HR','Other']} />
+        </FieldRow>
+        <Field label="Priority" name="priority" type="select" required options={['Low','Medium','High']} defaultValue="Medium" />
+        <Field label="Description" name="desc" type="textarea" rows={4} placeholder="Describe the issue…" required />
+      </>
+    ),
+    onSubmit: (data) => {
+      const c = addItem('supportTickets', { ...data, status: 'Open', created: today() }, 'TKT', { action: 'Ticket Opened', module: 'Support', detail: data.subject });
+      toast(`Ticket ${c.id} opened`);
+    },
+  });
+
+  const faqs = [
+    { q: 'How do I request CRM access?', a: 'CRM access is automatically granted once all required training courses are completed and your background check is approved by HR.' },
+    { q: 'When are commissions paid?', a: 'Commissions are processed in two cycles: the 10th and 25th of each month, provided the developer has cleared the payment.' },
+    { q: 'Who do I contact for MLS ID issues?', a: 'Please open a support ticket from this page and route it to the "Operations" department.' },
+    { q: 'How do I update my bank details?', a: 'Go to Profile → Edit Profile → Bank Details. Updates require HR approval before taking effect on your next payout.' },
+  ];
 
   return (
-    <div className="animate-fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
         <div>
-          <h1 className="page-title">Support Center</h1>
-          <p className="page-subtitle">FAQs, onboarding guides, and dedicated support ticket management</p>
+          <h1 className="page-title">Help & Support</h1>
+          <p className="page-subtitle">FAQs, onboarding guides, and ticket management</p>
         </div>
-        <button className="btn btn-primary" onClick={handleTicket}>+ Open New Ticket</button>
+        <button className="btn btn-primary" onClick={newTicket}><Plus size={14}/> New Ticket</button>
+      </div>
+      <div className="kpi-grid kpi-grid-3" style={{marginBottom:24}}>
+        <div className="kpi-card"><div><div className="kpi-label">Open Tickets</div><div className="kpi-value">{state.supportTickets.filter(t=>t.status==='Open').length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🎫</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Resolved Tickets</div><div className="kpi-value">{state.supportTickets.filter(t=>t.status==='Resolved').length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>✅</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Avg Response Time</div><div className="kpi-value">2h</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>⏱️</span></div></div>
       </div>
 
-      <div className="kpi-grid kpi-grid-3" style={{ marginBottom: 32 }}>
-        <div className="kpi-card">
-          <div><div className="kpi-label">Active Tickets</div><div className="kpi-value">1</div></div>
-          <div className="kpi-icon amber"><MessageSquare size={20} /></div>
-        </div>
-        <div className="kpi-card">
-          <div><div className="kpi-label">Resolved Cases</div><div className="kpi-value">4</div></div>
-          <div className="kpi-icon green"><CheckCircle size={20} /></div>
-        </div>
-        <div className="kpi-card">
-          <div><div className="kpi-label">Avg. Response</div><div className="kpi-value">2.4h</div></div>
-          <div className="kpi-icon blue"><Clock3 size={20} /></div>
+      <h3 style={{fontSize:15,fontWeight:700,marginBottom:12}}>My Tickets</h3>
+      <div className="data-panel" style={{marginBottom:24}}>
+        <div className="data-scroll">
+          <table className="data-table">
+            <thead><tr><th>ID</th><th>Subject</th><th>Category</th><th>Priority</th><th>Created</th><th>Status</th></tr></thead>
+            <tbody>{state.supportTickets.map(t=>(
+              <tr key={t.id}>
+                <td className="muted">{t.id}</td>
+                <td className="bold">{t.subject}</td>
+                <td>{t.category}</td>
+                <td><span className={`badge ${t.priority==='High'?'badge-danger':t.priority==='Medium'?'badge-warning':'badge-info'}`}>{t.priority}</span></td>
+                <td className="muted">{t.created}</td>
+                <td><span className={`badge ${t.status==='Open'?'badge-warning':'badge-success'}`}>{t.status}</span></td>
+              </tr>
+            ))}</tbody>
+          </table>
         </div>
       </div>
 
-      <div className="data-panel" style={{ padding: 32 }}>
-        <h3 className="section-title" style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <HelpCircle size={18} className="orange" /> Knowledge Base & FAQs
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {[
-            { q: 'How do I request CRM access?', a: 'CRM access is automatically granted once all required training courses are completed and your background check is approved by HR and Compliance.' },
-            { q: 'When are commissions paid?', a: 'Commissions are processed in two monthly cycles: the 10th and 25th, provided the developer has cleared the underlying payment.' },
-            { q: 'Who do I contact for MLS ID issues?', a: 'Please open a support ticket from this page and route it specifically to the "Operations & Systems" department.' },
-          ].map((faq, i) => (
-            <div key={i} style={{ padding: 20, border: '1px solid var(--border-color)', borderRadius: 12, background: 'var(--content-bg)' }}>
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, fontSize: 15 }}>{faq.q}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>{faq.a}</div>
+      <h3 style={{fontSize:15,fontWeight:700,marginBottom:12}}>Frequently Asked Questions</h3>
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {faqs.map((f,i) => (
+          <div key={i} style={{padding:'14px 18px',background:'#fff',border:'1px solid var(--border)',borderRadius:8,cursor:'pointer'}} onClick={()=>setOpenFaq(openFaq === i ? null : i)}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontWeight:600,fontSize:13.5}}>{f.q}</div>
+              <span style={{fontSize:18,color:'var(--text-tertiary)'}}>{openFaq===i ? '−' : '+'}</span>
             </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 32, textAlign: 'center' }}>
-          <button className="btn btn-outline" onClick={() => alert('Opening Full Help Center...')}>
-            <ExternalLink size={16} style={{ marginRight: 8 }} /> View Full Documentation
-          </button>
-        </div>
+            {openFaq===i && <div style={{marginTop:10,fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{f.a}</div>}
+          </div>
+        ))}
       </div>
     </div>
   );

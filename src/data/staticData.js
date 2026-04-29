@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA
+// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA (BRD V1.3 ALIGNED)
 // ═══════════════════════════════════════════════════════════════
 
 // ── PERSONAS ──
@@ -12,8 +12,8 @@ export const PERSONAS = {
   marketingAdmin: { label: "Marketing Admin", scope: "Marketplace and campaigns", hub: "backoffice", email: "marketing@homesbrokerage.eg" },
   executive: { label: "Executive / CEO", scope: "Corporate visibility", hub: "backoffice", email: "ceo@homesbrokerage.eg" },
   systemAdmin: { label: "System Admin", scope: "Platform configuration", hub: "backoffice", email: "sysadmin@homesbrokerage.eg" },
-  agent: { label: "Sarah El-Masry", scope: "Licensed Agent · New Cairo Branch", hub: "agent", email: "sarah@homesbrokerage.eg", mls: "EGMLS-287451", role: "Licensed Agent" },
-  teamLeader: { label: "Omar Sherif", scope: "Team Leader · Alpha Team", hub: "agent", email: "omar@homesbrokerage.eg", role: "Team Leader" },
+  agent: { label: "Sarah El-Masry", scope: "Licensed Agent · New Cairo Branch", hub: "agent", email: "sarah@homesbrokerage.eg", mls: "Pending", role: "Licensed Agent (Onboarding)", onboardingComplete: false },
+  teamLeader: { label: "Omar Sherif", scope: "Team Leader · Alpha Team", hub: "agent", email: "omar@homesbrokerage.eg", mls: "EGMLS-287451", role: "Team Leader", onboardingComplete: true },
 };
 
 // ── DEPARTMENTS ──
@@ -29,14 +29,14 @@ export const DEPARTMENTS = [
 
 // ── STAFF / EMPLOYEES ──
 export const STAFF = [
-  { id: "A001", name: "Ahmed Hassan", department: "Sales", title: "Senior Sales Executive", branch: "New Cairo", manager: "Karim Mostafa", status: "Active", type: "Employee" },
-  { id: "A002", name: "Fatma Ibrahim", department: "Sales", title: "Sales Agent", branch: "6th October", manager: "Omar Sherif", status: "Active", type: "Employee" },
-  { id: "A003", name: "Mohamed Ali", department: "Sales", title: "Team Leader", branch: "Sheikh Zayed", manager: "Tarek Amin", status: "Active", type: "Team Leader" },
-  { id: "A004", name: "Nour El-Din", department: "Sales", title: "Sales Manager", branch: "New Cairo", manager: "CEO", status: "Active", type: "Sales Manager" },
-  { id: "A005", name: "Yasmin Adel", department: "Sales", title: "Sales Agent", branch: "Heliopolis", manager: "Karim Mostafa", status: "Suspended", type: "Employee" },
-  { id: "A006", name: "Karim Mostafa", department: "Sales", title: "Sales Manager", branch: "New Cairo", manager: "CEO", status: "Active", type: "Sales Manager" },
-  { id: "A007", name: "Hana Mahmoud", department: "Sales", title: "Junior Sales", branch: "6th October", manager: "Omar Sherif", status: "Pending", type: "Employee" },
-  { id: "A008", name: "Omar Sherif", department: "Sales", title: "Team Leader", branch: "6th October", manager: "Nour El-Din", status: "Active", type: "Team Leader" },
+  { id: "A001", name: "Ahmed Hassan", department: "Sales", title: "Senior Sales Executive", branch: "New Cairo", manager: "Karim Mostafa", status: "Active", type: "Employee", email: "ahmed@homesbrokerage.eg", phone: "+20 100 111 0001", joinDate: "2023-06-01" },
+  { id: "A002", name: "Fatma Ibrahim", department: "Sales", title: "Sales Agent", branch: "6th October", manager: "Omar Sherif", status: "Active", type: "Employee", email: "fatma@homesbrokerage.eg", phone: "+20 100 111 0002", joinDate: "2023-07-15" },
+  { id: "A003", name: "Mohamed Ali", department: "Sales", title: "Team Leader", branch: "Sheikh Zayed", manager: "Tarek Amin", status: "Active", type: "Team Leader", email: "mali@homesbrokerage.eg", phone: "+20 100 111 0003", joinDate: "2022-03-10" },
+  { id: "A004", name: "Nour El-Din", department: "Sales", title: "Sales Manager", branch: "New Cairo", manager: "CEO", status: "Active", type: "Sales Manager", email: "nour@homesbrokerage.eg", phone: "+20 100 111 0004", joinDate: "2021-09-01" },
+  { id: "A005", name: "Yasmin Adel", department: "Sales", title: "Sales Agent", branch: "Heliopolis", manager: "Karim Mostafa", status: "Suspended", type: "Employee", email: "yasmin@homesbrokerage.eg", phone: "+20 100 111 0005", joinDate: "2023-11-20" },
+  { id: "A006", name: "Karim Mostafa", department: "Sales", title: "Sales Manager", branch: "New Cairo", manager: "CEO", status: "Active", type: "Sales Manager", email: "karim@homesbrokerage.eg", phone: "+20 100 111 0006", joinDate: "2021-05-01" },
+  { id: "A007", name: "Hana Mahmoud", department: "Sales", title: "Junior Sales", branch: "6th October", manager: "Omar Sherif", status: "Pending", type: "Employee", email: "hana@homesbrokerage.eg", phone: "+20 100 111 0007", joinDate: "2024-01-10" },
+  { id: "A008", name: "Omar Sherif", department: "Sales", title: "Team Leader", branch: "6th October", manager: "Nour El-Din", status: "Active", type: "Team Leader", email: "omar@homesbrokerage.eg", phone: "+20 100 111 0008", joinDate: "2022-08-15" },
 ];
 
 // ── LEADS ──
@@ -182,3 +182,188 @@ export const MARKETPLACE_STATS = {
     { name: "Madinaty", inquiries: 380, tours: 95, deals: 4 },
   ],
 };
+
+// ── EXCEPTIONS (BRD 10.4) ──
+export const EXCEPTIONS = [
+  { id:'EXC-001', type:'Commission Dispute', title:'Unauthorized discount on North Edge deal', severity:'Critical', reporter:'Nour El-Din', assignee:'Finance Team', status:'Open', created:'2024-01-15' },
+  { id:'EXC-002', type:'Training Overdue', title:'3 agents have overdue mandatory training', severity:'High', reporter:'System', assignee:'HR Team', status:'Open', created:'2024-01-14' },
+  { id:'EXC-003', type:'Document Missing', title:'Brokerage agreement missing for Yasmin Adel', severity:'Medium', reporter:'Backoffice', assignee:'Yasmin Adel', status:'Pending', created:'2024-01-12' },
+  { id:'EXC-004', type:'Access Violation', title:'Attempt to access restricted financial data', severity:'Critical', reporter:'System', assignee:'System Admin', status:'Resolved', created:'2024-01-10' },
+  { id:'EXC-005', type:'Data Quality', title:'Duplicate lead flagged for manual review', severity:'Low', reporter:'CRM System', assignee:'Sales Ops', status:'Open', created:'2024-01-16' },
+  { id:'EXC-006', type:'SLA Breach', title:'Lead response time exceeded 4-hour SLA', severity:'High', reporter:'System', assignee:'Karim Mostafa', status:'Resolved', created:'2024-01-11' },
+];
+
+// ── FINANCE ──
+export const DEALS_REV = [
+  { id:'DL001', unit:'PH-BAD-A101', developer:'Palm Hills', agent:'Ahmed Hassan', price:4500000, revenue:90000, status:'Approved' },
+  { id:'DL002', unit:'EM-VIL-B205', developer:'SODIC', agent:'Fatma Ibrahim', price:6200000, revenue:124000, status:'Pending' },
+  { id:'DL003', unit:'MV-IC-C310', developer:'Mountain View', agent:'Mohamed Ali', price:3800000, revenue:76000, status:'Paid' },
+  { id:'DL004', unit:'ORA-ZED-D102', developer:'Ora Developers', agent:'Sara Nabil', price:5100000, revenue:102000, status:'Approved' },
+  { id:'DL005', unit:'CE-NC-E201', developer:'City Edge', agent:'Dina Samir', price:2900000, revenue:58000, status:'Pending' },
+  { id:'DL006', unit:'TM-OW-F305', developer:'Ora Developers', agent:'Ahmed Hassan', price:7800000, revenue:156000, status:'Paid' },
+  { id:'DL007', unit:'SD-EST-G110', developer:'SODIC', agent:'Mohamed Ali', price:9200000, revenue:184000, status:'Approved' },
+];
+
+export const COMM_ENGINE = [
+  { id:'CE-01', deal:'PH-BAD-A101', agent:'Ahmed Hassan', pool:135000, agentShare:45000, tlShare:13500, companyShare:76500, status:'Approved' },
+  { id:'CE-02', deal:'EM-VIL-B205', agent:'Fatma Ibrahim', pool:186000, agentShare:62000, tlShare:18600, companyShare:105400, status:'Pending' },
+  { id:'CE-03', deal:'MV-IC-C310', agent:'Mohamed Ali', pool:114000, agentShare:38000, tlShare:11400, companyShare:64600, status:'Paid' },
+  { id:'CE-04', deal:'ORA-ZED-D102', agent:'Sara Nabil', pool:153000, agentShare:51000, tlShare:15300, companyShare:86700, status:'Approved' },
+  { id:'CE-05', deal:'CE-NC-E201', agent:'Dina Samir', pool:87000, agentShare:29000, tlShare:8700, companyShare:49300, status:'Pending' },
+  { id:'CE-06', deal:'TM-OW-F305', agent:'Ahmed Hassan', pool:234000, agentShare:78000, tlShare:23400, companyShare:132600, status:'Paid' },
+  { id:'CE-07', deal:'SD-EST-G110', agent:'Mohamed Ali', pool:276000, agentShare:92000, tlShare:27600, companyShare:156400, status:'Approved' },
+];
+
+export const AGENT_DUES = [
+  { id:'AD-01', agent:'Ahmed Hassan', totalEarned:123000, paid:78000, pending:45000, status:'Partial' },
+  { id:'AD-02', agent:'Fatma Ibrahim', totalEarned:62000, paid:0, pending:62000, status:'Unpaid' },
+  { id:'AD-03', agent:'Mohamed Ali', totalEarned:130000, paid:38000, pending:92000, status:'Partial' },
+  { id:'AD-04', agent:'Sara Nabil', totalEarned:51000, paid:51000, pending:0, status:'Cleared' },
+  { id:'AD-05', agent:'Dina Samir', totalEarned:29000, paid:0, pending:29000, status:'Unpaid' },
+  { id:'AD-06', agent:'Hana Mahmoud', totalEarned:0, paid:0, pending:0, status:'No Deals' },
+];
+
+export const PAYROLL = [
+  { id:'PAY-01', name:'Ahmed Hassan', title:'Senior Sales Executive', base:18000, commission:37500, deductions:3200, net:52300, period:'January 2024', status:'Approved' },
+  { id:'PAY-02', name:'Mohamed Ali', title:'Team Leader', base:25000, commission:66000, deductions:4500, net:86500, period:'January 2024', status:'Approved' },
+  { id:'PAY-03', name:'Nour El-Din', title:'Sales Manager', base:35000, commission:135000, deductions:6200, net:163800, period:'January 2024', status:'Draft' },
+  { id:'PAY-04', name:'Omar Sherif', title:'Team Leader', base:22000, commission:54000, deductions:3800, net:72200, period:'January 2024', status:'Approved' },
+  { id:'PAY-05', name:'Sara Nabil', title:'Sales Executive', base:15000, commission:28500, deductions:2800, net:40700, period:'January 2024', status:'Paid' },
+  { id:'PAY-06', name:'Hana Mahmoud', title:'Junior Sales', base:12000, commission:0, deductions:2100, net:9900, period:'January 2024', status:'Draft' },
+];
+
+// ── MASTER DATA ──
+export const DEVELOPERS = [
+  { id:'DEV-001', name:'Palm Hills', country:'Egypt', projects:12, status:'Active' },
+  { id:'DEV-002', name:'Ora Developers', country:'Egypt', projects:8, status:'Active' },
+  { id:'DEV-003', name:'SODIC', country:'Egypt', projects:6, status:'Active' },
+  { id:'DEV-004', name:'Mountain View', country:'Egypt', projects:10, status:'Active' },
+  { id:'DEV-005', name:'Hyde Park', country:'Egypt', projects:4, status:'Active' },
+  { id:'DEV-006', name:'Talaat Moustafa', country:'Egypt', projects:15, status:'Active' },
+  { id:'DEV-007', name:'City Edge', country:'Egypt', projects:5, status:'Active' },
+  { id:'DEV-008', name:'Better Home', country:'Egypt', projects:3, status:'Pending' },
+];
+
+export const COMPOUNDS = [
+  { id:'CMP-001', name:'New Cairo Compounds', developer:'Multiple', city:'New Cairo', projects:8, status:'Active' },
+  { id:'CMP-002', name:'North Coast Resorts', developer:'Multiple', city:'North Coast', projects:5, status:'Active' },
+  { id:'CMP-003', name:'6th October Zone', developer:'Multiple', city:'6th October', projects:4, status:'Active' },
+  { id:'CMP-004', name:'Sheikh Zayed', developer:'Multiple', city:'Sheikh Zayed', projects:3, status:'Active' },
+];
+
+export const UNIT_TYPES = [
+  { id:'UT-001', name:'Apartment', category:'Residential', status:'Active' },
+  { id:'UT-002', name:'Villa', category:'Residential', status:'Active' },
+  { id:'UT-003', name:'Townhouse', category:'Residential', status:'Active' },
+  { id:'UT-004', name:'Duplex', category:'Residential', status:'Active' },
+  { id:'UT-005', name:'Penthouse', category:'Residential', status:'Active' },
+  { id:'UT-006', name:'Chalet', category:'Resort', status:'Active' },
+  { id:'UT-007', name:'Twin House', category:'Residential', status:'Active' },
+  { id:'UT-008', name:'Studio', category:'Residential', status:'Active' },
+];
+
+export const CITIES = [
+  { id:'CTY-001', name:'Cairo', region:'Greater Cairo', areas:15, status:'Active' },
+  { id:'CTY-002', name:'Giza', region:'Greater Cairo', areas:8, status:'Active' },
+  { id:'CTY-003', name:'Alexandria', region:'North Coast', areas:6, status:'Active' },
+  { id:'CTY-004', name:'North Coast', region:'Coastal', areas:12, status:'Active' },
+  { id:'CTY-005', name:'Ain Sokhna', region:'Red Sea', areas:4, status:'Active' },
+];
+
+export const AREAS = [
+  { id:'AR-001', name:'New Cairo', city:'Cairo', projects:12, status:'Active' },
+  { id:'AR-002', name:'6th October', city:'Giza', projects:8, status:'Active' },
+  { id:'AR-003', name:'Sheikh Zayed', city:'Giza', projects:6, status:'Active' },
+  { id:'AR-004', name:'Heliopolis', city:'Cairo', projects:3, status:'Active' },
+  { id:'AR-005', name:'Maadi', city:'Cairo', projects:2, status:'Active' },
+  { id:'AR-006', name:'Sahel', city:'North Coast', projects:10, status:'Active' },
+];
+
+export const BRANCHES = [
+  { id:'BR-001', name:'New Cairo HQ', city:'New Cairo', manager:'Nour El-Din', staff:18, status:'Active' },
+  { id:'BR-002', name:'6th October', city:'6th October', manager:'Omar Sherif', staff:8, status:'Active' },
+  { id:'BR-003', name:'Sheikh Zayed', city:'Sheikh Zayed', manager:'Mohamed Ali', staff:6, status:'Active' },
+  { id:'BR-004', name:'Heliopolis', city:'Heliopolis', manager:'—', staff:0, status:'Planned' },
+];
+
+export const TEAMS = [
+  { id:'TM-001', name:'Alpha', department:'Sales', leader:'Karim Mostafa', members:5, status:'Active' },
+  { id:'TM-002', name:'Beta', department:'Sales', leader:'Omar Sherif', members:4, status:'Active' },
+  { id:'TM-003', name:'Gamma', department:'Sales', leader:'Mohamed Ali', members:3, status:'Active' },
+];
+
+export const EMPLOYMENT_CATEGORIES = [
+  { id:'EC-001', name:'Licensed Agent', desc:'Full licensed real estate agent', status:'Active' },
+  { id:'EC-002', name:'Trainee Agent', desc:'Agent in training period', status:'Active' },
+  { id:'EC-003', name:'Team Leader', desc:'Sales team leadership role', status:'Active' },
+  { id:'EC-004', name:'Sales Manager', desc:'Senior sales management', status:'Active' },
+  { id:'EC-005', name:'Backoffice Staff', desc:'Administrative and operations', status:'Active' },
+];
+
+export const PAYOUT_CYCLES = [
+  { id:'PC-001', name:'Monthly Agent Payout', frequency:'Monthly', nextDate:'2024-02-01', status:'Active' },
+  { id:'PC-002', name:'Quarterly TL Bonus', frequency:'Quarterly', nextDate:'2024-04-01', status:'Active' },
+  { id:'PC-003', name:'Annual Performance', frequency:'Annually', nextDate:'2025-01-01', status:'Scheduled' },
+];
+
+export const EXPENSE_CATEGORIES = [
+  { id:'EX-001', name:'Office Rent', type:'Fixed', budget:'EGP 45,000/mo', status:'Active' },
+  { id:'EX-002', name:'Marketing', type:'Variable', budget:'EGP 80,000/mo', status:'Active' },
+  { id:'EX-003', name:'Staff Salaries', type:'Fixed', budget:'EGP 127,000/mo', status:'Active' },
+  { id:'EX-004', name:'Utilities', type:'Fixed', budget:'EGP 8,000/mo', status:'Active' },
+  { id:'EX-005', name:'Training', type:'Variable', budget:'EGP 15,000/mo', status:'Active' },
+];
+
+export const LEAD_SOURCES = [
+  { id:'LS-001', name:'Website', status:'Active' },
+  { id:'LS-002', name:'Social Media', status:'Active' },
+  { id:'LS-003', name:'Referral', status:'Active' },
+  { id:'LS-004', name:'Walk-in', status:'Active' },
+  { id:'LS-005', name:'Developer Event', status:'Active' },
+  { id:'LS-006', name:'Cold Call', status:'Active' },
+  { id:'LS-007', name:'Property Fair', status:'Active' },
+  { id:'LS-008', name:'Campaign', status:'Active' },
+  { id:'LS-009', name:'Marketplace', status:'Active' },
+];
+
+// ── AGENT NOTIFICATIONS ──
+export const AGENT_NOTIFICATIONS = [
+  { id:'N-001', text:'Your National ID has been approved', time:'2 hours ago', type:'success' },
+  { id:'N-002', text:'Training module "Anti-Money Laundering" is due in 3 days', time:'5 hours ago', type:'warning' },
+  { id:'N-003', text:'Welcome to Homes! Complete your onboarding checklist to get started.', time:'1 day ago', type:'info' },
+  { id:'N-004', text:'Your MLS ID verification is in progress. Estimated: 2-3 business days.', time:'2 days ago', type:'info' },
+  { id:'N-005', text:'Please upload your Proof of Address document', time:'3 days ago', type:'warning' },
+];
+
+// ── AGENT DOCUMENTS (personal) ──
+export const AGENT_DOCS = [
+  { id:'AD-001', doc:'National ID', type:'Identity', status:'Approved', date:'2024-01-14' },
+  { id:'AD-002', doc:'Tax Card', type:'Financial', status:'Approved', date:'2024-01-14' },
+  { id:'AD-003', doc:'RERA License', type:'Regulatory', status:'Approved', date:'2024-01-12' },
+  { id:'AD-004', doc:'Brokerage Agreement', type:'Legal', status:'Approved', date:'2024-01-10' },
+  { id:'AD-005', doc:'Criminal Record', type:'Legal', status:'Approved', date:'2024-01-08' },
+  { id:'AD-006', doc:'Bank Details', type:'Financial', status:'Approved', date:'2024-01-08' },
+  { id:'AD-007', doc:'Profile Photo', type:'Identity', status:'Approved', date:'2024-01-05' },
+  { id:'AD-008', doc:'Proof of Address', type:'Identity', status:'Pending', date:'—' },
+  { id:'AD-009', doc:'Insurance', type:'Financial', status:'Pending', date:'—' },
+];
+
+// ── SUPPORT TICKETS (Agent Help) ──
+export const SUPPORT_TICKETS = [
+  { id:'TKT-001', subject:'MLS ID activation delay', category:'Operations', priority:'High', status:'Open', created:'2024-01-16' },
+  { id:'TKT-002', subject:'CRM login issue', category:'IT Support', priority:'Medium', status:'Resolved', created:'2024-01-12' },
+  { id:'TKT-003', subject:'Commission inquiry — D-501', category:'Finance', priority:'Low', status:'Resolved', created:'2024-01-10' },
+  { id:'TKT-004', subject:'Profile photo upload error', category:'IT Support', priority:'Low', status:'Resolved', created:'2024-01-08' },
+  { id:'TKT-005', subject:'Payout schedule clarification', category:'Finance', priority:'Low', status:'Resolved', created:'2024-01-05' },
+];
+
+// ── REFERENCE LISTS ──
+export const STAGES = ['New', 'Contacted', 'Qualified', 'Tour Scheduled', 'Negotiation', 'Reservation', 'Contracting', 'Closed Won', 'Closed Lost'];
+export const PRIORITIES = ['Hot', 'Warm', 'Cold'];
+export const SOURCES = ['Marketplace', 'Referral', 'Walk-in', 'Campaign', 'Cold Call', 'Property Fair'];
+export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'Finance'];
+export const TASK_STATUS = ['Pending', 'Completed', 'Overdue'];
+export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Interview Pending', 'Missing Documents', 'Training Pending', 'Approved', 'Rejected'];
+export const DOC_STATUS = ['Pending Review', 'Approved', 'Rejected', 'Missing'];
+export const CANDIDATE_STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Rejected'];
+export const JOB_STATUS = ['Draft', 'Published', 'Closed'];

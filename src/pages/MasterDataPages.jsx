@@ -1,119 +1,197 @@
-import React, { useState } from 'react';
-import { Eye, Pencil, Search, Plus } from 'lucide-react';
+import React from 'react';
+import { useApp } from '../context/AppContext';
+import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
+import { Eye, Pencil, Trash2, Plus, Download } from 'lucide-react';
 
-const MasterTable = ({ title, subtitle, breadcrumb, columns, data, addLabel }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const today = () => new Date().toISOString().split('T')[0];
 
-  const filteredData = data.filter(row => 
-    row.some(cell => 
-      typeof cell === 'string' && cell.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+const StatusBadge = ({ value }) => {
+  const v = String(value || '').toLowerCase();
+  const cls = v==='active'||v==='published'?'badge-success':v==='draft'||v==='planned'||v==='scheduled'?'badge-gray':v==='pending'?'badge-warning':v==='inactive'?'badge-danger':'badge-info';
+  return <span className={`badge ${cls}`}>{value}</span>;
+};
 
-  const handleAction = (action, row) => {
-    alert(`${action} triggered for ${row[1] || 'item'}`);
-  };
+const renderCell = (col, row) => {
+  const v = row[col.key];
+  if (col.key === 'status') return <StatusBadge value={v} />;
+  if (col.key === 'override' && typeof v === 'boolean') return v ? <span className="badge badge-warning">Yes</span> : <span className="badge badge-gray">No</span>;
+  return v;
+};
+
+/**
+ * Generic master-data CRUD table — one component drives every master entity.
+ */
+const MasterTable = ({ title, breadcrumb, subtitle, slice, prefix, columns, fields, module='Backoffice' }) => {
+  const { state, addItem, updateItem, removeItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
+  const data = state[slice] || [];
+  const { q, setQ, filtered } = useTableState(data, { searchKeys: columns.map(c=>c.key) });
+
+  const openForm = (existing) => openModal({
+    title: existing ? `Edit ${breadcrumb} — ${existing.name || existing.id}` : `Add ${breadcrumb}`,
+    submitLabel: existing ? 'Save changes' : 'Create',
+    body: (
+      <>
+        {fields.map((row, ri) => (
+          <FieldRow key={ri}>
+            {row.map(f => (
+              <Field key={f.name} label={f.label} name={f.name} type={f.type || 'text'} required={f.required}
+                options={f.options} defaultValue={existing?.[f.name] ?? f.default ?? ''} />
+            ))}
+          </FieldRow>
+        ))}
+      </>
+    ),
+    onSubmit: (data) => {
+      // Coerce numbers
+      fields.flat().forEach(f => { if (f.type === 'number') data[f.name] = Number(data[f.name]) || 0; });
+      if (existing) { updateItem(slice, existing.id, data, { action: `${breadcrumb} Updated`, module, target: existing.id }); toast(`${breadcrumb} updated`); }
+      else { const c = addItem(slice, data, prefix, { action: `${breadcrumb} Created`, module, detail: data.name }); toast(`${breadcrumb} created · ${c.id}`); }
+    },
+  });
+
+  const view = (row) => openDrawer({
+    title: row.name || row.id, subtitle: `${row.id}`,
+    content: (<div className="detail-grid">
+      {Object.entries(row).map(([k,v])=>(
+        <div key={k}><label>{k}</label><div className="v">{typeof v === 'boolean' ? (v?'Yes':'No') : (v||'—')}</div></div>
+      ))}
+    </div>),
+  });
+
+  const remove = (row) => openConfirm({
+    title: `Delete ${breadcrumb}?`, message: `Permanently remove ${row.name || row.id}.`, danger: true, confirmLabel: 'Delete',
+    onConfirm: () => { removeItem(slice, row.id, { action: `${breadcrumb} Deleted`, module }); toast(`${row.name || row.id} removed`,'warning'); },
+  });
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <div className="page-header">
-        <div className="page-breadcrumb">
-          <span>Dashboard</span><span>&gt;</span><span>Master Data</span><span>&gt;</span><span className="current">{breadcrumb}</span>
-        </div>
+        <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Master Data</span><span>&gt;</span><span className="current">{breadcrumb}</span></div>
         <h1 className="page-title">{title}</h1>
         <p className="page-subtitle">{subtitle}</p>
       </div>
       <div className="data-panel">
         <div className="data-toolbar">
           <div className="data-toolbar-left">
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                className="data-search" 
-                placeholder={`Search ${title.toLowerCase()}...`} 
-                style={{ paddingLeft: 44 }}
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
+            <input className="data-search" placeholder={`Search ${title.toLowerCase()}…`} value={q} onChange={e=>setQ(e.target.value)} />
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => alert(`Adding new ${breadcrumb}...`)}>
-            <Plus size={14} /> {addLabel || `Add ${breadcrumb}`}
-          </button>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn btn-outline" onClick={()=>{exportCSV(`${slice}_${today()}`, filtered); toast(`Exported ${filtered.length}`); writeAudit('Export', `${title} CSV`, module);}}><Download size={14}/> Export</button>
+            <button className="btn btn-primary" onClick={()=>openForm(null)}><Plus size={14}/> Add {breadcrumb}</button>
+          </div>
         </div>
         <div className="data-scroll">
           <table className="data-table">
-            <thead>
-              <tr>
-                {columns.map(c => <th key={c}>{c}</th>)}
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
+            <thead><tr>{columns.map(c=><th key={c.key}>{c.label}</th>)}<th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>
-              {filteredData.length > 0 ? filteredData.map((row, i) => (
-                <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j} className={j === 0 ? 'muted' : j === 1 ? 'bold' : ''}>
-                      {cell}
-                    </td>
-                  ))}
-                  <td>
-                    <div className="action-icons" style={{ justifyContent: 'flex-end' }}>
-                      <span className="action-icon" onClick={() => handleAction('View', row)} title="View"><Eye size={16} /></span>
-                      <span className="action-icon" onClick={() => handleAction('Edit', row)} title="Edit"><Pencil size={16} /></span>
-                    </div>
-                  </td>
+              {filtered.map(row => (
+                <tr key={row.id}>
+                  {columns.map((c,i) => <td key={c.key} className={i===0 ? 'muted' : c.bold ? 'bold' : ''}>{renderCell(c, row)}</td>)}
+                  <td><div className="action-icons" style={{justifyContent:'flex-end'}}>
+                    <span className="action-icon" title="View" onClick={()=>view(row)}><Eye size={16}/></span>
+                    <span className="action-icon" title="Edit" onClick={()=>openForm(row)}><Pencil size={16}/></span>
+                    <span className="action-icon" title="Delete" onClick={()=>remove(row)}><Trash2 size={16}/></span>
+                  </div></td>
                 </tr>
-              )) : (
-                <tr>
-                  <td colSpan={columns.length + 1} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
-                    No results found.
-                  </td>
-                </tr>
-              )}
+              ))}
             </tbody>
           </table>
+          {filtered.length === 0 && <Empty />}
         </div>
       </div>
     </div>
   );
 };
 
-export const Developers = () => <MasterTable title="Developers" subtitle="Manage developer partners — Property" breadcrumb="Developers" addLabel="Add Developer" columns={['#','Name','Country','Projects','Status']}
-  data={[['1','Palm Hills','Egypt','12',<span className="badge badge-success">Active</span>],['2','Ora Developers','Egypt','8',<span className="badge badge-success">Active</span>],['3','SODIC','Egypt','6',<span className="badge badge-success">Active</span>],['4','Mountain View','Egypt','10',<span className="badge badge-success">Active</span>],['5','Hyde Park','Egypt','4',<span className="badge badge-success">Active</span>],['6','Talaat Moustafa','Egypt','15',<span className="badge badge-success">Active</span>],['7','City Edge','Egypt','5',<span className="badge badge-success">Active</span>],['8','Better Home','Egypt','3',<span className="badge badge-warning">Pending</span>]]}/>;
+const STATUS_OPTS = ['Active','Inactive','Pending'];
 
-export const MasterProjects = () => <MasterTable title="Projects" subtitle="Manage project inventory — Property" breadcrumb="Projects" addLabel="Add Project" columns={['#','Project','Developer','Location','Units','Status']}
-  data={[['1','Palm Hills New Cairo','Palm Hills','New Cairo','450',<span className="badge badge-success">Published</span>],['2','ZED East','Ora Developers','New Cairo','680',<span className="badge badge-success">Published</span>],['3','Hacienda Bay','Palm Hills','North Coast','320',<span className="badge badge-success">Published</span>],['4','Madinaty','Talaat Moustafa','New Cairo','1200',<span className="badge badge-success">Published</span>],['5','Hyde Park','Hyde Park','New Cairo','580',<span className="badge badge-success">Published</span>],['6','Sodic West','SODIC','Sheikh Zayed','290',<span className="badge badge-gray">Draft</span>]]}/>;
+export const Developers = () => <MasterTable
+  title="Developers" breadcrumb="Developer" subtitle="Manage developer partners — Property"
+  slice="developers" prefix="DEV"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Name',bold:true},{key:'country',label:'Country'},{key:'projects',label:'Projects'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'country',label:'Country',default:'Egypt'}],[{name:'projects',label:'Projects',type:'number',default:0},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const Compounds = () => <MasterTable title="Compounds" subtitle="Manage compound groupings — Property" breadcrumb="Compounds" addLabel="Add Compound" columns={['#','Compound','Developer','City','Projects','Status']}
-  data={[['1','New Cairo Compounds','Multiple','New Cairo','8',<span className="badge badge-success">Active</span>],['2','North Coast Resorts','Multiple','North Coast','5',<span className="badge badge-success">Active</span>],['3','6th October Zone','Multiple','6th October','4',<span className="badge badge-success">Active</span>],['4','Sheikh Zayed','Multiple','Sheikh Zayed','3',<span className="badge badge-success">Active</span>]]}/>;
+export const MasterProjects = () => <MasterTable
+  title="Projects" breadcrumb="Project" subtitle="Manage project inventory — Property"
+  slice="projects" prefix="PRJ"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Project',bold:true},{key:'developer',label:'Developer'},{key:'location',label:'Location'},{key:'units',label:'Units'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'developer',label:'Developer',required:true}],[{name:'location',label:'Location'},{name:'units',label:'Units',type:'number'}],[{name:'available',label:'Available',type:'number'},{name:'priceFrom',label:'Price From (EGP)',type:'number'}],[{name:'type',label:'Type',type:'select',options:['Compound','Mixed-Use','Resort','Township']},{name:'status',label:'Status',type:'select',options:['Published','Draft'],default:'Draft'}]]}
+/>;
 
-export const UnitTypes = () => <MasterTable title="Unit Types" subtitle="Manage unit type classifications — Property" breadcrumb="Unit Types" addLabel="Add Unit Type" columns={['#','Type','Category','Status']}
-  data={[['1','Apartment','Residential',<span className="badge badge-success">Active</span>],['2','Villa','Residential',<span className="badge badge-success">Active</span>],['3','Townhouse','Residential',<span className="badge badge-success">Active</span>],['4','Duplex','Residential',<span className="badge badge-success">Active</span>],['5','Penthouse','Residential',<span className="badge badge-success">Active</span>],['6','Chalet','Resort',<span className="badge badge-success">Active</span>],['7','Twin House','Residential',<span className="badge badge-success">Active</span>],['8','Studio','Residential',<span className="badge badge-success">Active</span>]]}/>;
+export const Compounds = () => <MasterTable
+  title="Compounds" breadcrumb="Compound" subtitle="Manage compound groupings — Property"
+  slice="compounds" prefix="CMP"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Compound',bold:true},{key:'developer',label:'Developer'},{key:'city',label:'City'},{key:'projects',label:'Projects'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'developer',label:'Developer'}],[{name:'city',label:'City'},{name:'projects',label:'Projects',type:'number'}],[{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const Cities = () => <MasterTable title="Cities" subtitle="Manage city locations — Location" breadcrumb="Cities" addLabel="Add City" columns={['#','City','Region','Areas','Status']}
-  data={[['1','Cairo','Greater Cairo','15',<span className="badge badge-success">Active</span>],['2','Giza','Greater Cairo','8',<span className="badge badge-success">Active</span>],['3','Alexandria','North Coast','6',<span className="badge badge-success">Active</span>],['4','North Coast','Coastal','12',<span className="badge badge-success">Active</span>],['5','Ain Sokhna','Red Sea','4',<span className="badge badge-success">Active</span>]]}/>;
+export const UnitTypes = () => <MasterTable
+  title="Unit Types" breadcrumb="Unit Type" subtitle="Manage unit type classifications — Property"
+  slice="unitTypes" prefix="UT"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Type',bold:true},{key:'category',label:'Category'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'category',label:'Category',type:'select',options:['Residential','Resort','Commercial']}],[{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const AreasDistricts = () => <MasterTable title="Areas / Districts" subtitle="Manage area subdivisions — Location" breadcrumb="Areas / Districts" addLabel="Add Area" columns={['#','Area','City','Projects','Status']}
-  data={[['1','New Cairo','Cairo','12',<span className="badge badge-success">Active</span>],['2','6th October','Giza','8',<span className="badge badge-success">Active</span>],['3','Sheikh Zayed','Giza','6',<span className="badge badge-success">Active</span>],['4','Heliopolis','Cairo','3',<span className="badge badge-success">Active</span>],['5','Maadi','Cairo','2',<span className="badge badge-success">Active</span>],['6','Sahel','North Coast','10',<span className="badge badge-success">Active</span>]]}/>;
+export const Cities = () => <MasterTable
+  title="Cities" breadcrumb="City" subtitle="Manage city locations — Location"
+  slice="cities" prefix="CTY"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'City',bold:true},{key:'region',label:'Region'},{key:'areas',label:'Areas'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'region',label:'Region'}],[{name:'areas',label:'Areas',type:'number'},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const Branches = () => <MasterTable title="Branches" subtitle="Manage office branches — Organization" breadcrumb="Branches" addLabel="Add Branch" columns={['#','Branch','City','Manager','Staff','Status']}
-  data={[['1','New Cairo HQ','New Cairo','Nour El-Din','18',<span className="badge badge-success">Active</span>],['2','6th October','6th October','Omar Sherif','8',<span className="badge badge-success">Active</span>],['3','Sheikh Zayed','Sheikh Zayed','Mohamed Ali','6',<span className="badge badge-success">Active</span>],['4','Heliopolis','Heliopolis','—','0',<span className="badge badge-warning">Planned</span>]]}/>;
+export const AreasDistricts = () => <MasterTable
+  title="Areas / Districts" breadcrumb="Area" subtitle="Manage area subdivisions — Location"
+  slice="areas" prefix="AR"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Area',bold:true},{key:'city',label:'City'},{key:'projects',label:'Projects'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'city',label:'City'}],[{name:'projects',label:'Projects',type:'number'},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const Teams = () => <MasterTable title="Teams" subtitle="Manage sales teams — Organization" breadcrumb="Teams" addLabel="Add Team" columns={['#','Team','Department','Leader','Members','Status']}
-  data={[['1','Alpha','Sales','Karim Mostafa','5',<span className="badge badge-success">Active</span>],['2','Beta','Sales','Omar Sherif','4',<span className="badge badge-success">Active</span>],['3','Gamma','Sales','Mohamed Ali','3',<span className="badge badge-success">Active</span>]]}/>;
+export const Branches = () => <MasterTable
+  title="Branches" breadcrumb="Branch" subtitle="Manage office branches — Organization"
+  slice="branches" prefix="BR"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Branch',bold:true},{key:'city',label:'City'},{key:'manager',label:'Manager'},{key:'staff',label:'Staff'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'city',label:'City'}],[{name:'manager',label:'Manager'},{name:'staff',label:'Staff Count',type:'number'}],[{name:'status',label:'Status',type:'select',options:['Active','Planned','Inactive'],default:'Active'}]]}
+/>;
 
-export const EmploymentCategories = () => <MasterTable title="Employment Categories" subtitle="Manage employment classifications — Organization" breadcrumb="Employment Categories" addLabel="Add Category" columns={['#','Category','Description','Status']}
-  data={[['1','Licensed Agent','Full licensed real estate agent',<span className="badge badge-success">Active</span>],['2','Trainee Agent','Agent in training period',<span className="badge badge-success">Active</span>],['3','Team Leader','Sales team leadership role',<span className="badge badge-success">Active</span>],['4','Sales Manager','Senior sales management',<span className="badge badge-success">Active</span>],['5','Backoffice Staff','Administrative and operations',<span className="badge badge-success">Active</span>]]}/>;
+export const Teams = () => <MasterTable
+  title="Teams" breadcrumb="Team" subtitle="Manage sales teams — Organization"
+  slice="teams" prefix="TM"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Team',bold:true},{key:'department',label:'Department'},{key:'leader',label:'Leader'},{key:'members',label:'Members'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'department',label:'Department',default:'Sales'}],[{name:'leader',label:'Leader'},{name:'members',label:'Members',type:'number'}],[{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const MasterCommPolicies = () => <MasterTable title="Commission Policies" subtitle="Manage commission rate policies — Finance & Sales" breadcrumb="Commission Policies" addLabel="Add Policy" columns={['#','Developer','Project','Rate','Override','Status']}
-  data={[['1','Palm Hills','Palm Hills New Cairo','2.0%','No',<span className="badge badge-success">Active</span>],['2','Ora','ZED East','2.0%','No',<span className="badge badge-success">Active</span>],['3','Hyde Park','Hyde Park NC','1.8%','No',<span className="badge badge-success">Active</span>],['4','Palm Hills','Hacienda Bay','2.2%',<span className="badge badge-warning">Yes</span>,<span className="badge badge-success">Active</span>],['5','TMG','Madinaty','1.5%','No',<span className="badge badge-success">Active</span>]]}/>;
+export const EmploymentCategories = () => <MasterTable
+  title="Employment Categories" breadcrumb="Category" subtitle="Manage employment classifications — Organization"
+  slice="employmentCategories" prefix="EC"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Category',bold:true},{key:'desc',label:'Description'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true}],[{name:'desc',label:'Description',type:'textarea'}],[{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const PayoutCycles = () => <MasterTable title="Payout Cycles" subtitle="Manage payout schedule cycles — Finance & Sales" breadcrumb="Payout Cycles" addLabel="Add Cycle" columns={['#','Cycle','Frequency','Next Date','Status']}
-  data={[['1','Monthly Agent Payout','Monthly','2024-02-01',<span className="badge badge-success">Active</span>],['2','Quarterly TL Bonus','Quarterly','2024-04-01',<span className="badge badge-success">Active</span>],['3','Annual Performance','Annually','2025-01-01',<span className="badge badge-gray">Scheduled</span>]]}/>;
+export const MasterCommPolicies = () => <MasterTable
+  title="Commission Policies" breadcrumb="Policy" subtitle="Manage commission rate policies — Finance & Sales"
+  slice="commissionPolicies" prefix="COM" module="Finance"
+  columns={[{key:'id',label:'ID'},{key:'developer',label:'Developer',bold:true},{key:'project',label:'Project'},{key:'rate',label:'Rate %'},{key:'override',label:'Override'},{key:'status',label:'Status'}]}
+  fields={[[{name:'developer',label:'Developer',required:true},{name:'project',label:'Project',required:true}],[{name:'rate',label:'Rate %',type:'number',default:2.0},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
 
-export const ExpenseCategories = () => <MasterTable title="Expense Categories" subtitle="Manage expense classifications — Finance & Sales" breadcrumb="Expense Categories" addLabel="Add Category" columns={['#','Category','Type','Budget','Status']}
-  data={[['1','Office Rent','Fixed','EGP 45,000/mo',<span className="badge badge-success">Active</span>],['2','Marketing','Variable','EGP 80,000/mo',<span className="badge badge-success">Active</span>],['3','Staff Salaries','Fixed','EGP 127,000/mo',<span className="badge badge-success">Active</span>],['4','Utilities','Fixed','EGP 8,000/mo',<span className="badge badge-success">Active</span>],['5','Training','Variable','EGP 15,000/mo',<span className="badge badge-success">Active</span>]]}/>;
+export const PayoutCycles = () => <MasterTable
+  title="Payout Cycles" breadcrumb="Cycle" subtitle="Manage payout schedule cycles — Finance & Sales"
+  slice="payoutCycles" prefix="PC" module="Finance"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Cycle',bold:true},{key:'frequency',label:'Frequency'},{key:'nextDate',label:'Next Date'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'frequency',label:'Frequency',type:'select',options:['Monthly','Quarterly','Annually']}],[{name:'nextDate',label:'Next Date',type:'date'},{name:'status',label:'Status',type:'select',options:['Active','Scheduled'],default:'Active'}]]}
+/>;
 
-export const LeadSources = () => <MasterTable title="Lead Sources" subtitle="Manage lead sources — Other" breadcrumb="Lead Sources" addLabel="Add Lead Source" columns={['#','Name','Actions']}
-  data={[['1','Website'],['2','Social Media'],['3','Referral'],['4','Walk-in'],['5','Developer Event'],['6','Cold Call'],['7','Property Fair'],['8','Campaign'],['9','Marketplace']]}/>;
+export const ExpenseCategories = () => <MasterTable
+  title="Expense Categories" breadcrumb="Category" subtitle="Manage expense classifications — Finance & Sales"
+  slice="expenseCategories" prefix="EX" module="Finance"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Category',bold:true},{key:'type',label:'Type'},{key:'budget',label:'Budget'},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'type',label:'Type',type:'select',options:['Fixed','Variable']}],[{name:'budget',label:'Budget'},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;
+
+export const LeadSources = () => <MasterTable
+  title="Lead Sources" breadcrumb="Source" subtitle="Manage lead sources — Other"
+  slice="leadSources" prefix="LS"
+  columns={[{key:'id',label:'ID'},{key:'name',label:'Name',bold:true},{key:'status',label:'Status'}]}
+  fields={[[{name:'name',label:'Name',required:true},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
+/>;

@@ -1,15 +1,31 @@
 import React from 'react';
-import { TRAINING } from '../data/staticData';
-import { CheckCircle, Play, Lock, ExternalLink, GraduationCap } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { CheckCircle, Play, Lock, ExternalLink } from 'lucide-react';
 
 export const AgentLearning = () => {
-  const required = TRAINING.filter(c => c.required);
-  const optional = TRAINING.filter(c => !c.required);
-  const completed = required.filter(c => c.status === 'Completed').length;
+  const { state, updateItem, openConfirm, openModal, toast, writeAudit } = useApp();
+  const required = state.training.filter(c=>c.required);
+  const optional = state.training.filter(c=>!c.required);
+  const completed = required.filter(c=>c.status==='Completed').length;
 
-  const handleAction = (title) => {
-    alert(`Opening ${title} in Microsoft Viva Learning...`);
+  const launchViva = (c) => {
+    toast(`Opening ${c.title} in Viva Learning…`, 'info');
+    writeAudit('Course Opened', c.id, 'Training', c.title);
+    // simulate progress bump
+    if (c.progress < 100) {
+      setTimeout(() => {
+        const newProgress = Math.min(100, c.progress + 15);
+        const newStatus = newProgress >= 100 ? 'Completed' : 'In Progress';
+        updateItem('training', c.id, { progress: newProgress, status: newStatus, score: newStatus === 'Completed' ? 90 : c.score }, { action: 'Course Progress', module: 'Training', target: c.id, detail: `${c.progress}% → ${newProgress}%` });
+        toast(`${c.title} → ${newProgress}%`);
+      }, 800);
+    }
   };
+
+  const startCourse = (c) => openConfirm({
+    title: `Start "${c.title}"?`, message: 'You will be redirected to Microsoft Viva Learning. Progress will sync back automatically.',
+    onConfirm: () => launchViva(c),
+  });
 
   return (
     <div className="animate-fade-in">
@@ -52,18 +68,9 @@ export const AgentLearning = () => {
               </div>
             </div>
             <div>
-              {c.status === 'Completed' ? (
-                <span className="badge badge-success" style={{ padding: '6px 12px' }}>Completed</span>
-              ) : c.status === 'Locked' ? (
-                <div style={{ textAlign: 'right' }}>
-                  <span className="badge badge-gray" style={{ marginBottom: 4 }}>Locked</span>
-                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Unlock after MLS verification</div>
-                </div>
-              ) : (
-                <button className="btn btn-primary btn-sm" onClick={() => handleAction(c.title)}>
-                  <ExternalLink size={14} style={{ marginRight: 6 }} /> Continue
-                </button>
-              )}
+              {c.status==='Completed'?<span className="badge badge-success">Completed</span>:
+               c.status==='Locked'?<span style={{fontSize:13,color:'var(--text-tertiary)'}}>Locked</span>:
+               <button className="btn btn-outline btn-sm" onClick={()=>launchViva(c)}><ExternalLink size={14}/>Continue in Viva</button>}
             </div>
           </div>
         ))}
@@ -89,9 +96,7 @@ export const AgentLearning = () => {
                 </div>
               </div>
             </div>
-            <button className="btn btn-outline btn-sm" onClick={() => handleAction(c.title)}>
-              {c.progress > 0 ? 'Resume' : 'Start Course'}
-            </button>
+            <button className="btn btn-outline btn-sm" onClick={()=>c.progress>0 ? launchViva(c) : startCourse(c)}>{c.progress>0?'Continue':'Start'}</button>
           </div>
         ))}
       </div>
