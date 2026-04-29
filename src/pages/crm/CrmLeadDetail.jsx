@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { LEADS, DEALS, TASKS, TOURS, LISTING_SHARES, CONTRACTS, BUYER_PREFERENCES, SOURCE_HISTORY, DUPLICATE_CANDIDATES, ASSIGNMENT_LOG, STAGES, CRM_ACTIVITY } from '../../data/staticData';
+import { STAGES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Phone, Mail, MapPin, Edit, UserPlus, Calendar, Share2, FileText, AlertTriangle, CheckCircle, Clock, User, Home, Target, MessageSquare, ChevronRight, Star, X } from 'lucide-react';
 
@@ -10,24 +10,35 @@ const priorityColor = p => p==='Hot'?'badge-danger':p==='Warm'?'badge-warning':'
 export const CrmLeadDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useApp();
+  const { state, addItem, updateItem, toast } = useApp();
   const [tab, setTab] = useState('overview');
   const [showReassign, setShowReassign] = useState(false);
+  const [showTourAdd, setShowTourAdd] = useState(false);
+  const [showPrefAdd, setShowPrefAdd] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
-  const lead = LEADS.find(l => l.id === id);
+  const { leads=[], deals=[], tasks=[], tours=[], listingShares=[], contracts=[], buyerPreferences=[], sourceHistory=[], duplicateCandidates=[], assignmentLog=[] } = state;
+
+  const lead = leads.find(l => l.id === id);
   if (!lead) return <div style={{padding:40,textAlign:'center'}}><h2>Lead not found</h2><button className="btn btn-brand" onClick={()=>navigate('/system/crm/leads')}>Back to Leads</button></div>;
 
-  const prefs = BUYER_PREFERENCES.find(p => p.leadId === id);
-  const sourceHist = SOURCE_HISTORY.find(s => s.leadId === id);
-  const duplicates = DUPLICATE_CANDIDATES.filter(d => d.leadId === id);
-  const assignments = ASSIGNMENT_LOG.filter(a => a.leadId === id);
-  const linkedDeals = DEALS.filter(d => d.lead === lead.name);
-  const linkedTasks = TASKS.filter(t => t.lead === id);
-  const linkedTours = TOURS.filter(t => t.leadId === id);
-  const linkedShares = LISTING_SHARES.filter(s => s.leadId === id);
-  const linkedContracts = CONTRACTS.filter(c => linkedDeals.some(d => d.id === c.dealId));
+  const prefs = buyerPreferences.find(p => p.leadId === id);
+  const sourceHist = sourceHistory.find(s => s.leadId === id);
+  const duplicates = duplicateCandidates.filter(d => d.leadId === id);
+  const assignments = assignmentLog.filter(a => a.leadId === id);
+  const linkedDeals = deals.filter(d => d.leadName === lead.name);
+  const linkedTasks = tasks.filter(t => t.lead === id);
+  const linkedTours = tours.filter(t => t.leadId === id || t.leadName === lead.name);
+  const linkedShares = listingShares.filter(s => s.leadId === id || s.leadName === lead.name);
+  const linkedContracts = contracts.filter(c => linkedDeals.some(d => d.id === c.dealId));
 
   const stageIdx = STAGES.indexOf(lead.stage);
+
+  // Forms
+  const [reassignForm, setReassignForm] = useState({toAgent:'Ahmed Hassan', reason:'Territory reassignment'});
+  const [tourForm, setTourForm] = useState({property:'', date:'', time:'', agent:'Fatma Ibrahim'});
+  const [prefForm, setPrefForm] = useState({propertyTypes:'Apartment', locations:'New Cairo', bedrooms:'3', bathrooms:'2', budgetMin:'5000000', budgetMax:'10000000', timeline:'Within 3 months', notes:''});
+  const [editForm, setEditForm] = useState({name:lead.name, phone:lead.phone||'', email:lead.email||'', stage:lead.stage, priority:lead.priority, budget:lead.budget||''});
 
   const tabs = [
     { id:'overview', label:'Overview', icon:<User size={14}/> },
@@ -63,9 +74,9 @@ export const CrmLeadDetail = () => {
             </div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>toast('Edit modal would open','info')}><Edit size={14}/> Edit</button>
+            <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowEdit(true)}><Edit size={14}/> Edit</button>
             <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowReassign(true)}><UserPlus size={14}/> Reassign</button>
-            <button className="btn btn-brand btn-sm" onClick={()=>toast('Tour scheduling','info')}><Calendar size={14}/> Schedule Tour</button>
+            <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)}><Calendar size={14}/> Schedule Tour</button>
           </div>
         </div>
 
@@ -150,7 +161,7 @@ export const CrmLeadDetail = () => {
               </div>
             </div>
           </div>
-        ) : <div className="data-panel" style={{padding:40,textAlign:'center'}}><Home size={32} color="var(--text-tertiary)"/><p style={{color:'var(--text-secondary)',marginTop:12}}>No buyer preferences recorded yet</p><button className="btn btn-brand" onClick={()=>toast('Add preferences modal','info')}>Add Preferences</button></div>
+        ) : <div className="data-panel" style={{padding:40,textAlign:'center'}}><Home size={32} color="var(--text-tertiary)"/><p style={{color:'var(--text-secondary)',marginTop:12}}>No buyer preferences recorded yet</p><button className="btn btn-brand" onClick={()=>setShowPrefAdd(true)}>Add Preferences</button></div>
       )}
 
       {/* Tab: Activity */}
@@ -246,8 +257,8 @@ export const CrmLeadDetail = () => {
               </div>
               {d.status==='Pending'&&(
                 <div style={{display:'flex',gap:8,marginTop:12}}>
-                  <button className="btn btn-brand btn-sm" onClick={()=>toast('Merge functionality','info')}>Merge Records</button>
-                  <button className="btn btn-outline btn-sm" onClick={()=>toast('Dismissed','info')}>Dismiss</button>
+                  <button className="btn btn-brand btn-sm" onClick={()=>{updateItem('duplicateCandidates',d.id,{status:'Merged'}); updateItem('leads',lead.id,{duplicate:'Merged',notes:(lead.notes||'')+'\nMerged with candidate '+d.matchedName}); toast('Duplicate merged','success');}}>Merge Records</button>
+                  <button className="btn btn-outline btn-sm" onClick={()=>{updateItem('duplicateCandidates',d.id,{status:'Dismissed'}); toast('Duplicate candidate dismissed','success');}}>Dismiss</button>
                 </div>
               )}
             </div>
@@ -259,10 +270,47 @@ export const CrmLeadDetail = () => {
       {showReassign&&<div className="modal-overlay" onClick={()=>setShowReassign(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:420}}><div className="modal-header"><h3>Reassign Lead</h3><button className="btn-icon" onClick={()=>setShowReassign(false)}><X size={18}/></button></div>
         <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:16}}>
           <div className="form-group"><label>Current Owner</label><input type="text" value={lead.owner||'Unassigned'} disabled/></div>
-          <div className="form-group"><label>Assign To</label><select><option>Select Agent…</option><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
-          <div className="form-group"><label>Reason</label><select><option>Territory reassignment</option><option>Workload balancing</option><option>Specialization match</option><option>Manager override</option></select></div>
+          <div className="form-group"><label>Assign To</label><select value={reassignForm.toAgent} onChange={e=>setReassignForm({...reassignForm,toAgent:e.target.value})}><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
+          <div className="form-group"><label>Reason</label><select value={reassignForm.reason} onChange={e=>setReassignForm({...reassignForm,reason:e.target.value})}><option>Territory reassignment</option><option>Workload balancing</option><option>Specialization match</option><option>Manager override</option></select></div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowReassign(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{toast('Lead reassigned','success');setShowReassign(false);}}>Reassign</button></div></div></div>}
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowReassign(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{updateItem('leads',lead.id,{owner:reassignForm.toAgent}); addItem('assignmentLog',{leadId:lead.id,fromAgent:lead.owner,toAgent:reassignForm.toAgent,date:new Date().toISOString().split('T')[0],reason:reassignForm.reason,approver:'System'},'ASG'); toast('Lead reassigned','success');setShowReassign(false);}}>Reassign</button></div></div></div>}
+
+      {/* Schedule Tour Modal */}
+      {showTourAdd&&<div className="modal-overlay" onClick={()=>setShowTourAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Schedule Tour</h3><button className="btn-icon" onClick={()=>setShowTourAdd(false)}><X size={18}/></button></div>
+        <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div className="form-group"><label>Lead</label><input type="text" value={lead.name} disabled/></div>
+          <div className="form-group"><label>Listing</label><select value={tourForm.property} onChange={e=>setTourForm({...tourForm,property:e.target.value})}><option value="">Select Listing…</option><option>Palm Hills V101</option><option>ZED East A205</option><option>Hyde Park TH-B304</option></select></div>
+          <div className="form-group"><label>Date</label><input type="date" value={tourForm.date} onChange={e=>setTourForm({...tourForm,date:e.target.value})}/></div>
+          <div className="form-group"><label>Time</label><input type="time" value={tourForm.time} onChange={e=>setTourForm({...tourForm,time:e.target.value})}/></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select value={tourForm.agent} onChange={e=>setTourForm({...tourForm,agent:e.target.value})}><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
+        </div>
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowTourAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{addItem('tours',{leadId:lead.id,leadName:lead.name,property:tourForm.property,date:tourForm.date,time:tourForm.time,agent:tourForm.agent,status:'Scheduled',rating:null,feedback:''},'TR'); toast('Tour scheduled','success');setShowTourAdd(false);}}>Schedule Tour</button></div></div></div>}
+
+      {/* Add Preferences Modal */}
+      {showPrefAdd&&<div className="modal-overlay" onClick={()=>setShowPrefAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Add Buyer Preferences</h3><button className="btn-icon" onClick={()=>setShowPrefAdd(false)}><X size={18}/></button></div>
+        <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div className="form-group"><label>Property Type</label><input type="text" value={prefForm.propertyTypes} onChange={e=>setPrefForm({...prefForm,propertyTypes:e.target.value})} placeholder="e.g. Apartment, Villa"/></div>
+          <div className="form-group"><label>Locations</label><input type="text" value={prefForm.locations} onChange={e=>setPrefForm({...prefForm,locations:e.target.value})} placeholder="e.g. New Cairo"/></div>
+          <div className="form-group"><label>Bedrooms</label><input type="number" value={prefForm.bedrooms} onChange={e=>setPrefForm({...prefForm,bedrooms:e.target.value})}/></div>
+          <div className="form-group"><label>Bathrooms</label><input type="number" value={prefForm.bathrooms} onChange={e=>setPrefForm({...prefForm,bathrooms:e.target.value})}/></div>
+          <div className="form-group"><label>Min Budget</label><input type="number" value={prefForm.budgetMin} onChange={e=>setPrefForm({...prefForm,budgetMin:e.target.value})}/></div>
+          <div className="form-group"><label>Max Budget</label><input type="number" value={prefForm.budgetMax} onChange={e=>setPrefForm({...prefForm,budgetMax:e.target.value})}/></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Timeline</label><input type="text" value={prefForm.timeline} onChange={e=>setPrefForm({...prefForm,timeline:e.target.value})}/></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Notes</label><textarea rows={3} value={prefForm.notes} onChange={e=>setPrefForm({...prefForm,notes:e.target.value})}/></div>
+        </div>
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowPrefAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{addItem('buyerPreferences',{leadId:lead.id,propertyTypes:[prefForm.propertyTypes],locations:[prefForm.locations],bedrooms:Number(prefForm.bedrooms),bathrooms:Number(prefForm.bathrooms),budgetMin:Number(prefForm.budgetMin),budgetMax:Number(prefForm.budgetMax),timeline:prefForm.timeline,preferredDevelopers:[],amenities:[],notes:prefForm.notes},'BP'); toast('Preferences saved','success');setShowPrefAdd(false);}}>Save Preferences</button></div></div></div>}
+
+      {/* Edit Lead Modal */}
+      {showEdit&&<div className="modal-overlay" onClick={()=>setShowEdit(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Edit Lead</h3><button className="btn-icon" onClick={()=>setShowEdit(false)}><X size={18}/></button></div>
+        <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Full Name</label><input type="text" value={editForm.name} onChange={e=>setEditForm({...editForm,name:e.target.value})}/></div>
+          <div className="form-group"><label>Phone</label><input type="text" value={editForm.phone} onChange={e=>setEditForm({...editForm,phone:e.target.value})}/></div>
+          <div className="form-group"><label>Email</label><input type="email" value={editForm.email} onChange={e=>setEditForm({...editForm,email:e.target.value})}/></div>
+          <div className="form-group"><label>Stage</label><select value={editForm.stage} onChange={e=>setEditForm({...editForm,stage:e.target.value})}>{STAGES.map(s=><option key={s}>{s}</option>)}</select></div>
+          <div className="form-group"><label>Priority</label><select value={editForm.priority} onChange={e=>setEditForm({...editForm,priority:e.target.value})}><option>Hot</option><option>Warm</option><option>Cold</option></select></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Budget</label><input type="number" value={editForm.budget} onChange={e=>setEditForm({...editForm,budget:e.target.value})}/></div>
+        </div>
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowEdit(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{updateItem('leads',lead.id,{...editForm,budget:Number(editForm.budget)||0}); toast('Lead updated','success');setShowEdit(false);}}>Save Changes</button></div></div></div>}
     </div>
   );
 };

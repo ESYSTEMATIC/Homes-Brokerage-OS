@@ -7,7 +7,7 @@ const stageColors = {'Qualified':'#3b82f6','Negotiation':'#f59e0b','Reservation'
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 
 export const CrmDeals = () => {
-  const { state, addRecord, updateRecord, deleteRecord, toast, openDrawer } = useApp();
+  const { state, addItem, updateItem, removeItem, toast, openDrawer } = useApp();
   const deals = state.deals;
   const [view, setView] = useState('kanban');
   const [showAdd, setShowAdd] = useState(false);
@@ -25,9 +25,9 @@ export const CrmDeals = () => {
   const totalPipeline = deals.filter(d=>d.status==='Active').reduce((s,d)=>s+d.value,0);
   const openAdd2=()=>{setForm(def);setEditDeal(null);setShowAdd(true);};
   const openEdit=d=>{setForm({title:d.title||'',leadName:d.leadName||'',project:d.project||'',value:d.value||'',stage:d.stage||'Qualified',owner:d.owner||'',commission:d.commission||3,status:d.status||'Active'});setEditDeal(d);setShowAdd(true);};
-  const handleSubmit=e=>{e.preventDefault();if(!form.title.trim()){toast('Title is required','error');return;}if(editDeal){updateRecord('deals',editDeal.id,{...form,value:Number(form.value)||0,commission:Number(form.commission)||0});toast('Deal updated','success');}else{addRecord('deals',{...form,value:Number(form.value)||0,commission:Number(form.commission)||0,created:new Date().toISOString().split('T')[0]});toast('Deal created','success');}setShowAdd(false);};
-  const handleDel=id=>{deleteRecord('deals',id);toast('Deal deleted','success');};
-  const moveStage=(d,newStage)=>{updateRecord('deals',d.id,{stage:newStage,status:newStage==='Closed Lost'?'Lost':newStage==='Closed Won'?'Won':'Active'});toast(`Moved to ${newStage}`,'success');};
+  const handleSubmit=e=>{e.preventDefault();if(!form.title.trim()){toast('Title is required','error');return;}if(editDeal){updateItem('deals',editDeal.id,{...form,value:Number(form.value)||0,commission:Number(form.commission)||0});toast('Deal updated','success');}else{addItem('deals',{...form,value:Number(form.value)||0,commission:Number(form.commission)||0,created:new Date().toISOString().split('T')[0]});toast('Deal created','success');}setShowAdd(false);};
+  const handleDel=id=>{removeItem('deals',id);toast('Deal deleted','success');};
+  const moveStage=(d,newStage)=>{updateItem('deals',d.id,{stage:newStage,status:newStage==='Closed Lost'?'Lost':newStage==='Closed Won'?'Won':'Active'});toast(`Moved to ${newStage}`,'success');};
 
   const viewDetail = d => openDrawer({title:d.title,subtitle:`Deal · ${d.id}`,content:(
     <div style={{display:'flex',flexDirection:'column',gap:20}}>

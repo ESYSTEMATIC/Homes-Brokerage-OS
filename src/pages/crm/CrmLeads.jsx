@@ -10,7 +10,7 @@ const stageColor = s => s==='New'?'badge-info':s==='Qualified'||s==='Tour Schedu
 const prioColor = p => p==='Hot'?'badge-danger':p==='Warm'?'badge-warning':'badge-gray';
 
 export const CrmLeads = () => {
-  const { state, addRecord, updateRecord, deleteRecord, toast, openDrawer } = useApp();
+  const { state, addItem, updateItem, removeItem, toast, openDrawer } = useApp();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [fStage, setFStage] = useState('All');
@@ -33,8 +33,8 @@ export const CrmLeads = () => {
 
   const openAdd2 = ()=>{setForm(def);setEditLead(null);setShowAdd(true);};
   const openEdit = l=>{setForm({name:l.name,phone:l.phone||'',email:l.email||'',source:l.source||'Walk-in',project:l.project||'',developer:l.developer||'',budget:l.budget||'',stage:l.stage||'New',priority:l.priority||'Warm',owner:l.owner||'',notes:l.notes||''});setEditLead(l);setShowAdd(true);};
-  const handleSubmit = e=>{e.preventDefault();if(!form.name.trim()){toast('Name is required','error');return;}if(editLead){updateRecord('leads',editLead.id,{...form,budget:form.budget?Number(form.budget):0});toast('Lead updated','success');}else{addRecord('leads',{...form,budget:form.budget?Number(form.budget):0,created:new Date().toISOString().split('T')[0]});toast('Lead created','success');}setShowAdd(false);};
-  const handleDel = id=>{deleteRecord('leads',id);toast('Lead deleted','success');};
+  const handleSubmit = e=>{e.preventDefault();if(!form.name.trim()){toast('Name is required','error');return;}if(editLead){updateItem('leads',editLead.id,{...form,budget:form.budget?Number(form.budget):0});toast('Lead updated','success');}else{addItem('leads',{...form,budget:form.budget?Number(form.budget):0,created:new Date().toISOString().split('T')[0]});toast('Lead created','success');}setShowAdd(false);};
+  const handleDel = id=>{removeItem('leads',id);toast('Lead deleted','success');};
   const toggleSel = id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
 
   const viewDetail = l => openDrawer({title:l.name,subtitle:`Lead · ${l.id}`,content:(

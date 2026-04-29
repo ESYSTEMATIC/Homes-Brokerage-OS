@@ -1,20 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { TOURS, TOUR_STATUS } from '../../data/staticData';
+import { TOUR_STATUS } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, X, List, CalendarDays, MapPin, Clock, Star, User, Eye } from 'lucide-react';
 
 const statusColor = s => s==='Completed'?'badge-success':s==='Scheduled'?'badge-info':s==='No-Show'?'badge-danger':'badge-gray';
 
 export const CrmTours = () => {
-  const { toast, openDrawer } = useApp();
+  const { state, addItem, toast, openDrawer } = useApp();
   const [view, setView] = useState('list');
   const [fStatus, setFStatus] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({leadName:'', property:'', date:'', time:'', agent:'Fatma Ibrahim', status:'Scheduled', rating:null, feedback:''});
 
-  const filtered = useMemo(()=>TOURS.filter(t=>fStatus==='All'||t.status===fStatus),[fStatus]);
+  const tours = state.tours || [];
+  const filtered = useMemo(()=>tours.filter(t=>fStatus==='All'||t.status===fStatus),[tours, fStatus]);
 
-  const stats = {total:TOURS.length,scheduled:TOURS.filter(t=>t.status==='Scheduled').length,completed:TOURS.filter(t=>t.status==='Completed').length,noShow:TOURS.filter(t=>t.status==='No-Show').length};
-  const avgRating = TOURS.filter(t=>t.rating).reduce((s,t)=>s+t.rating,0) / (TOURS.filter(t=>t.rating).length||1);
+  const stats = {total:tours.length,scheduled:tours.filter(t=>t.status==='Scheduled').length,completed:tours.filter(t=>t.status==='Completed').length,noShow:tours.filter(t=>t.status==='No-Show').length};
+  const avgRating = tours.filter(t=>t.rating).reduce((s,t)=>s+t.rating,0) / (tours.filter(t=>t.rating).length||1);
 
   const renderStars = r => r ? '★'.repeat(r)+'☆'.repeat(5-r) : '—';
 
@@ -35,7 +37,7 @@ export const CrmTours = () => {
   const daysInMonth = new Date(year,month+1,0).getDate();
   const monthName = today.toLocaleString('en',{month:'long',year:'numeric'});
   const calDays = []; for(let i=0;i<firstDay;i++) calDays.push(null); for(let d=1;d<=daysInMonth;d++) calDays.push(d);
-  const toursByDate = useMemo(()=>{const m={};TOURS.forEach(t=>{const d=new Date(t.date).getDate();if(!m[d])m[d]=[];m[d].push(t);});return m;},[]);
+  const toursByDate = useMemo(()=>{const m={};tours.forEach(t=>{const d=new Date(t.date).getDate();if(!m[d])m[d]=[];m[d].push(t);});return m;},[tours]);
 
   return (
     <div>
@@ -94,13 +96,13 @@ export const CrmTours = () => {
 
       {showAdd&&<div className="modal-overlay" onClick={()=>setShowAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Schedule New Tour</h3><button className="btn-icon" onClick={()=>setShowAdd(false)}><X size={18}/></button></div>
         <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-          <div className="form-group"><label>Lead</label><select><option>Select Lead…</option><option>Mohamed Hassan</option><option>Sara Ali</option><option>Nour Ibrahim</option></select></div>
-          <div className="form-group"><label>Listing</label><select><option>Select Listing…</option><option>Palm Hills V101</option><option>ZED East A205</option><option>Hyde Park TH-B304</option></select></div>
-          <div className="form-group"><label>Date</label><input type="date"/></div>
-          <div className="form-group"><label>Time</label><input type="time"/></div>
-          <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
+          <div className="form-group"><label>Lead</label><select value={form.leadName} onChange={e=>setForm({...form,leadName:e.target.value})}><option value="">Select Lead…</option>{state.leads?.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
+          <div className="form-group"><label>Listing</label><select value={form.property} onChange={e=>setForm({...form,property:e.target.value})}><option value="">Select Listing…</option><option>Palm Hills V101</option><option>ZED East A205</option><option>Hyde Park TH-B304</option></select></div>
+          <div className="form-group"><label>Date</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+          <div className="form-group"><label>Time</label><input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value})}/></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select value={form.agent} onChange={e=>setForm({...form,agent:e.target.value})}><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{toast('Tour scheduled','success');setShowAdd(false);}}>Schedule Tour</button></div></div></div>}
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{if(!form.leadName){toast('Select a lead','error');return;} addItem('tours',form,'TR'); toast('Tour scheduled','success');setShowAdd(false);}}>Schedule Tour</button></div></div></div>}
     </div>
   );
 };

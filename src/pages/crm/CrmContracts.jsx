@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { CONTRACTS, CONTRACT_STAGES } from '../../data/staticData';
+import { CONTRACT_STAGES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
 import { Plus, X, Eye, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
@@ -8,14 +8,16 @@ const stageColor = s => s==='Registered'?'badge-success':s==='Signed'?'badge-inf
 const stageIcon = s => s==='Registered'?<CheckCircle size={14} color="#10b981"/>:s==='Signed'?<FileText size={14} color="var(--info)"/>:s==='Under Review'?<Clock size={14} color="var(--warning)"/>:<AlertCircle size={14} color="var(--text-tertiary)"/>;
 
 export const CrmContracts = () => {
-  const { toast, openDrawer } = useApp();
+  const { state, addItem, toast, openDrawer } = useApp();
   const [fStage, setFStage] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({dealId:'', unitCode:'', value:'', downPct:'', installments:'', lawyer:'', notes:''});
 
-  const filtered = useMemo(()=>CONTRACTS.filter(c=>fStage==='All'||c.stage===fStage),[fStage]);
+  const contracts = state.contracts || [];
+  const filtered = useMemo(()=>contracts.filter(c=>fStage==='All'||c.stage===fStage),[contracts, fStage]);
 
-  const stats = {total:CONTRACTS.length, draft:CONTRACTS.filter(c=>c.stage==='Draft').length, review:CONTRACTS.filter(c=>c.stage==='Under Review').length, signed:CONTRACTS.filter(c=>c.stage==='Signed').length, registered:CONTRACTS.filter(c=>c.stage==='Registered').length};
-  const totalValue = CONTRACTS.reduce((s,c)=>s+c.value,0);
+  const stats = {total:contracts.length, draft:contracts.filter(c=>c.stage==='Draft').length, review:contracts.filter(c=>c.stage==='Under Review').length, signed:contracts.filter(c=>c.stage==='Signed').length, registered:contracts.filter(c=>c.stage==='Registered').length};
+  const totalValue = contracts.reduce((s,c)=>s+c.value,0);
 
   const viewDetail = c => openDrawer({title:`Contract ${c.id}`,subtitle:`${c.project} — ${c.unitCode}`,content:(
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
@@ -64,7 +66,7 @@ export const CrmContracts = () => {
       <div style={{background:'linear-gradient(135deg,#0f172a,#1e3a5f)',borderRadius:14,padding:'20px 28px',color:'#fff',marginBottom:20,display:'flex',alignItems:'center',gap:20}}>
         <FileText size={28} color="#E8672A"/>
         <div style={{flex:1}}><div style={{fontSize:12,color:'rgba(255,255,255,.6)'}}>Total Contract Value</div><div style={{fontSize:26,fontWeight:800}}>EGP {fmt(totalValue)}</div></div>
-        <div style={{textAlign:'right'}}><div style={{fontSize:12,color:'rgba(255,255,255,.6)'}}>Avg Down Payment</div><div style={{fontSize:18,fontWeight:700}}>{(CONTRACTS.reduce((s,c)=>s+c.downPct,0)/CONTRACTS.length).toFixed(0)}%</div></div>
+        <div style={{textAlign:'right'}}><div style={{fontSize:12,color:'rgba(255,255,255,.6)'}}>Avg Down Payment</div><div style={{fontSize:18,fontWeight:700}}>{contracts.length?(contracts.reduce((s,c)=>s+c.downPct,0)/contracts.length).toFixed(0):0}%</div></div>
       </div>
 
       <div style={{display:'flex',gap:12,marginBottom:20,alignItems:'center'}}>
@@ -92,15 +94,15 @@ export const CrmContracts = () => {
 
       {showAdd&&<div className="modal-overlay" onClick={()=>setShowAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}><div className="modal-header"><h3>Create New Contract</h3><button className="btn-icon" onClick={()=>setShowAdd(false)}><X size={18}/></button></div>
         <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-          <div className="form-group"><label>Link to Deal</label><select><option>Select Deal…</option><option>D-501 — Sara Ali</option><option>D-504 — Mohamed Hassan</option></select></div>
-          <div className="form-group"><label>Unit Code</label><input type="text" placeholder="e.g. PH-NC-V101"/></div>
-          <div className="form-group"><label>Contract Value (EGP)</label><input type="number" placeholder="e.g. 8500000"/></div>
-          <div className="form-group"><label>Down Payment %</label><input type="number" placeholder="e.g. 10"/></div>
-          <div className="form-group"><label>Installments (months)</label><input type="number" placeholder="e.g. 84"/></div>
-          <div className="form-group"><label>Lawyer</label><input type="text" placeholder="e.g. Mahmoud Samy"/></div>
-          <div className="form-group" style={{gridColumn:'span 2'}}><label>Notes</label><textarea rows={3} placeholder="Contract notes…"/></div>
+          <div className="form-group"><label>Link to Deal</label><select value={form.dealId} onChange={e=>setForm({...form,dealId:e.target.value})}><option value="">Select Deal…</option>{state.deals?.map(d=><option key={d.id} value={d.id}>{d.id} — {d.leadName}</option>)}</select></div>
+          <div className="form-group"><label>Unit Code</label><input type="text" placeholder="e.g. PH-NC-V101" value={form.unitCode} onChange={e=>setForm({...form,unitCode:e.target.value})}/></div>
+          <div className="form-group"><label>Contract Value (EGP)</label><input type="number" placeholder="e.g. 8500000" value={form.value} onChange={e=>setForm({...form,value:e.target.value})}/></div>
+          <div className="form-group"><label>Down Payment %</label><input type="number" placeholder="e.g. 10" value={form.downPct} onChange={e=>setForm({...form,downPct:e.target.value})}/></div>
+          <div className="form-group"><label>Installments (months)</label><input type="number" placeholder="e.g. 84" value={form.installments} onChange={e=>setForm({...form,installments:e.target.value})}/></div>
+          <div className="form-group"><label>Lawyer</label><input type="text" placeholder="e.g. Mahmoud Samy" value={form.lawyer} onChange={e=>setForm({...form,lawyer:e.target.value})}/></div>
+          <div className="form-group" style={{gridColumn:'span 2'}}><label>Notes</label><textarea rows={3} placeholder="Contract notes…" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{toast('Contract created','success');setShowAdd(false);}}>Create Contract</button></div></div></div>}
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{if(!form.dealId){toast('Select a deal','error');return;} const deal=state.deals?.find(d=>d.id===form.dealId); const v=Number(form.value)||0; const dp=Number(form.downPct)||0; const downPayment=v*(dp/100); const inst=Number(form.installments)||1; const monthlyInstall=(v-downPayment)/inst; addItem('contracts',{dealId:form.dealId,leadName:deal?.leadName,project:deal?.project,unitCode:form.unitCode,value:v,downPct:dp,downPayment,installments:inst,monthlyInstall,lawyer:form.lawyer,notes:form.notes,stage:'Draft',createdDate:new Date().toISOString().split('T')[0]},'CNT'); toast('Contract created','success');setShowAdd(false);}}>Create Contract</button></div></div></div>}
     </div>
   );
 };

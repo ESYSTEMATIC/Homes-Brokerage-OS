@@ -9,7 +9,7 @@ const typeIcon = {Call:<Phone size={13}/>,Tour:<MapPin size={13}/>,WhatsApp:<Mes
 const typeColor = {Call:'#3b82f6',Tour:'#10b981',WhatsApp:'#22c55e',Meeting:'#8b5cf6',Contract:'#f59e0b',Finance:'#E8672A','Follow-up':'#64748b'};
 
 export const CrmTasks = () => {
-  const { state, addRecord, updateRecord, deleteRecord, toast } = useApp();
+  const { state, addItem, updateItem, removeItem, toast } = useApp();
   const tasks = state.tasks;
   const [view, setView] = useState('list');
   const [fStatus, setFStatus] = useState('All');
@@ -27,8 +27,8 @@ export const CrmTasks = () => {
 
   const openAdd2=()=>{setForm(def);setEditTask(null);setShowAdd(true);};
   const openEdit=t=>{setForm({title:t.title,type:t.type||'Call',lead:t.lead||'',owner:t.owner||'',due:t.due||'',priority:t.priority||'Medium',status:t.status||'Pending',notes:t.notes||''});setEditTask(t);setShowAdd(true);};
-  const handleSubmit=e=>{e.preventDefault();if(!form.title.trim()){toast('Title required','error');return;}if(editTask){updateRecord('tasks',editTask.id,form);toast('Task updated','success');}else{addRecord('tasks',{...form,created:new Date().toISOString().split('T')[0]});toast('Task created','success');}setShowAdd(false);};
-  const handleDel=id=>{deleteRecord('tasks',id);toast('Task deleted','success');};
+  const handleSubmit=e=>{e.preventDefault();if(!form.title.trim()){toast('Title required','error');return;}if(editTask){updateItem('tasks',editTask.id,form);toast('Task updated','success');}else{addItem('tasks',{...form,created:new Date().toISOString().split('T')[0]});toast('Task created','success');}setShowAdd(false);};
+  const handleDel=id=>{removeItem('tasks',id);toast('Task deleted','success');};
   const toggleComplete=t=>{updateRecord('tasks',t.id,{status:t.status==='Completed'?'Pending':'Completed'});toast(t.status==='Completed'?'Marked pending':'Completed','success');};
 
   // Calendar data

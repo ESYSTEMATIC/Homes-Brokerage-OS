@@ -1,52 +1,56 @@
 import React, { useState } from 'react';
-import { LEADS, DEALS, TOURS, LISTING_SHARES, STAGES } from '../../data/staticData';
+import { STAGES } from '../../data/staticData';
+import { useApp } from '../../context/AppContext';
 import { BarChart3, TrendingUp, Users, MapPin, Calendar, Share2, Target } from 'lucide-react';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 
 export const CrmReports = () => {
+  const { state } = useApp();
   const [activeReport, setActiveReport] = useState('funnel');
+
+  const { leads = [], deals = [], tours = [], listingShares = [] } = state;
 
   // Funnel data
   const funnelStages = ['New','Contacted','Qualified','Tour Scheduled','Negotiation','Reservation','Contracting','Closed Won'];
-  const funnelData = funnelStages.map(s => ({ stage: s, count: LEADS.filter(l=>l.stage===s).length + (s==='Closed Won'?1:0) + (s==='Negotiation'?1:0) }));
+  const funnelData = funnelStages.map(s => ({ stage: s, count: leads.filter(l=>l.stage===s).length + (s==='Closed Won'?1:0) + (s==='Negotiation'?1:0) }));
   const maxFunnel = Math.max(...funnelData.map(f=>f.count),1);
 
   // Source ROI
   const sources = ['Marketplace','Referral','Walk-in','Campaign'];
   const sourceData = sources.map(s => {
-    const leads = LEADS.filter(l=>l.source===s).length;
-    const deals = DEALS.filter(d=>LEADS.find(l=>l.name===d.lead&&l.source===s)).length;
-    const revenue = DEALS.filter(d=>LEADS.find(l=>l.name===d.lead&&l.source===s)).reduce((sum,d)=>sum+d.value,0);
-    return { source:s, leads, deals, revenue, conversion: leads?((deals/leads)*100).toFixed(1):0 };
+    const lds = leads.filter(l=>l.source===s).length;
+    const dls = deals.filter(d=>leads.find(l=>l.name===d.leadName&&l.source===s)).length;
+    const revenue = deals.filter(d=>leads.find(l=>l.name===d.leadName&&l.source===s)).reduce((sum,d)=>sum+d.value,0);
+    return { source:s, leads:lds, deals:dls, revenue, conversion: lds?((dls/lds)*100).toFixed(1):0 };
   });
 
   // Agent Leaderboard
   const agents = ['Ahmed Hassan','Fatma Ibrahim','Hana Mahmoud','Omar Sherif'];
   const agentData = agents.map(a => {
-    const leads = LEADS.filter(l=>l.owner===a).length;
-    const deals = DEALS.filter(d=>d.owner===a&&d.status==='Active').length;
-    const revenue = DEALS.filter(d=>d.owner===a).reduce((sum,d)=>sum+d.value,0);
-    const tours = TOURS.filter(t=>t.agent===a).length;
-    const shares = LISTING_SHARES.filter(s=>s.agent===a).length;
-    return { agent:a, leads, deals, revenue, tours, shares, conversion: leads?((deals/leads)*100).toFixed(0):0 };
+    const lds = leads.filter(l=>l.owner===a).length;
+    const dls = deals.filter(d=>d.owner===a&&d.status==='Active').length;
+    const revenue = deals.filter(d=>d.owner===a).reduce((sum,d)=>sum+d.value,0);
+    const trs = tours.filter(t=>t.agent===a).length;
+    const shares = listingShares.filter(s=>s.agent===a).length;
+    return { agent:a, leads:lds, deals:dls, revenue, tours:trs, shares, conversion: lds?((dls/lds)*100).toFixed(0):0 };
   }).sort((a,b)=>b.revenue-a.revenue);
 
   // Tour Analytics
   const tourStats = {
-    total: TOURS.length,
-    completed: TOURS.filter(t=>t.status==='Completed').length,
-    scheduled: TOURS.filter(t=>t.status==='Scheduled').length,
-    noShow: TOURS.filter(t=>t.status==='No-Show').length,
-    cancelled: TOURS.filter(t=>t.status==='Cancelled').length,
-    avgRating: (TOURS.filter(t=>t.rating).reduce((s,t)=>s+t.rating,0)/(TOURS.filter(t=>t.rating).length||1)).toFixed(1),
-    completionRate: ((TOURS.filter(t=>t.status==='Completed').length/TOURS.length)*100).toFixed(0),
-    noShowRate: ((TOURS.filter(t=>t.status==='No-Show').length/TOURS.length)*100).toFixed(0),
+    total: tours.length,
+    completed: tours.filter(t=>t.status==='Completed').length,
+    scheduled: tours.filter(t=>t.status==='Scheduled').length,
+    noShow: tours.filter(t=>t.status==='No-Show').length,
+    cancelled: tours.filter(t=>t.status==='Cancelled').length,
+    avgRating: (tours.filter(t=>t.rating).reduce((s,t)=>s+t.rating,0)/(tours.filter(t=>t.rating).length||1)).toFixed(1),
+    completionRate: tours.length ? ((tours.filter(t=>t.status==='Completed').length/tours.length)*100).toFixed(0) : 0,
+    noShowRate: tours.length ? ((tours.filter(t=>t.status==='No-Show').length/tours.length)*100).toFixed(0) : 0,
   };
 
   // Listing Performance
-  const listingPerf = [...new Set(LISTING_SHARES.map(s=>s.property))].map(p=>{
-    const shares = LISTING_SHARES.filter(s=>s.property===p);
+  const listingPerf = [...new Set(listingShares.map(s=>s.property))].map(p=>{
+    const shares = listingShares.filter(s=>s.property===p);
     return { property:p, shares:shares.length, interested:shares.filter(s=>s.response==='Interested').length, viewed:shares.filter(s=>s.response==='Viewed').length };
   }).sort((a,b)=>b.shares-a.shares);
 
@@ -88,9 +92,9 @@ export const CrmReports = () => {
             ))}
           </div>
           <div style={{marginTop:20,padding:16,background:'#f8fafc',borderRadius:10,border:'1px solid var(--border)',display:'flex',gap:24,fontSize:12}}>
-            <div><span style={{fontWeight:700}}>Total Leads:</span> {LEADS.length}</div>
-            <div><span style={{fontWeight:700}}>Active Deals:</span> {DEALS.filter(d=>d.status==='Active').length}</div>
-            <div><span style={{fontWeight:700}}>Overall Conversion:</span> {((DEALS.filter(d=>d.status==='Active').length/LEADS.length)*100).toFixed(1)}%</div>
+            <div><span style={{fontWeight:700}}>Total Leads:</span> {leads.length}</div>
+            <div><span style={{fontWeight:700}}>Active Deals:</span> {deals.filter(d=>d.status==='Active').length}</div>
+            <div><span style={{fontWeight:700}}>Overall Conversion:</span> {leads.length?((deals.filter(d=>d.status==='Active').length/leads.length)*100).toFixed(1):0}%</div>
           </div>
         </div>
       )}

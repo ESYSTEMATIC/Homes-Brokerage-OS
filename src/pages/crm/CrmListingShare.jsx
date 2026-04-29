@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { LISTING_SHARES, SHARE_CHANNELS, SHARE_RESPONSES } from '../../data/staticData';
+import { SHARE_CHANNELS, SHARE_RESPONSES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
 import { MessageSquare, Mail, Phone, Smartphone, Search, Eye, Send, Plus, X } from 'lucide-react';
 
@@ -8,23 +8,25 @@ const channelColor = ch => ch==='WhatsApp'?'#25d366':ch==='Email'?'#3b82f6':ch==
 const responseColor = r => r==='Interested'?'badge-success':r==='Viewed'?'badge-info':'badge-gray';
 
 export const CrmListingShare = () => {
-  const { toast, openDrawer } = useApp();
+  const { state, addItem, toast, openDrawer } = useApp();
   const [search, setSearch] = useState('');
   const [fChannel, setFChannel] = useState('All');
   const [fResponse, setFResponse] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({property:'', leadName:'', channel:'WhatsApp'});
 
-  const filtered = useMemo(()=>LISTING_SHARES.filter(s=>{
+  const listingShares = state.listingShares || [];
+  const filtered = useMemo(()=>listingShares.filter(s=>{
     if(search && !s.leadName.toLowerCase().includes(search.toLowerCase()) && !s.property.toLowerCase().includes(search.toLowerCase())) return false;
     if(fChannel!=='All' && s.channel!==fChannel) return false;
     if(fResponse!=='All' && s.response!==fResponse) return false;
     return true;
   }),[search,fChannel,fResponse]);
 
-  const totalShares = LISTING_SHARES.length;
-  const whatsappPct = ((LISTING_SHARES.filter(s=>s.channel==='WhatsApp').length/totalShares)*100).toFixed(0);
-  const responseRate = ((LISTING_SHARES.filter(s=>s.response!=='No Response').length/totalShares)*100).toFixed(0);
-  const interestedRate = ((LISTING_SHARES.filter(s=>s.response==='Interested').length/totalShares)*100).toFixed(0);
+  const totalShares = listingShares.length;
+  const whatsappPct = totalShares ? ((listingShares.filter(s=>s.channel==='WhatsApp').length/totalShares)*100).toFixed(0) : 0;
+  const responseRate = totalShares ? ((listingShares.filter(s=>s.response!=='No Response').length/totalShares)*100).toFixed(0) : 0;
+  const interestedRate = totalShares ? ((listingShares.filter(s=>s.response==='Interested').length/totalShares)*100).toFixed(0) : 0;
 
   return (
     <div>
@@ -40,7 +42,7 @@ export const CrmListingShare = () => {
       <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:20,marginBottom:20}}>
         <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Channel Breakdown</div>
         <div style={{display:'flex',gap:20}}>
-          {SHARE_CHANNELS.map(ch=>{const count=LISTING_SHARES.filter(s=>s.channel===ch).length;const pct=((count/totalShares)*100).toFixed(0);return(
+          {SHARE_CHANNELS.map(ch=>{const count=listingShares.filter(s=>s.channel===ch).length;const pct=totalShares?((count/totalShares)*100).toFixed(0):0;return(
             <div key={ch} style={{flex:1,display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'#f8fafc',borderRadius:10,border:'1px solid var(--border)'}}>
               <div style={{width:36,height:36,borderRadius:10,background:`${channelColor(ch)}15`,display:'flex',alignItems:'center',justifyContent:'center'}}>{channelIcon(ch)}</div>
               <div><div style={{fontSize:13,fontWeight:700}}>{ch}</div><div style={{fontSize:11,color:'var(--text-secondary)'}}>{count} shares · {pct}%</div></div>
@@ -71,17 +73,17 @@ export const CrmListingShare = () => {
 
       {showAdd&&<div className="modal-overlay" onClick={()=>setShowAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}><div className="modal-header"><h3>Share Listing</h3><button className="btn-icon" onClick={()=>setShowAdd(false)}><X size={18}/></button></div>
         <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:16}}>
-          <div className="form-group"><label>Select Listing</label><select><option>Choose listing…</option><option>Palm Hills V101 — EGP 12.5M</option><option>ZED East A205 — EGP 8.2M</option><option>Hyde Park TH-B304 — EGP 11.2M</option><option>Madinaty APT-C110 — EGP 5.2M</option></select></div>
-          <div className="form-group"><label>Select Lead</label><select><option>Choose lead…</option><option>Mohamed Hassan</option><option>Sara Ali</option><option>Karim Fouad</option><option>Nour Ibrahim</option></select></div>
+          <div className="form-group"><label>Select Listing</label><select value={form.property} onChange={e=>setForm({...form,property:e.target.value})}><option value="">Choose listing…</option><option>Palm Hills V101 — EGP 12.5M</option><option>ZED East A205 — EGP 8.2M</option><option>Hyde Park TH-B304 — EGP 11.2M</option><option>Madinaty APT-C110 — EGP 5.2M</option></select></div>
+          <div className="form-group"><label>Select Lead</label><select value={form.leadName} onChange={e=>setForm({...form,leadName:e.target.value})}><option value="">Choose lead…</option>{state.leads?.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
           <div className="form-group"><label>Channel</label>
             <div style={{display:'flex',gap:8}}>{SHARE_CHANNELS.map(ch=>(
-              <label key={ch} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600}}>
-                {channelIcon(ch)} {ch} <input type="radio" name="channel" style={{marginLeft:4}}/>
+              <label key={ch} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600,background:form.channel===ch?`${channelColor(ch)}15`:'#fff',borderColor:form.channel===ch?channelColor(ch):'var(--border)'}}>
+                {channelIcon(ch)} {ch} <input type="radio" name="channel" checked={form.channel===ch} onChange={()=>setForm({...form,channel:ch})} style={{display:'none'}}/>
               </label>
             ))}</div>
           </div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{toast('Listing shared','success');setShowAdd(false);}}><Send size={14}/> Send</button></div></div></div>}
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{if(!form.property||!form.leadName){toast('Select listing and lead','error');return;} addItem('listingShares',{listingId:'L-NEW',property:form.property,leadId:'LD-NEW',leadName:form.leadName,channel:form.channel,agent:'Fatma Ibrahim',timestamp:new Date().toLocaleString('en-EG'),response:'No Response'},'SHR'); toast('Listing shared via '+form.channel,'success');setShowAdd(false);}}><Send size={14}/> Send</button></div></div></div>}
     </div>
   );
 };

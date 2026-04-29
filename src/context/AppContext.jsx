@@ -6,6 +6,7 @@ import {
   DEVELOPERS, COMPOUNDS, UNIT_TYPES, CITIES, AREAS, BRANCHES, TEAMS,
   EMPLOYMENT_CATEGORIES, PAYOUT_CYCLES, EXPENSE_CATEGORIES, LEAD_SOURCES,
   AGENT_NOTIFICATIONS, AGENT_DOCS, SUPPORT_TICKETS,
+  TOURS, CONTRACTS, LISTING_SHARES, BUYER_PREFERENCES, SOURCE_HISTORY, DUPLICATE_CANDIDATES, ASSIGNMENT_LOG
 } from '../data/staticData';
 
 // ───────────────── STATE ─────────────────
@@ -43,6 +44,13 @@ const initialState = {
   agentNotifications: AGENT_NOTIFICATIONS,
   agentDocs: AGENT_DOCS,
   supportTickets: SUPPORT_TICKETS,
+  tours: TOURS,
+  contracts: CONTRACTS,
+  listingShares: LISTING_SHARES,
+  buyerPreferences: BUYER_PREFERENCES,
+  sourceHistory: SOURCE_HISTORY,
+  duplicateCandidates: DUPLICATE_CANDIDATES,
+  assignmentLog: ASSIGNMENT_LOG,
   settings: {
     company: 'Homes Brokerage', timezone: 'Africa/Cairo (UTC+2)', language: 'English', currency: 'EGP',
     sso: 'Microsoft Entra ID', ssoMode: 'Enforced', sessionTimeout: '8 hours', mfa: 'Required for admin',
