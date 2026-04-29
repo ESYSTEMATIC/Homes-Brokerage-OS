@@ -31,13 +31,11 @@ export const CrmLayout = ({ children }) => {
   return (
     <div className="app-shell">
       <aside className="sidebar crm-sidebar">
-        <div className="sidebar-brand"><HomesLogoAgent /></div>
+        <div className="sidebar-brand" style={{display:'flex',flexDirection:'column',gap:4}}>
+          <HomesLogoAgent />
+          <div style={{fontSize:10,fontWeight:800,letterSpacing:2,color:'rgba(255,255,255,.4)',paddingLeft:4}}>CRM MODULE</div>
+        </div>
         <nav className="sidebar-nav">
-          {/* Back to board */}
-          <button className="sidebar-link crm-back-btn" onClick={backToBoard}>
-            <ArrowLeft size={16} />Back to Board
-          </button>
-
           <div className="sidebar-section">CRM</div>
           <NavLink to="/system/crm" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <LayoutDashboard size={16} />Dashboard
@@ -82,7 +80,10 @@ export const CrmLayout = ({ children }) => {
       <main className="main-content">
         <header className="topbar">
           <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <span style={{fontSize:13,fontWeight:700,color:'var(--brand)',background:'var(--brand-tint)',padding:'4px 10px',borderRadius:6,letterSpacing:'.04em'}}>CRM</span>
+            <button onClick={backToBoard} style={{display:'flex',alignItems:'center',gap:6,background:'#fff',border:'1px solid var(--border)',padding:'6px 12px',borderRadius:6,fontSize:13,fontWeight:600,cursor:'pointer',color:'var(--text-primary)'}}>
+              <ArrowLeft size={14} /> Employee Board
+            </button>
+            <div style={{width:1,height:24,background:'var(--border)',margin:'0 4px'}} />
             <span style={{fontSize:13,color:'var(--text-secondary)',fontWeight:500}}>Lead Management & Sales Pipeline</span>
           </div>
           <div className="topbar-right">
