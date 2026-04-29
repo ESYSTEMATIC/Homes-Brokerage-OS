@@ -4,12 +4,17 @@ import { KeyRound, ExternalLink, Lock, ShieldCheck } from 'lucide-react';
 
 // Shared placeholder for federated external systems (CRM, Marketplace, Marketplace Dashboard).
 // These are launched via Microsoft Entra SSO from the Employee Board, not from the Backoffice.
-const ExternalSystem = ({ name, brd, description, accessRoles, capabilities }) => {
-  const { toast, writeAudit } = useApp();
+const ExternalSystem = ({ name, brd, description, accessRoles, capabilities, launchTarget }) => {
+  const { triggerSsoLaunch } = useApp();
+  
   const launch = () => {
-    toast(`Simulating SSO launch into ${name}…`, 'info');
-    writeAudit('SSO Launch', `${name} (federated)`, 'Security', `Token issued via Microsoft Entra`);
+    if (launchTarget) {
+      triggerSsoLaunch(name, launchTarget);
+    } else {
+      triggerSsoLaunch(name);
+    }
   };
+
   return (
     <div>
       <div className="page-header">
@@ -58,7 +63,7 @@ const ExternalSystem = ({ name, brd, description, accessRoles, capabilities }) =
   );
 };
 
-export const CRMLeads = () => (
+export const CRMIntro = () => (
   <ExternalSystem
     name="CRM — Lead Management"
     brd="BRD §8.2 · Platform §3.2"
@@ -78,6 +83,7 @@ export const CRMLeads = () => (
       { role: 'Backoffice Admin', level: 'Audit-only' },
       { role: 'HR / Finance', level: 'None' },
     ]}
+    launchTarget="#/system/crm"
   />
 );
 

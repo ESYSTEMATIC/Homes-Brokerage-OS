@@ -28,7 +28,7 @@ import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistrict
 import { ExceptionsIssues, Settings } from './pages/SystemPages';
 
 // Federated system placeholders (Marketplace Dashboard) launched via SSO from the Employee Board.
-import { MarketplaceDashboard } from './pages/ExternalSystem';
+import { CRMIntro, MarketplaceDashboard } from './pages/ExternalSystem';
 
 // Real CRM Module (embedded, no separate login)
 import { CrmLayout } from './components/CrmLayout';
@@ -94,6 +94,7 @@ const AppRoutes = () => {
       <Route path="/system/*" element={
         <AgentLayout>
           <Routes>
+            <Route path="/crm-intro" element={<CRMIntro />} />
             <Route path="/marketplace-dashboard" element={<MarketplaceDashboard />} />
             <Route path="*" element={<Navigate to="/board/dashboard" />} />
           </Routes>

@@ -610,3 +610,8 @@ body { font-family: var(--font); background: var(--content-bg); color: var(--tex
 .btn-icon { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 6px; color: var(--text-secondary); transition: all .15s; display: inline-flex; align-items: center; justify-content: center; }
 .btn-icon:hover { background: #f1f5f9; color: var(--brand); }
 
+/* SSO Splash animation */
+.spin-icon { animation: spin 1s linear infinite; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+
