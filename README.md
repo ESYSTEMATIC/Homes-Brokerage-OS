@@ -10,7 +10,7 @@ A comprehensive, multi-system brokerage operating platform designed for the Egyp
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture 
 
 | System | Pages | Description |
 |--------|-------|-------------|
