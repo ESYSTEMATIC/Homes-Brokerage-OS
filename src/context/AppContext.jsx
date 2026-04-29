@@ -6,7 +6,7 @@ import {
   DEVELOPERS, COMPOUNDS, UNIT_TYPES, CITIES, AREAS, BRANCHES, TEAMS,
   EMPLOYMENT_CATEGORIES, PAYOUT_CYCLES, EXPENSE_CATEGORIES, LEAD_SOURCES,
   AGENT_NOTIFICATIONS, AGENT_DOCS, SUPPORT_TICKETS,
-  TOURS, CONTRACTS, LISTING_SHARES, BUYER_PREFERENCES, SOURCE_HISTORY, DUPLICATE_CANDIDATES, ASSIGNMENT_LOG
+  TOURS, CONTRACTS, LISTING_SHARES, BUYER_PREFERENCES, SOURCE_HISTORY, DUPLICATE_CANDIDATES, ASSIGNMENT_LOG, LISTINGS
 } from '../data/staticData';
 
 // ───────────────── STATE ─────────────────
@@ -52,6 +52,7 @@ const initialState = {
   duplicateCandidates: DUPLICATE_CANDIDATES,
   assignmentLog: ASSIGNMENT_LOG,
   activities: [],
+  listings: LISTINGS,
   settings: {
     company: 'Homes Brokerage', timezone: 'Africa/Cairo (UTC+2)', language: 'English', currency: 'EGP',
     sso: 'Microsoft Entra ID', ssoMode: 'Enforced', sessionTimeout: '8 hours', mfa: 'Required for admin',
