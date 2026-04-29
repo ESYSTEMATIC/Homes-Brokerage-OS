@@ -54,7 +54,7 @@ export const DocumentsReview = () => {
   });
 
   const requestNew = () => openModal({
-    title: 'Request new document', subtitle: 'BRD §8.12 — backoffice document collection',
+    title: 'Request new document', subtitle: 'Backoffice document collection',
     submitLabel: 'Send request',
     body: (
       <>
@@ -76,7 +76,7 @@ export const DocumentsReview = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Documents Review</span></div>
         <h1 className="page-title">Documents Review</h1>
-        <p className="page-subtitle">Review and approve agent documentation — BRD 8.12</p>
+        <p className="page-subtitle">Review and approve agent documentation</p>
       </div>
       <div className="data-panel">
         <div className="data-toolbar">

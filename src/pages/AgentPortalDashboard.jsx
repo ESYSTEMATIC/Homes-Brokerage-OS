@@ -19,7 +19,7 @@ export const AgentPortalDashboard = () => {
   };
 
   const lockedView = (msg) => openDrawer({
-    title: 'Access locked', subtitle: 'Training gate (BRD §6.1)',
+    title: 'Access locked', subtitle: 'Training gate',
     content: <div style={{padding:14,background:'#fff7ed',border:'1px solid #fde68a',borderRadius:10,color:'#92400e',fontSize:13,lineHeight:1.6}}>{msg}</div>,
   });
 
@@ -43,16 +43,20 @@ export const AgentPortalDashboard = () => {
         ))}
       </div>
 
-      <div className="journey-bar">
-        <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>Onboarding Journey</h3>
+      <div className="journey-bar" style={{ marginBottom: 32 }}>
+        <h3 className="section-title">Onboarding Journey</h3>
         <div className="journey-steps">
           {[['Application',true],['Documents',true],['Agreement',true],['Training',trainingDone,!trainingDone],['MLS Access',false],['Go Live',false]].map(([label,done,current],i,arr)=>(
             <React.Fragment key={label}>
               <div className="journey-step">
-                <div className={`journey-step-circle ${done?'done':current?'current':''}`}>{done?'✓':i+1}</div>
-                <div className="journey-step-label">{label}</div>
+                <div className={`journey-step-circle ${step.done ? 'done' : step.current ? 'current' : ''}`}>
+                  {step.done ? '✓' : i + 1}
+                </div>
+                <div className="journey-step-label" style={{ fontWeight: step.current ? '700' : '500', color: step.current ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  {step.label}
+                </div>
               </div>
-              {i<arr.length-1&&<div className={`journey-line ${done?'done':''}`}></div>}
+              {i < arr.length - 1 && <div className={`journey-line ${step.done ? 'done' : ''}`}></div>}
             </React.Fragment>
           ))}
         </div>
@@ -74,17 +78,21 @@ export const AgentPortalDashboard = () => {
             if (card.link) navigate(card.link);
           }}>
             <div className="quick-card-header">
-              <div className="quick-card-icon">{card.icon}</div>
-              {card.locked?<Lock size={14} color="var(--text-tertiary)"/>:<ExternalLink size={14} color="var(--text-tertiary)"/>}
+              <div className="quick-card-icon" style={{ background: card.locked ? 'var(--content-bg)' : 'var(--accent-light)', color: card.locked ? 'var(--text-secondary)' : 'var(--accent)' }}>
+                {card.icon}
+              </div>
+              {card.locked ? <Lock size={14} className="muted" /> : <ExternalLink size={14} className="muted" />}
             </div>
-            <h4>{card.title}</h4>
-            <p>{card.desc}</p>
-            <div className={`status-text ${card.locked?'locked':'ok'}`}>{card.status}</div>
+            <h4 style={{ margin: '12px 0 4px' }}>{card.title}</h4>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>{card.desc}</p>
+            <div className={`status-text ${card.locked ? 'locked' : 'ok'}`} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {card.status}
+            </div>
           </div>
         ))}
       </div>
 
-      <h3 style={{fontSize:16,fontWeight:700,marginBottom:16,marginTop:24}}>Performance Snapshot</h3>
+      <h3 className="section-title">Performance Snapshot</h3>
       <div className="kpi-grid kpi-grid-4">
         <div className="kpi-card"><div><div className="kpi-label">Active Leads</div><div className="kpi-value">{trainingDone?12:0}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📋</span></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Tasks Due Today</div><div className="kpi-value">{trainingDone?3:0}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>📅</span></div></div>
@@ -94,3 +102,4 @@ export const AgentPortalDashboard = () => {
     </div>
   );
 };
+

@@ -49,16 +49,16 @@ export const BackofficeDashboard = () => {
       </div>
 
       <div className="filter-bar">
-        <select value={period} onChange={e=>setPeriod(e.target.value)}>
+        <select className="filter-select" value={period} onChange={e=>setPeriod(e.target.value)}>
           <option>This Month</option><option>Last Month</option><option>This Quarter</option><option>YTD</option>
         </select>
-        <select value={developer} onChange={e=>setDeveloper(e.target.value)}>
+        <select className="filter-select" value={developer} onChange={e=>setDeveloper(e.target.value)}>
           <option value="">All Developers</option>{developers.map(d=><option key={d}>{d}</option>)}
         </select>
-        <select value={project} onChange={e=>setProject(e.target.value)}>
+        <select className="filter-select" value={project} onChange={e=>setProject(e.target.value)}>
           <option value="">All Projects</option>{projects.map(p=><option key={p}>{p}</option>)}
         </select>
-        <select value={branch} onChange={e=>setBranch(e.target.value)}>
+        <select className="filter-select" value={branch} onChange={e=>setBranch(e.target.value)}>
           <option value="">All Branches</option>{state.branches.map(b=><option key={b.id}>{b.name}</option>)}
         </select>
       </div>

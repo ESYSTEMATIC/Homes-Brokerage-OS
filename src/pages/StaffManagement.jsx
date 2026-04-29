@@ -85,7 +85,7 @@ export const StaffManagement = () => {
   });
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Staff Management</span></div>
         <h1 className="page-title">Staff Management</h1>

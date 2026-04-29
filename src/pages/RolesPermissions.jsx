@@ -5,7 +5,7 @@ import { Eye, Pencil, Trash2, Plus, Download, KeyRound } from 'lucide-react';
 
 const today = () => new Date().toISOString().split('T')[0];
 
-// Permissions catalog (BRD §6.1) — grouped by module.
+// Permissions catalog — grouped by module.
 const PERMISSION_CATALOG = {
   'CRM (federated)': ['View Leads','Create Leads','Assign Leads','Reassign Leads','Approve Override','View Deals','Edit Deals','Approve Commission'],
   'Marketplace (federated)': ['Publish Project','Edit Inventory','Manage Source Mapping','View Marketplace Dashboard'],
@@ -21,7 +21,7 @@ export const RolesPermissions = () => {
 
   const openForm = (existing) => openModal({
     title: existing ? `Edit Role — ${existing.name}` : 'Create Role',
-    subtitle: 'BRD §6.3 — roles are permission templates assigned to users in a department/team',
+    subtitle: 'Roles are permission templates assigned to users in a department/team',
     size: 'lg', submitLabel: existing ? 'Save changes' : 'Create role',
     body: (
       <>
@@ -87,9 +87,9 @@ export const RolesPermissions = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Roles & Permissions</span></div>
         <h1 className="page-title">Roles & Permissions</h1>
-        <p className="page-subtitle">Custom role creation and permission catalog — BRD 6.3</p>
+        <p className="page-subtitle">Custom role creation and permission catalog</p>
       </div>
-      <div className="info-banner" style={{display:'flex',alignItems:'center',gap:10}}><KeyRound size={16}/>Roles control access across the Backoffice and federated systems (CRM, Marketplace, Marketplace Dashboard). All access is SSO-only via Microsoft Entra (BRD §11).</div>
+      <div className="info-banner" style={{display:'flex',alignItems:'center',gap:10}}><KeyRound size={16}/>Roles control access across the Backoffice and federated systems (CRM, Marketplace, Marketplace Dashboard). All access is SSO-only via Microsoft Entra.</div>
       <div className="data-panel">
         <div className="data-toolbar">
           <div className="data-toolbar-left">

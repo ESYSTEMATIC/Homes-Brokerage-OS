@@ -80,4 +80,4 @@ This platform implements the HOMES Business Requirements Document (BRD) V1.3, co
 
 ## 📄 License
 
-Private — Homes Brokerage © 2024
+Private — Homes Brokerage © 2026

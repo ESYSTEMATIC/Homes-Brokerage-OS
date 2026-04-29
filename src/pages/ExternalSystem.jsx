@@ -4,12 +4,17 @@ import { KeyRound, ExternalLink, Lock, ShieldCheck } from 'lucide-react';
 
 // Shared placeholder for federated external systems (CRM, Marketplace, Marketplace Dashboard).
 // These are launched via Microsoft Entra SSO from the Employee Board, not from the Backoffice.
-const ExternalSystem = ({ name, brd, description, accessRoles, capabilities }) => {
-  const { toast, writeAudit } = useApp();
+const ExternalSystem = ({ name, brd, description, accessRoles, capabilities, launchTarget }) => {
+  const { triggerSsoLaunch } = useApp();
+  
   const launch = () => {
-    toast(`Simulating SSO launch into ${name}…`, 'info');
-    writeAudit('SSO Launch', `${name} (federated)`, 'Security', `Token issued via Microsoft Entra`);
+    if (launchTarget) {
+      triggerSsoLaunch(name, launchTarget);
+    } else {
+      triggerSsoLaunch(name);
+    }
   };
+
   return (
     <div>
       <div className="page-header">
@@ -34,7 +39,7 @@ const ExternalSystem = ({ name, brd, description, accessRoles, capabilities }) =
 
       <div style={{display:'grid',gridTemplateColumns:'1.4fr 1fr',gap:20}}>
         <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:24}}>
-          <h3 style={{fontSize:15,fontWeight:700,marginBottom:14,display:'flex',alignItems:'center',gap:8}}><ShieldCheck size={16} color="#E8672A"/>Capabilities (BRD reference)</h3>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:14,display:'flex',alignItems:'center',gap:8}}><ShieldCheck size={16} color="#E8672A"/>Capabilities</h3>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
             {capabilities.map(c => (
               <div key={c} style={{padding:'8px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:6,fontSize:13}}>{c}</div>
@@ -58,10 +63,10 @@ const ExternalSystem = ({ name, brd, description, accessRoles, capabilities }) =
   );
 };
 
-export const CRMLeads = () => (
+export const CRMIntro = () => (
   <ExternalSystem
     name="CRM — Lead Management"
-    brd="BRD §8.2 · Platform §3.2"
+    brd=""
     description="Lead intake, duplicate control, hierarchy assignment, qualification, agent mini-site, and listing-share logging"
     capabilities={[
       'Lead intake & duplicate check','Hierarchy assignment','Buyer preferences',
@@ -77,13 +82,14 @@ export const CRMLeads = () => (
       { role: 'Backoffice Admin', level: 'Audit-only' },
       { role: 'HR / Finance / Marketplace Admin', level: 'None' },
     ]}
+    launchTarget="#/system/crm"
   />
 );
 
 export const DealsPipeline = () => (
   <ExternalSystem
     name="CRM — Deals Pipeline"
-    brd="BRD §8.6"
+    brd=""
     description="Deal lifecycle, stage progression, contracts and commission foundation"
     capabilities={['Pipeline board','All deals table','Linked lead & inventory','Stage management','Reservation & contract status','Commission calculation','Override request workflow','Hierarchy approval']}
     accessRoles={[
@@ -99,7 +105,7 @@ export const DealsPipeline = () => (
 export const TasksCalendar = () => (
   <ExternalSystem
     name="CRM — Tasks & Calendar"
-    brd="BRD §8.7"
+    brd=""
     description="Unified task list and calendar — every lead, tour, deal has a next action"
     capabilities={['Unified task list','Calendar events','Tour scheduling','Follow-up reminders','Overdue alerts','Linked records','Role-based visibility','Notification center']}
     accessRoles={[
@@ -116,7 +122,7 @@ export const TasksCalendar = () => (
 const MarketplaceDashboardSystem = () => (
   <ExternalSystem
     name="Marketplace Dashboard"
-    brd="BRD §8.1, §8.5, §8.8"
+    brd=""
     description="Internal admin and analytics for the public homes.com.eg marketplace. The Marketplace itself is consumer-facing; employees only access this dashboard via SSO."
     capabilities={[
       'Developer feed ingestion','Project / compound publishing','Unit availability',

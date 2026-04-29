@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA (BRD V1.3 ALIGNED)
+// HOMES BROKERAGE OS — COMPREHENSIVE STATIC DATA (V1.3 ALIGNED)
 // ═══════════════════════════════════════════════════════════════
 
-// ── PERSONAS (BRD Section 5) ──
+// ── PERSONAS ──
 export const PERSONAS = {
   backofficeAdmin: { label: "Super Admin", scope: "Full platform access", hub: "backoffice", email: "admin@homesbrokerage.eg" },
   salesManager: { label: "Sales Manager", scope: "Managed teams Alpha + Beta", hub: "backoffice", email: "nour@homesbrokerage.eg" },
@@ -16,7 +16,7 @@ export const PERSONAS = {
   teamLeader: { label: "Omar Sherif", scope: "Team Leader · Alpha Team", hub: "agent", email: "omar@homesbrokerage.eg", mls: "EGMLS-287451", role: "Team Leader", onboardingComplete: true },
 };
 
-// ── DEPARTMENTS (BRD Section 6.2) ──
+// ── DEPARTMENTS ──
 export const DEPARTMENTS = [
   { id: "DEP-001", name: "Sales", head: "Nour El-Din", teams: 3, employees: 12, status: "Active" },
   { id: "DEP-002", name: "HR / Recruitment", head: "Dina Samir", teams: 1, employees: 4, status: "Active" },
@@ -27,7 +27,7 @@ export const DEPARTMENTS = [
   { id: "DEP-007", name: "Executive", head: "CEO", teams: 0, employees: 2, status: "Active" },
 ];
 
-// ── STAFF / EMPLOYEES (BRD Sections 6, 8.9) ──
+// ── STAFF / EMPLOYEES ──
 export const STAFF = [
   { id: "A001", name: "Ahmed Hassan", department: "Sales", title: "Senior Sales Executive", branch: "New Cairo", manager: "Karim Mostafa", status: "Active", type: "Employee", email: "ahmed@homesbrokerage.eg", phone: "+20 100 111 0001", joinDate: "2023-06-01" },
   { id: "A002", name: "Fatma Ibrahim", department: "Sales", title: "Sales Agent", branch: "6th October", manager: "Omar Sherif", status: "Active", type: "Employee", email: "fatma@homesbrokerage.eg", phone: "+20 100 111 0002", joinDate: "2023-07-15" },
@@ -39,7 +39,7 @@ export const STAFF = [
   { id: "A008", name: "Omar Sherif", department: "Sales", title: "Team Leader", branch: "6th October", manager: "Nour El-Din", status: "Active", type: "Team Leader", email: "omar@homesbrokerage.eg", phone: "+20 100 111 0008", joinDate: "2022-08-15" },
 ];
 
-// ── LEADS (BRD Section 8.2) ──
+// ── LEADS ──
 export const LEADS = [
   { id: "L-1001", name: "Mohamed Hassan", phone: "+20 100 111 2244", email: "m.hassan@mail.com", source: "Marketplace", campaign: "New Cairo Launch", project: "Palm Hills New Cairo", developer: "Palm Hills", budget: 8500000, stage: "Qualified", owner: "Ahmed Hassan", team: "Alpha", duplicate: "Clear", priority: "Hot", created: "2024-01-15" },
   { id: "L-1002", name: "Sara Ali", phone: "+20 111 888 3000", email: "sara.ali@mail.com", source: "Referral", campaign: "Broker Referral", project: "ZED East", developer: "Ora", budget: 12200000, stage: "Negotiation", owner: "Fatma Ibrahim", team: "Alpha", duplicate: "Clear", priority: "Hot", created: "2024-01-14" },
@@ -51,7 +51,7 @@ export const LEADS = [
   { id: "L-1008", name: "Mona Fawzy", phone: "+20 100 666 3344", email: "mona@mail.com", source: "Walk-in", campaign: "Branch Walk-in", project: "Mountain View", developer: "Mountain View", budget: 7000000, stage: "Contacted", owner: "Omar Sherif", team: "Beta", duplicate: "Review", priority: "Warm", created: "2024-01-18" },
 ];
 
-// ── DEALS (BRD Section 8.6) ──
+// ── DEALS ──
 export const DEALS = [
   { id: "D-501", lead: "Sara Ali", owner: "Fatma Ibrahim", team: "Alpha", project: "ZED East", developer: "Ora", stage: "Negotiation", value: 12200000, commission: 2.0, status: "Active", created: "2024-01-14" },
   { id: "D-502", lead: "Youssef Tarek", owner: "Fatma Ibrahim", team: "Alpha", project: "Hyde Park", developer: "Hyde Park", stage: "Reservation", value: 11200000, commission: 1.8, status: "Active", created: "2024-01-10" },
@@ -60,7 +60,7 @@ export const DEALS = [
   { id: "D-505", lead: "Tarek Mansour", owner: "Ahmed Hassan", team: "Alpha", project: "Midtown", developer: "Better Home", stage: "Closed Lost", value: 4500000, commission: 1.5, lostReason: "Budget exceeded", status: "Closed", created: "2024-01-10" },
 ];
 
-// ── TASKS (BRD Section 8.7) ──
+// ── TASKS ──
 export const TASKS = [
   { id: "T-001", title: "Follow up with Mohamed Hassan", type: "Call", owner: "Ahmed Hassan", lead: "L-1001", due: "2024-01-18", priority: "High", status: "Pending" },
   { id: "T-002", title: "Schedule tour - ZED East", type: "Tour", owner: "Fatma Ibrahim", lead: "L-1002", due: "2024-01-19", priority: "High", status: "Completed" },
@@ -70,7 +70,7 @@ export const TASKS = [
   { id: "T-006", title: "Finance follow-up on Hacienda deal", type: "Finance", owner: "Hana Mahmoud", lead: "L-1004", due: "2024-01-22", priority: "High", status: "Pending" },
 ];
 
-// ── ONBOARDING APPLICATIONS (BRD Section 8.9) ──
+// ── ONBOARDING APPLICATIONS ──
 export const ONBOARDING = [
   { id: "APP001", applicant: "Mona Fawzy", type: "Agent", date: "2024-01-15", status: "Submitted", department: "Sales", branch: "New Cairo" },
   { id: "APP002", applicant: "Khaled Magdy", type: "Employee", date: "2024-01-10", status: "Under Review", department: "Sales", branch: "6th October" },
@@ -81,7 +81,7 @@ export const ONBOARDING = [
   { id: "APP007", applicant: "Nadia Gamal", type: "Employee", date: "2023-12-01", status: "Rejected", department: "HR", branch: "New Cairo" },
 ];
 
-// ── DOCUMENTS (BRD Section 8.12) ──
+// ── DOCUMENTS ──
 export const DOCUMENTS = [
   { id: "DOC001", doc: "National ID", type: "Identity", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review" },
   { id: "DOC002", doc: "Tax Card", type: "Financial", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review" },
@@ -93,7 +93,7 @@ export const DOCUMENTS = [
   { id: "DOC008", doc: "Contract Agreement", type: "Legal", agent: "Omar Sherif", date: "2024-01-05", status: "Approved" },
 ];
 
-// ── RECRUITMENT / JOB VACANCIES (BRD Section 8.10) ──
+// ── RECRUITMENT / JOB VACANCIES ──
 export const JOBS = [
   { id: "JOB-001", title: "Senior Sales Agent", department: "Sales", location: "New Cairo", type: "Full-time", mode: "On-site", headcount: 3, hiringManager: "Karim Mostafa", status: "Published", applicants: 12, created: "2024-01-05" },
   { id: "JOB-002", title: "Junior Sales Agent", department: "Sales", location: "6th October", type: "Full-time", mode: "On-site", headcount: 5, hiringManager: "Omar Sherif", status: "Published", applicants: 28, created: "2024-01-08" },
@@ -110,7 +110,7 @@ export const CANDIDATES = [
   { id: "CAN-006", name: "Khaled Samir", job: "HR Coordinator", stage: "Applied", score: null, source: "LinkedIn", applied: "2024-01-17", interviewer: null },
 ];
 
-// ── TRAINING COURSES (BRD Section 8.11) ──
+// ── TRAINING COURSES ──
 export const TRAINING = [
   { id: "CRS-001", title: "Real Estate Fundamentals", progress: 100, score: 92, due: "2024-11-30", status: "Completed", required: true },
   { id: "CRS-002", title: "Anti-Money Laundering Compliance", progress: 65, score: null, due: "2024-12-15", status: "In Progress", required: true },
@@ -121,7 +121,7 @@ export const TRAINING = [
   { id: "CRS-007", title: "Customer Communication Excellence", progress: 0, score: null, due: "2025-03-01", status: "Not Started", required: false },
 ];
 
-// ── COMMISSION POLICIES (BRD Section 8.13) ──
+// ── COMMISSION POLICIES ──
 export const COMMISSION_POLICIES = [
   { id: "COM-001", developer: "Palm Hills", project: "Palm Hills New Cairo", rate: 2.0, override: false, status: "Active" },
   { id: "COM-002", developer: "Ora", project: "ZED East", rate: 2.0, override: false, status: "Active" },
@@ -131,7 +131,7 @@ export const COMMISSION_POLICIES = [
   { id: "COM-006", developer: "Sodic", project: "Sodic West", rate: 1.8, override: false, status: "Active" },
 ];
 
-// ── AUDIT LOGS (BRD Section 10.3) ──
+// ── AUDIT LOGS ──
 export const AUDIT_LOGS = [
   { id: "AUD-001", action: "Lead Assigned", actor: "Nour El-Din", target: "L-1001 → Ahmed Hassan", module: "CRM", timestamp: "2024-01-15 09:23:44", detail: "Lead assigned from manager queue" },
   { id: "AUD-002", action: "Role Created", actor: "System Admin", target: "Senior Agent Role", module: "Backoffice", timestamp: "2024-01-14 14:11:02", detail: "New role with 12 permissions created" },
@@ -143,7 +143,7 @@ export const AUDIT_LOGS = [
   { id: "AUD-008", action: "SSO Login", actor: "Ahmed Hassan", target: "Agent Session", module: "Security", timestamp: "2024-01-18 08:00:00", detail: "SSO authenticated via Microsoft Entra" },
 ];
 
-// ── ROLES & PERMISSIONS (BRD Section 6.3) ──
+// ── ROLES & PERMISSIONS ──
 export const ROLES = [
   { id: "ROLE-001", name: "Sales Agent", department: "Sales", permissions: 8, users: 4, status: "Active", desc: "Standard CRM access for lead management, tasks, and deals" },
   { id: "ROLE-002", name: "Team Leader", department: "Sales", permissions: 14, users: 2, status: "Active", desc: "Team oversight, lead distribution, and reporting" },
@@ -154,7 +154,7 @@ export const ROLES = [
   { id: "ROLE-007", name: "Super Admin", department: "System", permissions: 45, users: 1, status: "Active", desc: "Full platform access and configuration" },
 ];
 
-// ── MARKETPLACE / PROJECTS (BRD Section 8.1, 8.5) ──
+// ── MARKETPLACE / PROJECTS ──
 export const PROJECTS = [
   { id: "PRJ-001", name: "Palm Hills New Cairo", developer: "Palm Hills", location: "New Cairo", units: 450, available: 120, type: "Compound", status: "Published", delivery: "2026-Q2", priceFrom: 5500000 },
   { id: "PRJ-002", name: "ZED East", developer: "Ora", location: "New Cairo", units: 680, available: 210, type: "Mixed-Use", status: "Published", delivery: "2025-Q4", priceFrom: 8200000 },
@@ -183,7 +183,7 @@ export const MARKETPLACE_STATS = {
   ],
 };
 
-// ── EXCEPTIONS (BRD 10.4) ──
+// ── EXCEPTIONS ──
 export const EXCEPTIONS = [
   { id:'EXC-001', type:'Commission Dispute', title:'Unauthorized discount on North Edge deal', severity:'Critical', reporter:'Nour El-Din', assignee:'Finance Team', status:'Open', created:'2024-01-15' },
   { id:'EXC-002', type:'Training Overdue', title:'3 agents have overdue mandatory training', severity:'High', reporter:'System', assignee:'HR Team', status:'Open', created:'2024-01-14' },
@@ -357,13 +357,113 @@ export const SUPPORT_TICKETS = [
   { id:'TKT-005', subject:'Payout schedule clarification', category:'Finance', priority:'Low', status:'Resolved', created:'2024-01-05' },
 ];
 
+// ── CRM ACTIVITY LOG ──
+export const CRM_ACTIVITY = [
+  { id: 'ACT-001', action: 'Lead Created', detail: 'Mohamed Hassan added via Marketplace', actor: 'System', time: '2 min ago', type: 'lead' },
+  { id: 'ACT-002', action: 'Deal Stage Changed', detail: 'D-502 Hyde Park → Reservation', actor: 'Fatma Ibrahim', time: '15 min ago', type: 'deal' },
+  { id: 'ACT-003', action: 'Task Completed', detail: 'Schedule tour - ZED East', actor: 'Fatma Ibrahim', time: '1 hour ago', type: 'task' },
+  { id: 'ACT-004', action: 'Lead Assigned', detail: 'L-1001 → Ahmed Hassan', actor: 'Nour El-Din', time: '2 hours ago', type: 'lead' },
+  { id: 'ACT-005', action: 'Call Logged', detail: 'Follow up with Karim Fouad', actor: 'Omar Sherif', time: '3 hours ago', type: 'task' },
+  { id: 'ACT-006', action: 'Deal Created', detail: 'D-504 Palm Hills New Cairo — EGP 8.5M', actor: 'Ahmed Hassan', time: '4 hours ago', type: 'deal' },
+  { id: 'ACT-007', action: 'WhatsApp Sent', detail: 'Payment plan details to Nour Ibrahim', actor: 'Hana Mahmoud', time: '5 hours ago', type: 'task' },
+  { id: 'ACT-008', action: 'Lead Lost', detail: 'Tarek Mansour — Budget exceeded', actor: 'Ahmed Hassan', time: '6 hours ago', type: 'lead' },
+];
+
+// ── LISTINGS / INVENTORY ──
+export const LISTINGS = [
+  { id:'LST-001', project:'Palm Hills New Cairo', developer:'Palm Hills', unitType:'Villa', unitCode:'PH-NC-V101', area:320, bedrooms:4, bathrooms:3, floor:'Ground', price:12500000, paymentPlan:'10% down, 7 years', status:'Available', features:['Garden','Pool','Smart Home','Garage'], created:'2024-01-05' },
+  { id:'LST-002', project:'ZED East', developer:'Ora', unitType:'Apartment', unitCode:'ZED-A205', area:180, bedrooms:3, bathrooms:2, floor:'2nd', price:8200000, paymentPlan:'15% down, 8 years', status:'Available', features:['Club Access','Gym','Landscape View'], created:'2024-01-06' },
+  { id:'LST-003', project:'Hacienda Bay', developer:'Palm Hills', unitType:'Chalet', unitCode:'HB-CH-A12', area:140, bedrooms:2, bathrooms:2, floor:'Ground', price:16000000, paymentPlan:'20% down, 5 years', status:'Reserved', features:['Beach Access','Pool','Furnished'], created:'2024-01-07' },
+  { id:'LST-004', project:'Hyde Park', developer:'Hyde Park', unitType:'Townhouse', unitCode:'HP-TH-B304', area:260, bedrooms:4, bathrooms:3, floor:'Ground+1', price:11200000, paymentPlan:'10% down, 8 years', status:'Available', features:['Garden','Roof','Corner Unit'], created:'2024-01-08' },
+  { id:'LST-005', project:'Madinaty', developer:'Talaat Moustafa', unitType:'Apartment', unitCode:'MD-APT-C110', area:150, bedrooms:3, bathrooms:2, floor:'1st', price:5200000, paymentPlan:'25% down, 6 years', status:'Available', features:['Park View','Balcony','Storage'], created:'2024-01-09' },
+  { id:'LST-006', project:'Sodic West', developer:'Sodic', unitType:'Twin House', unitCode:'SW-TW-D201', area:280, bedrooms:4, bathrooms:3, floor:'Ground+1', price:9800000, paymentPlan:'15% down, 7 years', status:'Sold', features:['Garden','Smart Home','Club Access'], created:'2024-01-03' },
+  { id:'LST-007', project:'Mountain View', developer:'Mountain View', unitType:'Duplex', unitCode:'MV-DX-E105', area:220, bedrooms:3, bathrooms:3, floor:'3rd+4th', price:7800000, paymentPlan:'10% down, 8 years', status:'Available', features:['Terrace','View','Double Height'], created:'2024-01-10' },
+  { id:'LST-008', project:'Palm Hills New Cairo', developer:'Palm Hills', unitType:'Penthouse', unitCode:'PH-NC-PH801', area:350, bedrooms:4, bathrooms:4, floor:'8th', price:18500000, paymentPlan:'20% down, 6 years', status:'Available', features:['Roof Terrace','Panoramic View','Private Elevator','Pool'], created:'2024-01-11' },
+];
+
+// ── TOURS ──
+export const TOURS = [
+  { id:'TOUR-001', leadId:'L-1001', leadName:'Mohamed Hassan', listingId:'LST-001', property:'Palm Hills New Cairo — PH-NC-V101', date:'2024-01-20', time:'10:00 AM', agent:'Ahmed Hassan', status:'Completed', feedback:'Very interested, loved the garden. Wants to discuss payment plan.', rating:5 },
+  { id:'TOUR-002', leadId:'L-1002', leadName:'Sara Ali', listingId:'LST-002', property:'ZED East — ZED-A205', date:'2024-01-19', time:'2:00 PM', agent:'Fatma Ibrahim', status:'Completed', feedback:'Good location but wants larger unit. Will check 3BR options.', rating:4 },
+  { id:'TOUR-003', leadId:'L-1004', leadName:'Nour Ibrahim', listingId:'LST-003', property:'Hacienda Bay — HB-CH-A12', date:'2024-01-22', time:'11:00 AM', agent:'Hana Mahmoud', status:'Scheduled', feedback:null, rating:null },
+  { id:'TOUR-004', leadId:'L-1007', leadName:'Youssef Tarek', listingId:'LST-004', property:'Hyde Park — HP-TH-B304', date:'2024-01-18', time:'3:00 PM', agent:'Fatma Ibrahim', status:'Completed', feedback:'Ready to reserve. Proceeding with reservation deposit.', rating:5 },
+  { id:'TOUR-005', leadId:'L-1003', leadName:'Karim Fouad', listingId:'LST-005', property:'Madinaty — MD-APT-C110', date:'2024-01-23', time:'10:00 AM', agent:'Omar Sherif', status:'Scheduled', feedback:null, rating:null },
+  { id:'TOUR-006', leadId:'L-1005', leadName:'Layla Ahmed', listingId:'LST-007', property:'Mountain View — MV-DX-E105', date:'2024-01-21', time:'4:00 PM', agent:'Ahmed Hassan', status:'No-Show', feedback:'Client did not attend. Reschedule needed.', rating:null },
+  { id:'TOUR-007', leadId:'L-1008', leadName:'Mona Fawzy', listingId:'LST-007', property:'Mountain View — MV-DX-E105', date:'2024-01-24', time:'11:00 AM', agent:'Omar Sherif', status:'Scheduled', feedback:null, rating:null },
+  { id:'TOUR-008', leadId:'L-1006', leadName:'Tarek Mansour', listingId:'LST-005', property:'Madinaty — MD-APT-C110', date:'2024-01-15', time:'1:00 PM', agent:'Ahmed Hassan', status:'Cancelled', feedback:'Client cancelled — budget exceeded.', rating:null },
+];
+
+// ── CONTRACTS ──
+export const CONTRACTS = [
+  { id:'CON-001', dealId:'D-502', leadName:'Youssef Tarek', project:'Hyde Park', unitCode:'HP-TH-B304', value:11200000, downPayment:1120000, downPct:10, installments:96, monthlyInstall:105000, stage:'Signed', createdDate:'2024-01-12', signDate:'2024-01-18', lawyer:'Mahmoud Samy', notes:'Standard contract. Client paid down payment via bank transfer.' },
+  { id:'CON-002', dealId:'D-503', leadName:'Nour Ibrahim', project:'Hacienda Bay', unitCode:'HB-CH-A12', value:16000000, downPayment:3200000, downPct:20, installments:60, monthlyInstall:213333, stage:'Under Review', createdDate:'2024-01-14', signDate:null, lawyer:'Mahmoud Samy', notes:'Awaiting legal review. Expected sign within 5 business days.' },
+  { id:'CON-003', dealId:'D-501', leadName:'Sara Ali', project:'ZED East', unitCode:'ZED-A205', value:12200000, downPayment:1830000, downPct:15, installments:96, monthlyInstall:108021, stage:'Draft', createdDate:'2024-01-16', signDate:null, lawyer:null, notes:'Contract being prepared. Unit selection confirmed.' },
+  { id:'CON-004', dealId:'D-504', leadName:'Mohamed Hassan', project:'Palm Hills New Cairo', unitCode:'PH-NC-V101', value:8500000, downPayment:850000, downPct:10, installments:84, monthlyInstall:91071, stage:'Draft', createdDate:'2024-01-17', signDate:null, lawyer:null, notes:'Pending qualification completion.' },
+  { id:'CON-005', dealId:'D-502', leadName:'Youssef Tarek', project:'Hyde Park', unitCode:'HP-TH-B304', value:11200000, downPayment:1120000, downPct:10, installments:96, monthlyInstall:105000, stage:'Registered', createdDate:'2024-01-10', signDate:'2024-01-15', lawyer:'Mahmoud Samy', notes:'Contract registered with Real Estate Publicity dept. Complete.' },
+];
+
+// ── LISTING SHARES ──
+export const LISTING_SHARES = [
+  { id:'SHR-001', listingId:'LST-001', property:'Palm Hills New Cairo V101', leadId:'L-1001', leadName:'Mohamed Hassan', channel:'WhatsApp', agent:'Ahmed Hassan', timestamp:'2024-01-15 10:30', response:'Interested' },
+  { id:'SHR-002', listingId:'LST-002', property:'ZED East A205', leadId:'L-1002', leadName:'Sara Ali', channel:'Email', agent:'Fatma Ibrahim', timestamp:'2024-01-14 14:15', response:'Viewed' },
+  { id:'SHR-003', listingId:'LST-003', property:'Hacienda Bay CH-A12', leadId:'L-1004', leadName:'Nour Ibrahim', channel:'WhatsApp', agent:'Hana Mahmoud', timestamp:'2024-01-13 09:45', response:'Interested' },
+  { id:'SHR-004', listingId:'LST-004', property:'Hyde Park TH-B304', leadId:'L-1007', leadName:'Youssef Tarek', channel:'Call', agent:'Fatma Ibrahim', timestamp:'2024-01-12 16:00', response:'Interested' },
+  { id:'SHR-005', listingId:'LST-005', property:'Madinaty APT-C110', leadId:'L-1003', leadName:'Karim Fouad', channel:'WhatsApp', agent:'Omar Sherif', timestamp:'2024-01-16 11:20', response:'No Response' },
+  { id:'SHR-006', listingId:'LST-007', property:'Mountain View DX-E105', leadId:'L-1005', leadName:'Layla Ahmed', channel:'Email', agent:'Ahmed Hassan', timestamp:'2024-01-17 08:00', response:'Viewed' },
+  { id:'SHR-007', listingId:'LST-001', property:'Palm Hills New Cairo V101', leadId:'L-1008', leadName:'Mona Fawzy', channel:'SMS', agent:'Omar Sherif', timestamp:'2024-01-18 13:30', response:'No Response' },
+  { id:'SHR-008', listingId:'LST-008', property:'Palm Hills PH801', leadId:'L-1001', leadName:'Mohamed Hassan', channel:'WhatsApp', agent:'Ahmed Hassan', timestamp:'2024-01-16 15:45', response:'Interested' },
+  { id:'SHR-009', listingId:'LST-004', property:'Hyde Park TH-B304', leadId:'L-1002', leadName:'Sara Ali', channel:'Call', agent:'Fatma Ibrahim', timestamp:'2024-01-15 10:00', response:'Viewed' },
+  { id:'SHR-010', listingId:'LST-002', property:'ZED East A205', leadId:'L-1006', leadName:'Tarek Mansour', channel:'Email', agent:'Ahmed Hassan', timestamp:'2024-01-11 09:15', response:'No Response' },
+];
+
+// ── BUYER PREFERENCES (per lead) ──
+export const BUYER_PREFERENCES = [
+  { leadId:'L-1001', propertyTypes:['Villa','Townhouse'], locations:['New Cairo','Sheikh Zayed'], budgetMin:7000000, budgetMax:15000000, bedrooms:'4+', bathrooms:'3+', amenities:['Garden','Pool','Smart Home','Garage'], preferredDevelopers:['Palm Hills','Hyde Park'], timeline:'3 months', notes:'Prefers gated compound with international school nearby' },
+  { leadId:'L-1002', propertyTypes:['Apartment','Duplex'], locations:['New Cairo'], budgetMin:8000000, budgetMax:14000000, bedrooms:'3', bathrooms:'2', amenities:['Club Access','Gym','Landscape View'], preferredDevelopers:['Ora','Sodic'], timeline:'6 months', notes:'Young couple, first home. Wants modern design.' },
+  { leadId:'L-1003', propertyTypes:['Apartment'], locations:['New Cairo','Heliopolis'], budgetMin:3000000, budgetMax:6000000, bedrooms:'3', bathrooms:'2', amenities:['Park View','Balcony'], preferredDevelopers:['Talaat Moustafa'], timeline:'Immediate', notes:'Cash buyer, wants ready-to-move or near delivery.' },
+  { leadId:'L-1004', propertyTypes:['Chalet','Villa'], locations:['North Coast'], budgetMin:12000000, budgetMax:20000000, bedrooms:'2-3', bathrooms:'2', amenities:['Beach Access','Pool','Furnished'], preferredDevelopers:['Palm Hills','Mountain View'], timeline:'6 months', notes:'Summer home, premium finishing required.' },
+  { leadId:'L-1005', propertyTypes:['Twin House','Villa'], locations:['Sheikh Zayed','6th October'], budgetMin:8000000, budgetMax:12000000, bedrooms:'4', bathrooms:'3', amenities:['Garden','Smart Home','Club Access'], preferredDevelopers:['Sodic'], timeline:'1 year', notes:'Relocating from Maadi, needs good schools zone.' },
+  { leadId:'L-1007', propertyTypes:['Townhouse'], locations:['New Cairo'], budgetMin:9000000, budgetMax:13000000, bedrooms:'4', bathrooms:'3', amenities:['Garden','Roof','Corner Unit'], preferredDevelopers:['Hyde Park'], timeline:'Immediate', notes:'Already visited, ready to reserve.' },
+];
+
+// ── SOURCE HISTORY (attribution per lead) ──
+export const SOURCE_HISTORY = [
+  { leadId:'L-1001', touchpoints:[{channel:'Marketplace',campaign:'New Cairo Launch',date:'2024-01-10',detail:'Viewed Palm Hills listing'},{channel:'WhatsApp',campaign:null,date:'2024-01-12',detail:'Agent sent payment plan'},{channel:'Call',campaign:null,date:'2024-01-14',detail:'Qualification call 15min'},{channel:'Tour',campaign:null,date:'2024-01-15',detail:'Site visit Palm Hills'}] },
+  { leadId:'L-1002', touchpoints:[{channel:'Referral',campaign:'Broker Referral',date:'2024-01-08',detail:'Referred by external broker'},{channel:'Email',campaign:null,date:'2024-01-10',detail:'Brochure sent'},{channel:'Call',campaign:null,date:'2024-01-12',detail:'Discovery call'},{channel:'Tour',campaign:null,date:'2024-01-14',detail:'ZED East tour'}] },
+  { leadId:'L-1003', touchpoints:[{channel:'Walk-in',campaign:'Branch Visit',date:'2024-01-16',detail:'Walked into New Cairo branch'}] },
+  { leadId:'L-1004', touchpoints:[{channel:'Marketplace',campaign:'North Coast Summer',date:'2024-01-05',detail:'Hacienda Bay inquiry'},{channel:'WhatsApp',campaign:null,date:'2024-01-08',detail:'Video tour shared'},{channel:'Call',campaign:null,date:'2024-01-10',detail:'Budget discussion'},{channel:'WhatsApp',campaign:null,date:'2024-01-12',detail:'Payment plan details'}] },
+  { leadId:'L-1005', touchpoints:[{channel:'Campaign',campaign:'Sheikh Zayed Promo',date:'2024-01-15',detail:'Facebook ad click'},{channel:'Marketplace',campaign:null,date:'2024-01-16',detail:'Viewed Sodic West listing'},{channel:'Email',campaign:null,date:'2024-01-17',detail:'Auto-responder sent'}] },
+];
+
+// ── DUPLICATE CANDIDATES ──
+export const DUPLICATE_CANDIDATES = [
+  { id:'DUP-001', leadId:'L-1003', matchedLeadId:'L-1008', leadName:'Karim Fouad', matchedName:'Mona Fawzy', matchType:'Phone', confidence:75, status:'Pending', detail:'Similar phone prefix +20 122 vs +20 100' },
+  { id:'DUP-002', leadId:'L-1008', matchedLeadId:'L-1003', leadName:'Mona Fawzy', matchedName:'Karim Fouad', matchType:'Phone', confidence:75, status:'Pending', detail:'Reverse match of DUP-001' },
+  { id:'DUP-003', leadId:'L-1001', matchedLeadId:'L-1006', leadName:'Mohamed Hassan', matchedName:'Tarek Mansour', matchType:'Email', confidence:40, status:'Dismissed', detail:'Different email domains, low match' },
+];
+
+// ── ASSIGNMENT LOG ──
+export const ASSIGNMENT_LOG = [
+  { id:'ASN-001', leadId:'L-1001', leadName:'Mohamed Hassan', fromAgent:null, toAgent:'Ahmed Hassan', reason:'Auto-assignment (round-robin)', date:'2024-01-15 09:23', approver:'System' },
+  { id:'ASN-002', leadId:'L-1002', leadName:'Sara Ali', fromAgent:null, toAgent:'Fatma Ibrahim', reason:'Referral — direct assignment', date:'2024-01-14 10:00', approver:'Nour El-Din' },
+  { id:'ASN-003', leadId:'L-1004', leadName:'Nour Ibrahim', fromAgent:'Ahmed Hassan', toAgent:'Hana Mahmoud', reason:'Territory reassignment — North Coast specialist', date:'2024-01-12 14:30', approver:'Nour El-Din' },
+  { id:'ASN-004', leadId:'L-1006', leadName:'Tarek Mansour', fromAgent:null, toAgent:'Ahmed Hassan', reason:'Manager queue pickup', date:'2024-01-10 11:00', approver:'Karim Mostafa' },
+  { id:'ASN-005', leadId:'L-1008', leadName:'Mona Fawzy', fromAgent:null, toAgent:'Omar Sherif', reason:'Walk-in — branch assignment', date:'2024-01-18 09:15', approver:'System' },
+];
+
 // ── REFERENCE LISTS ──
 export const STAGES = ['New', 'Contacted', 'Qualified', 'Tour Scheduled', 'Negotiation', 'Reservation', 'Contracting', 'Closed Won', 'Closed Lost'];
 export const PRIORITIES = ['Hot', 'Warm', 'Cold'];
 export const SOURCES = ['Marketplace', 'Referral', 'Walk-in', 'Campaign', 'Cold Call', 'Property Fair'];
-export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'Finance'];
-export const TASK_STATUS = ['Pending', 'Completed', 'Overdue'];
+export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'Finance', 'Follow-up'];
+export const TASK_STATUS = ['Pending', 'In Progress', 'Completed', 'Overdue'];
 export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Interview Pending', 'Missing Documents', 'Training Pending', 'Approved', 'Rejected'];
 export const DOC_STATUS = ['Pending Review', 'Approved', 'Rejected', 'Missing'];
 export const CANDIDATE_STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Rejected'];
 export const JOB_STATUS = ['Draft', 'Published', 'Closed'];
+export const TOUR_STATUS = ['Scheduled', 'Completed', 'Cancelled', 'No-Show'];
+export const CONTRACT_STAGES = ['Draft', 'Under Review', 'Signed', 'Registered'];
+export const SHARE_CHANNELS = ['WhatsApp', 'Email', 'Call', 'SMS'];
+export const SHARE_RESPONSES = ['Interested', 'Viewed', 'No Response'];
+export const PROPERTY_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Duplex', 'Penthouse', 'Chalet', 'Twin House', 'Studio'];
+export const LISTING_STATUS = ['Available', 'Reserved', 'Sold'];

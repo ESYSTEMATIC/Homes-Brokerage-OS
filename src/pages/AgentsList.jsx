@@ -62,7 +62,7 @@ const AgentProfileDrawer = ({ a, state, onWallet, onToggle, onEdit }) => {
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
           <ClipboardList size={16} color="var(--brand)"/>
           <div style={{fontSize:13,fontWeight:700}}>Onboarding Journey</div>
-          <span className="badge badge-info" style={{marginLeft:'auto',fontSize:9}}>BRD §8.9 · Platform §2</span>
+          <span className="badge badge-info" style={{marginLeft:'auto',fontSize:9}}>Platform §2</span>
         </div>
         <div className="journey-steps" style={{margin:0}}>
           {journeySteps.map((step, i) => (
@@ -155,7 +155,7 @@ export const AgentsList = () => {
   });
 
   const showWallet = (a) => openDrawer({
-    title: `${a.name} — Wallet`, subtitle: 'Commission balances (BRD §8.13)',
+    title: `${a.name} — Wallet`, subtitle: 'Commission balances',
     content: (
       <div className="detail-grid">
         {[['YTD Earned','EGP 230,000'],['Paid','EGP 150,000'],['Pending','EGP 80,000'],['Last Payout','2024-01-15'],['Next Cycle','2024-02-01']].map(([k,v])=>(

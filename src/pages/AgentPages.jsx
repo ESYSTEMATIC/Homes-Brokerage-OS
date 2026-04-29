@@ -221,6 +221,7 @@ export const AgentDocuments = () => {
             </tbody>
           </table>
         </div>
+        <button className="btn btn-primary" style={{ marginTop: 32 }}>Request Information Update</button>
       </div>
     </div>
   );

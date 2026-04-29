@@ -4,7 +4,12 @@ import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/
 import { Plus, Download, Eye, Pencil, Globe, Archive } from 'lucide-react';
 import { JOB_STATUS } from '../data/staticData';
 
-const statusColor = s => s==='Published'?'badge-success':s==='Draft'?'badge-gray':'badge-info';
+const statusColor = s => {
+  if (s === 'Published') return 'badge-success';
+  if (s === 'Draft') return 'badge-gray';
+  if (s === 'Closed') return 'badge-danger';
+  return 'badge-info';
+};
 
 export const JobVacancies = () => {
   const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
@@ -19,7 +24,7 @@ export const JobVacancies = () => {
 
   const openForm = (existing) => openModal({
     title: existing ? `Edit Vacancy — ${existing.title}` : 'Create Vacancy',
-    subtitle: 'BRD §8.10.1 — standardized vacancy template; will publish to homes.com.eg/careers',
+    subtitle: 'Standardized vacancy template; will publish to homes.com.eg/careers',
     size: 'lg',
     submitLabel: existing ? 'Save changes' : 'Create as Draft',
     body: (
@@ -78,7 +83,7 @@ export const JobVacancies = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Job Vacancies</span></div>
         <h1 className="page-title">Job Vacancies</h1>
-        <p className="page-subtitle">Standardized vacancy template and careers publish — BRD 8.10.1</p>
+        <p className="page-subtitle">Standardized vacancy template and careers publish</p>
       </div>
       <div className="data-panel">
         <div className="data-toolbar">

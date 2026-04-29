@@ -44,7 +44,7 @@ export const TrainingCompliance = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Training Compliance</span></div>
         <h1 className="page-title">Training Compliance</h1>
-        <p className="page-subtitle">Training gates and readiness status — BRD 8.11</p>
+        <p className="page-subtitle">Training gates and readiness status</p>
       </div>
       <div className="kpi-grid kpi-grid-4">
         <div className="kpi-card"><div><div className="kpi-label">Employees Tracked</div><div className="kpi-value">{state.staff.length}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>👥</span></div></div>

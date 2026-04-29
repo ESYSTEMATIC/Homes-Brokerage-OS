@@ -6,6 +6,7 @@ import {
   DEVELOPERS, COMPOUNDS, UNIT_TYPES, CITIES, AREAS, BRANCHES, TEAMS,
   EMPLOYMENT_CATEGORIES, PAYOUT_CYCLES, EXPENSE_CATEGORIES, LEAD_SOURCES,
   AGENT_NOTIFICATIONS, AGENT_DOCS, SUPPORT_TICKETS,
+  TOURS, CONTRACTS, LISTING_SHARES, BUYER_PREFERENCES, SOURCE_HISTORY, DUPLICATE_CANDIDATES, ASSIGNMENT_LOG, LISTINGS
 } from '../data/staticData';
 
 // ───────────────── STATE ─────────────────
@@ -43,6 +44,15 @@ const initialState = {
   agentNotifications: AGENT_NOTIFICATIONS,
   agentDocs: AGENT_DOCS,
   supportTickets: SUPPORT_TICKETS,
+  tours: TOURS,
+  contracts: CONTRACTS,
+  listingShares: LISTING_SHARES,
+  buyerPreferences: BUYER_PREFERENCES,
+  sourceHistory: SOURCE_HISTORY,
+  duplicateCandidates: DUPLICATE_CANDIDATES,
+  assignmentLog: ASSIGNMENT_LOG,
+  activities: [],
+  listings: LISTINGS,
   settings: {
     company: 'Homes Brokerage', timezone: 'Africa/Cairo (UTC+2)', language: 'English', currency: 'EGP',
     sso: 'Microsoft Entra ID', ssoMode: 'Enforced', sessionTimeout: '8 hours', mfa: 'Required for admin',
@@ -158,11 +168,12 @@ export const AppProvider = ({ children }) => {
     writeAudit('Settings Updated', 'Platform Settings', 'System', Object.keys(patch).join(', '));
   }, [writeAudit]);
 
-  // ───────────────── MODAL / DRAWER / TOAST ─────────────────
+  // ───────────────── MODAL / DRAWER / TOAST / SSO ─────────────────
   const [modal, setModal] = useState(null);
   const [drawer, setDrawer] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [ssoSplash, setSsoSplash] = useState(null);
 
   const openModal = useCallback((cfg) => setModal(cfg), []);
   const closeModal = useCallback(() => setModal(null), []);
@@ -177,6 +188,19 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
   }, []);
 
+  const triggerSsoLaunch = useCallback((system, target) => {
+    writeAudit('SSO Launch', `${system} (federated)`, 'Security', 'Token issued via Employee Board');
+    if (target) {
+      setSsoSplash({ system, target });
+      setTimeout(() => {
+        setSsoSplash(null);
+        window.location.hash = target;
+      }, 2500);
+    } else {
+      toast(`${system} — external system (no embedded UI)`, 'info');
+    }
+  }, [writeAudit, toast]);
+
   const value = useMemo(() => ({
     authenticated, signIn, signOut,
     personaKey, setPersonaKey, persona, PERSONAS,
@@ -185,7 +209,8 @@ export const AppProvider = ({ children }) => {
     openDrawer, closeDrawer, drawer,
     openConfirm, closeConfirm, confirm,
     toast, toasts,
-  }), [authenticated, signIn, signOut, personaKey, persona, state, modal, drawer, confirm, toasts, addItem, updateItem, removeItem, writeAudit, updateSettings, openModal, closeModal, openDrawer, closeDrawer, openConfirm, closeConfirm, toast]);
+    ssoSplash, triggerSsoLaunch,
+  }), [authenticated, signIn, signOut, personaKey, persona, state, modal, drawer, confirm, toasts, ssoSplash, addItem, updateItem, removeItem, writeAudit, updateSettings, openModal, closeModal, openDrawer, closeDrawer, openConfirm, closeConfirm, toast, triggerSsoLaunch]);
 
   return (
     <AppContext.Provider value={value}>

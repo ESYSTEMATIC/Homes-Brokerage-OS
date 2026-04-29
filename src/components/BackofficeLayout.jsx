@@ -169,6 +169,11 @@ export const BackofficeLayout = ({ children }) => {
             </div>
           </div>
         </nav>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <button className="sidebar-link" onClick={() => logout()} style={{ color: 'var(--text-tertiary)' }}>
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
       </aside>
 
       <main className="main-content">
@@ -180,8 +185,8 @@ export const BackofficeLayout = ({ children }) => {
             <div className="topbar-status"><div className="topbar-status-dot"></div>SSO via Microsoft Entra · session active</div>
             <div className="topbar-bell" onClick={openNotifications} title="Activity & audit feed"><Bell size={18}/><span className="topbar-bell-badge">{Math.min(state.audit.length, 99)}</span></div>
             <div className="topbar-user">
-              <div className="topbar-user-info"><div className="topbar-user-name">{persona.label}</div><div className="topbar-user-email">{persona.email}</div></div>
-              <div className="topbar-avatar">{persona.label.substring(0,2).toUpperCase()}</div>
+              <div className="topbar-user-info"><div className="topbar-user-name">{persona.label}</div><div className="topbar-user-email">{persona.scope}</div></div>
+              <NavLink to="/backoffice/profile" className="topbar-avatar">{persona.label.substring(0,2).toUpperCase()}</NavLink>
             </div>
             <button className="topbar-action" onClick={()=>{toast('Signing out…','info'); writeAudit('SSO Logout', persona.label, 'Security'); setTimeout(()=>signOut(),350);}}><LogOut size={13}/> Sign Out</button>
           </div>

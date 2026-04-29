@@ -18,7 +18,7 @@ export const RecruitmentPipeline = () => {
   const today = () => new Date().toISOString().split('T')[0];
 
   const newCandidate = () => openModal({
-    title: 'Add Candidate', subtitle: 'BRD §8.10 — recruitment intake',
+    title: 'Add Candidate', subtitle: 'Recruitment intake',
     submitLabel: 'Add candidate',
     body: (
       <>
@@ -42,7 +42,7 @@ export const RecruitmentPipeline = () => {
     const idx = CANDIDATE_STAGES.indexOf(c.stage);
     const next = CANDIDATE_STAGES[Math.min(idx+1, CANDIDATE_STAGES.length-2)]; // skip Rejected
     if (next === 'Interview') return openModal({
-      title: `Schedule interview — ${c.name}`, subtitle: 'BRD §8.10 — multi-interviewer scoring',
+      title: `Schedule interview — ${c.name}`, subtitle: 'Multi-interviewer scoring',
       submitLabel: 'Schedule',
       body: (
         <>
@@ -105,7 +105,7 @@ export const RecruitmentPipeline = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Candidate Pipeline</span></div>
         <h1 className="page-title">Candidate Pipeline</h1>
-        <p className="page-subtitle">Manage candidates, interviews, and scorecards — BRD 8.10</p>
+        <p className="page-subtitle">Manage candidates, interviews, and scorecards</p>
       </div>
       <div className="kpi-grid kpi-grid-5">
         {CANDIDATE_STAGES.map(s=>(

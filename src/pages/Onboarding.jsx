@@ -24,7 +24,7 @@ export const Onboarding = () => {
   };
 
   const newApplication = () => openModal({
-    title: 'New Application', subtitle: 'BRD §8.9 — onboarding intake',
+    title: 'New Application', subtitle: 'Onboarding intake',
     submitLabel: 'Submit application',
     body: (
       <>
@@ -93,11 +93,11 @@ export const Onboarding = () => {
   });
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Onboarding</span></div>
         <h1 className="page-title">Onboarding & Applications</h1>
-        <p className="page-subtitle">Review and process agent onboarding applications — BRD 8.9</p>
+        <p className="page-subtitle">Review and process agent onboarding applications</p>
       </div>
       <div className="kpi-grid kpi-grid-4">
         <div className="kpi-card"><div><div className="kpi-label">Submitted</div><div className="kpi-value">{counts.submitted}</div></div><div className="kpi-icon blue"><FileText size={20}/></div></div>
