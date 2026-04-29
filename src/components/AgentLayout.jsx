@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Globe } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
 
 // "AgentLayout" is now the Employee Board layout — the universal SSO landing for all roles.
@@ -59,6 +59,14 @@ export const AgentLayout = ({ children }) => {
           {canBackoffice && (
             <button className="sidebar-link" onClick={()=>ssoLaunch('Backoffice Admin Portal','#/backoffice/dashboard')}><ShieldCheck size={16}/>Backoffice Admin <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           )}
+
+          {/* Public Marketplace — consumer-facing homes.com.eg surface, available
+              to every signed-in employee regardless of role (BRD §3.1). */}
+          <div className="sidebar-section" style={{marginTop:14}}>Public Site</div>
+          <NavLink to="/marketplace" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Globe size={16}/>Marketplace
+            <span style={{marginLeft:'auto',fontSize:9,color:'#94a3b8',fontWeight:700,letterSpacing:'.06em'}}>PUBLIC</span>
+          </NavLink>
 
           <div className="sidebar-section" style={{marginTop:14}}>Account</div>
           <NavLink to="/board/profile" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>

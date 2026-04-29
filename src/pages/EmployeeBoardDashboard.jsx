@@ -4,19 +4,21 @@ import { useNavigate } from 'react-router-dom';
 import { Target, Building2, GraduationCap, ShieldCheck, FileCheck2, BellRing, User, ChevronRight, KeyRound, Award, UsersRound, CalendarClock, Mail } from 'lucide-react';
 
 // Role → which federated systems are accessible (BRD §6 / §11 entitlements).
-// Note: the public Marketplace (homes.com.eg) is consumer-facing; employees access only the
-// Marketplace Dashboard (admin + analytics) here.
+// Note: the public Marketplace (homes.com.eg) is consumer-facing; the Marketplace
+// Dashboard (admin + analytics) is exclusively accessible by the Marketplace
+// Dashboard Admin role — no other persona, including agents and Super Admin,
+// has access to its modules.
 const ROLE_ACCESS = {
-  backofficeAdmin: ['backoffice','crm','marketplaceDash','matrix'],
-  salesManager:    ['crm','marketplaceDash'],
-  salesDirector:   ['crm','marketplaceDash','backoffice'],
-  hrRecruiter:     ['backoffice'],
-  financeOfficer:  ['backoffice'],
-  marketingAdmin:  ['marketplaceDash'],
-  executive:       ['backoffice','marketplaceDash'],
-  systemAdmin:     ['backoffice'],
-  agent:           ['crm','matrix'],
-  teamLeader:      ['crm','matrix'],
+  backofficeAdmin:  ['backoffice','crm','matrix'],
+  salesManager:     ['crm'],
+  salesDirector:    ['crm','backoffice'],
+  hrRecruiter:      ['backoffice'],
+  financeOfficer:   ['backoffice'],
+  marketplaceAdmin: ['marketplaceDash'],   // EXCLUSIVE access to Marketplace Dashboard
+  executive:        ['backoffice'],
+  systemAdmin:      ['backoffice'],
+  agent:            ['crm','matrix'],      // Agents explicitly do NOT see marketplaceDash
+  teamLeader:       ['crm','matrix'],
 };
 
 export const EmployeeBoardDashboard = () => {

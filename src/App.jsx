@@ -1,4 +1,5 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { BackofficeLayout } from './components/BackofficeLayout';
 import { AgentLayout } from './components/AgentLayout';
@@ -27,21 +28,65 @@ import { EmployeeProfiles } from './pages/HRPages';
 import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
 import { ExceptionsIssues, Settings } from './pages/SystemPages';
 
-// Federated system placeholders (CRM, Marketplace Dashboard) launched via SSO from the Employee Board.
-import { CRMLeads, DealsPipeline, TasksCalendar, MarketplaceDashboard } from './pages/ExternalSystem';
+// Federated system placeholders (CRM) launched via SSO from the Employee Board.
+import { CRMLeads, DealsPipeline, TasksCalendar } from './pages/ExternalSystem';
+
+// Marketplace Dashboard — full federated system with its own layout + nested routes.
+import { MarketplaceLayout } from './components/MarketplaceLayout';
+import {
+  Overview as MPOverview, Listings as MPListings, LeadsRequests as MPLeads,
+  Brokerages as MPBrokerages, Developers as MPDevelopers, Geography as MPGeography,
+  Traffic as MPTraffic, Reports as MPReports, ReportDetail as MPReportDetail,
+  Users as MPUsers, RolesAccess as MPRoles,
+} from './pages/MarketplaceDashboard/index.jsx';
 
 // Employee Board (universal landing)
 import { EmployeeBoardDashboard } from './pages/EmployeeBoardDashboard';
 import { AgentLearning } from './pages/AgentLearning';
 import { AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications } from './pages/AgentPages';
 
+// Public Marketplace (consumer-facing, no auth required)
+import { MarketplaceSiteLayout } from './components/MarketplaceSiteLayout';
+import { Home as PMHome, Buy as PMBuy, Sell as PMSell, Find as PMFind, Mortgage as PMMortgage } from './pages/MarketplaceSite/index.jsx';
+
+// Public marketplace routes — accessible without auth (homes.com.eg consumer surface).
+const PublicMarketplaceRoutes = () => (
+  <MarketplaceSiteLayout>
+    <Routes>
+      <Route path="/" element={<PMHome />} />
+      <Route path="/buy" element={<PMBuy />} />
+      <Route path="/sell" element={<PMSell />} />
+      <Route path="/find" element={<PMFind />} />
+      <Route path="/mortgage" element={<PMMortgage />} />
+      <Route path="*" element={<Navigate to="/marketplace" replace />} />
+    </Routes>
+  </MarketplaceSiteLayout>
+);
+
+// Toggle a body class for app surfaces that own the full viewport (so the
+// public marketplace and login keep page-level scrolling).
+const useBodyLock = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    // Public marketplace and login keep page-level scrolling. The Buy page
+    // owns its own internal layout: in Map view it locks the viewport so the
+    // map can stay fixed, in List view it scrolls the page normally — that
+    // toggle is handled inside the page by adding/removing `app-locked`.
+    const isPublic = pathname === '/' || pathname.startsWith('/marketplace') || pathname.startsWith('/login');
+    document.body.classList.toggle('app-locked', !isPublic);
+    return () => document.body.classList.remove('app-locked');
+  }, [pathname]);
+};
+
 const AppRoutes = () => {
   const { authenticated, personaKey } = useApp();
+  useBodyLock();
 
-  // Not signed in → only the login page.
+  // Not signed in → only the login page or the public marketplace.
   if (!authenticated) {
     return (
       <Routes>
+        <Route path="/marketplace/*" element={<PublicMarketplaceRoutes />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -50,10 +95,14 @@ const AppRoutes = () => {
 
   // Backoffice access matrix (controls whether direct /backoffice/* URLs render under
   // the Backoffice layout). Without access, redirect to Employee Board.
-  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
+  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
+  const MARKETPLACE_ROLES = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
 
   return (
     <Routes>
+      {/* ─── Public Marketplace — consumer surface, available even when signed in ─── */}
+      <Route path="/marketplace/*" element={<PublicMarketplaceRoutes />} />
+
       {/* ─── Employee Board (universal hub for every signed-in user) ─── */}
       <Route path="/board/*" element={
         <AgentLayout>
@@ -70,18 +119,43 @@ const AppRoutes = () => {
         </AgentLayout>
       } />
 
-      {/* ─── Federated systems (placeholders) — also rendered inside Employee Board chrome ─── */}
-      <Route path="/system/*" element={
+      {/* ─── CRM federated placeholders — rendered inside Employee Board chrome ─── */}
+      <Route path="/system/crm/*" element={
         <AgentLayout>
           <Routes>
-            <Route path="/crm" element={<CRMLeads />} />
-            <Route path="/crm/leads" element={<CRMLeads />} />
-            <Route path="/crm/deals" element={<DealsPipeline />} />
-            <Route path="/crm/tasks" element={<TasksCalendar />} />
-            <Route path="/marketplace-dashboard" element={<MarketplaceDashboard />} />
+            <Route path="/" element={<CRMLeads />} />
+            <Route path="/leads" element={<CRMLeads />} />
+            <Route path="/deals" element={<DealsPipeline />} />
+            <Route path="/tasks" element={<TasksCalendar />} />
             <Route path="*" element={<Navigate to="/board/dashboard" />} />
           </Routes>
         </AgentLayout>
+      } />
+
+      {/* ─── Marketplace Dashboard — exclusive to Marketplace Dashboard Admin role ─── */}
+      <Route path="/system/marketplace-dashboard/*" element={
+        MARKETPLACE_ROLES.includes(personaKey) ? (
+          <MarketplaceLayout>
+            <Routes>
+              <Route path="/" element={<MPOverview />} />
+              <Route path="/listings" element={<MPListings />} />
+              <Route path="/leads" element={<MPLeads />} />
+              <Route path="/brokerages" element={<MPBrokerages />} />
+              <Route path="/developers" element={<MPDevelopers />} />
+              <Route path="/geography" element={<MPGeography />} />
+              <Route path="/traffic" element={<MPTraffic />} />
+              <Route path="/reports" element={<MPReports />} />
+              <Route path="/reports/:reportId" element={<MPReportDetail />} />
+              <Route path="/users" element={<MPUsers />} />
+              <Route path="/roles" element={<MPRoles />} />
+              <Route path="*" element={<Navigate to="/system/marketplace-dashboard" />} />
+            </Routes>
+          </MarketplaceLayout>
+        ) : (
+          // Any persona without the Marketplace Dashboard Admin role (agents
+          // included) is bounced back to the Employee Board.
+          <Navigate to="/board/dashboard" replace />
+        )
       } />
 
       {/* ─── Backoffice Admin Portal (separate system, role-gated) ─── */}

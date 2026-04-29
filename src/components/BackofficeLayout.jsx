@@ -39,7 +39,9 @@ export const BackofficeLayout = ({ children }) => {
     salesDirector:   ['dashboard', 'operations', 'recruitment', 'data'],
     hrRecruiter:     ['dashboard', 'operations', 'compliance', 'hr', 'recruitment'],
     financeOfficer:  ['dashboard', 'finance', 'hr', 'data'],
-    marketingAdmin:  ['dashboard', 'data', 'master'],
+    // Marketplace Dashboard Admin only operates inside the Marketplace Dashboard
+    // federated system — not the Backoffice Admin Portal.
+    marketplaceAdmin: [],
     executive:       ['dashboard', 'data', 'finance', 'hr'],
     systemAdmin:     ['dashboard', 'system', 'master', 'data'],
   };
