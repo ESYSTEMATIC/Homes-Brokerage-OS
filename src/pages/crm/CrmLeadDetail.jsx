@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { STAGES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, UserPlus, Calendar, Share2, FileText, AlertTriangle, CheckCircle, Clock, User, Home, Target, MessageSquare, ChevronRight, Star, X } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, UserPlus, Calendar, Share2, FileText, AlertTriangle, CheckCircle, Clock, User, Home, Target, MessageSquare, ChevronRight, Star, X, ShieldCheck, Lock } from 'lucide-react';
+import { HIERARCHY, canSeeLead, canAssign, isReadOnly, isManualLockActive, leadAgeDays, slaForStage } from '../../data/crmAccess';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 const priorityColor = p => p==='Hot'?'badge-danger':p==='Warm'?'badge-warning':'badge-info';
@@ -10,7 +11,9 @@ const priorityColor = p => p==='Hot'?'badge-danger':p==='Warm'?'badge-warning':'
 export const CrmLeadDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { state, addItem, updateItem, toast } = useApp();
+  const { state, addItem, updateItem, toast, persona, personaKey, writeAudit } = useApp();
+  const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
+  const readOnly = isReadOnly(personaKey);
   const [tab, setTab] = useState('overview');
   const [showReassign, setShowReassign] = useState(false);
   const [showTourAdd, setShowTourAdd] = useState(false);
@@ -22,6 +25,21 @@ export const CrmLeadDetail = () => {
 
   const lead = leads.find(l => l.id === id);
   if (!lead) return <div style={{padding:40,textAlign:'center'}}><h2>Lead not found</h2><button className="btn btn-brand" onClick={()=>navigate('/system/crm/leads')}>Back to Leads</button></div>;
+
+  // Role visibility — if the current persona can't see this lead per BRD §11
+  // (e.g. an agent opening another agent's lead by URL), block render.
+  if (!canSeeLead(personaKey, lead)) return (
+    <div style={{padding:40,textAlign:'center'}}>
+      <h2>Access denied</h2>
+      <p style={{color:'var(--text-secondary)',marginTop:6}}>This lead falls outside your visibility scope ({h.role}).</p>
+      <button className="btn btn-brand" style={{marginTop:14}} onClick={()=>navigate('/system/crm/leads')}>Back to Leads</button>
+    </div>
+  );
+
+  const canReassignThis = canAssign(personaKey, lead);
+  const locked = isManualLockActive(lead);
+  const age = leadAgeDays(lead.created);
+  const sla = slaForStage(lead.stage, age);
 
   const prefs = buyerPreferences.find(p => p.leadId === id);
   const sourceHist = sourceHistory.find(s => s.leadId === id);
@@ -65,10 +83,12 @@ export const CrmLeadDetail = () => {
         <div style={{display:'flex',alignItems:'center',gap:24}}>
           <div style={{width:64,height:64,borderRadius:'50%',background:'var(--brand)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800}}>{lead.name.split(' ').map(w=>w[0]).join('')}</div>
           <div style={{flex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
               <h1 style={{fontSize:22,fontWeight:800,margin:0}}>{lead.name}</h1>
               <span className={`badge ${priorityColor(lead.priority)}`}>{lead.priority}</span>
-              {lead.duplicate==='Review'&&<span className="badge badge-warning"><AlertTriangle size={10}/> Duplicate Review</span>}
+              {lead.duplicate==='Review' && <span className="badge badge-warning"><AlertTriangle size={10}/> Duplicate Review</span>}
+              <span className={`badge ${sla.level==='breach'?'badge-danger':sla.level==='warn'?'badge-warning':'badge-gray'}`} title={sla.message}>{age}d · {sla.level==='breach'?'SLA breach':sla.level==='warn'?'near SLA':'on track'}</span>
+              {locked && <span className="badge badge-warning" title="Manual lead — 6-month protection"><Lock size={10}/> Locked {180-age}d</span>}
             </div>
             <div style={{display:'flex',gap:20,marginTop:8,fontSize:13,color:'rgba(255,255,255,.7)'}}>
               <span style={{display:'flex',alignItems:'center',gap:4}}><Phone size={13}/>{lead.phone}</span>
@@ -77,9 +97,10 @@ export const CrmLeadDetail = () => {
             </div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowEdit(true)}><Edit size={14}/> Edit</button>
-            <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowReassign(true)}><UserPlus size={14}/> Reassign</button>
-            <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)}><Calendar size={14}/> Schedule Tour</button>
+            {!readOnly && <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowEdit(true)}><Edit size={14}/> Edit</button>}
+            {canReassignThis && <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowReassign(true)}><UserPlus size={14}/> Reassign</button>}
+            {!readOnly && <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)}><Calendar size={14}/> Schedule Tour</button>}
+            {readOnly && <span className="badge badge-warning"><ShieldCheck size={10}/> Audit-only</span>}
           </div>
         </div>
 

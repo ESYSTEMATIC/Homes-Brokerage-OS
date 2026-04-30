@@ -33,6 +33,11 @@ export const CrmListings = () => {
 
   const viewDetail = l => openDrawer({title:l.project,subtitle:`${l.unitType} · ${l.unitCode}`,content:(
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      {l.image && (
+        <div style={{height:220,borderRadius:12,backgroundImage:`url(${l.image})`,backgroundSize:'cover',backgroundPosition:'center',position:'relative'}}>
+          <span className={`badge ${statusColor(l.status)}`} style={{position:'absolute',top:12,left:12}}>{l.status}</span>
+        </div>
+      )}
       <div style={{background:'linear-gradient(135deg,#f8fafc,#eef2ff)',borderRadius:12,padding:20,display:'flex',gap:20,alignItems:'center'}}>
         <div style={{width:80,height:80,borderRadius:14,background:'var(--brand-tint)',display:'flex',alignItems:'center',justifyContent:'center'}}><Home size={32} color="var(--brand)"/></div>
         <div><div style={{fontSize:18,fontWeight:800}}>EGP {fmt(l.price)}</div><div style={{fontSize:13,color:'var(--text-secondary)',marginTop:4}}>{l.paymentPlan}</div><span className={`badge ${statusColor(l.status)}`} style={{marginTop:8}}>{l.status}</span></div>
@@ -76,14 +81,23 @@ export const CrmListings = () => {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
           {filtered.map(l=>(
             <div key={l.id} className="listing-card" onClick={()=>viewDetail(l)}>
-              <div className="listing-card-img"><Building size={40} color="var(--brand)"/></div>
+              <div
+                className="listing-card-img"
+                style={l.image ? { backgroundImage:`url(${l.image})`, backgroundSize:'cover', backgroundPosition:'center' } : undefined}
+              >
+                {!l.image && <Building size={40} color="var(--brand)"/>}
+                <span className={`badge ${statusColor(l.status)}`} style={{position:'absolute',top:12,left:12}}>{l.status}</span>
+                <span style={{position:'absolute',bottom:10,right:12,background:'rgba(15,23,42,.78)',color:'#fff',padding:'3px 10px',borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:'.04em'}}>EGYPT MLS</span>
+              </div>
               <div style={{padding:'16px 20px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                  <div><div style={{fontSize:15,fontWeight:700}}>{l.project}</div><div style={{fontSize:12,color:'var(--text-secondary)'}}>{l.developer} · {l.unitCode}</div></div>
-                  <span className={`badge ${statusColor(l.status)}`}>{l.status}</span>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8,gap:8}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:15,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{l.project}</div>
+                    <div style={{fontSize:12,color:'var(--text-secondary)'}}>{l.developer} · {l.unitCode}</div>
+                  </div>
                 </div>
                 <div style={{fontSize:18,fontWeight:800,color:'var(--brand)',marginBottom:10}}>EGP {fmt(l.price)}</div>
-                <div style={{display:'flex',gap:16,fontSize:12,color:'var(--text-secondary)',marginBottom:10}}>
+                <div style={{display:'flex',gap:16,fontSize:12,color:'var(--text-secondary)',marginBottom:10,flexWrap:'wrap'}}>
                   <span style={{display:'flex',alignItems:'center',gap:4}}><Home size={13}/>{l.unitType}</span>
                   <span style={{display:'flex',alignItems:'center',gap:4}}><Bed size={13}/>{l.bedrooms} BD</span>
                   <span style={{display:'flex',alignItems:'center',gap:4}}><Bath size={13}/>{l.bathrooms} BA</span>

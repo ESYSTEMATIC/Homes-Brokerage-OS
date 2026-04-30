@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Loader2, Globe } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
 
 // "AgentLayout" is now the Employee Board layout — the universal SSO landing for all roles.
@@ -26,11 +26,14 @@ export const AgentLayout = ({ children }) => {
 
   const ROLES_WITH_BACKOFFICE = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
   const canBackoffice = ROLES_WITH_BACKOFFICE.includes(personaKey);
+  // Marketplace Dashboard is exclusive to the Marketplace Dashboard Admin role.
+  // Hide its sidebar launcher from every other persona (agents, TLs, managers, directors).
+  const canMarketplaceDash = personaKey === 'marketplaceAdmin';
   const isAgent = persona.hub === 'agent';
 
   return (
     <div className="app-shell">
-      {/* SSO Splash Overlay */}
+      {/* SSO Splash Overlay (from main) */}
       {ssoSplash && (
         <div className="sso-splash">
           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:20,animation:'fadeIn .4s ease'}}>
@@ -68,13 +71,21 @@ export const AgentLayout = ({ children }) => {
           </NavLink>
 
           <div className="sidebar-section" style={{marginTop:14}}>Federated Systems · SSO</div>
-          {/* CRM now points to the intro placeholder. From there, user clicks Simulate SSO to go to actual CRM. */}
+          {/* CRM → intro placeholder. From there the user clicks Simulate SSO to enter the real CRM V2. */}
           <button className="sidebar-link" onClick={()=>navigate('/system/crm-intro')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
-          <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
+          {canMarketplaceDash && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
           <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Matrix EGMLS')}><KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           {canBackoffice && (
             <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Backoffice Admin Portal','#/backoffice/dashboard')}><ShieldCheck size={16}/>Backoffice Admin <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           )}
+
+          {/* Public Marketplace — consumer-facing homes.com.eg surface, available
+              to every signed-in employee regardless of role (BRD §3.1). */}
+          <div className="sidebar-section" style={{marginTop:14}}>Public Site</div>
+          <NavLink to="/marketplace" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Globe size={16}/>Marketplace
+            <span style={{marginLeft:'auto',fontSize:9,color:'#94a3b8',fontWeight:700,letterSpacing:'.06em'}}>PUBLIC</span>
+          </NavLink>
 
           <div className="sidebar-section" style={{marginTop:14}}>Account</div>
           <NavLink to="/board/profile" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>

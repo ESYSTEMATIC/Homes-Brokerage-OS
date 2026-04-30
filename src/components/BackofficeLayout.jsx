@@ -39,7 +39,9 @@ export const BackofficeLayout = ({ children }) => {
     salesDirector:   ['dashboard', 'operations', 'recruitment', 'data'],
     hrRecruiter:     ['dashboard', 'operations', 'compliance', 'hr', 'recruitment'],
     financeOfficer:  ['dashboard', 'finance', 'hr', 'data'],
-    marketingAdmin:  ['dashboard', 'data', 'master'],
+    // Marketplace Dashboard Admin only operates inside the Marketplace Dashboard
+    // federated system — not the Backoffice Admin Portal.
+    marketplaceAdmin: [],
     executive:       ['dashboard', 'data', 'finance', 'hr'],
     systemAdmin:     ['dashboard', 'system', 'master', 'data'],
   };
@@ -98,7 +100,6 @@ export const BackofficeLayout = ({ children }) => {
                   <Link to="/backoffice/finance/overview">Overview</Link>
                   <Link to="/backoffice/finance/deals-revenue">Deals & Revenue</Link>
                   <Link to="/backoffice/finance/commission">Commission Engine</Link>
-                  <Link to="/backoffice/finance/agent-dues">Agent Dues</Link>
                 </Sub>
               )}
               {hasAccess('hr') && (
@@ -122,22 +123,20 @@ export const BackofficeLayout = ({ children }) => {
 
           {hasAccess('master') && (
             <Sub label="Master Data" icon={<Database size={16}/>} open={masterOpen} toggle={()=>setMasterOpen(!masterOpen)}>
-              <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Property</div>
+              {/* Property alternatives — used when EGMLS doesn't carry the
+                  developer / compound / project, or when the brokerage needs a
+                  local override. Listings, unit types, cities and area lookups
+                  are sourced from EGMLS and are not maintained here. */}
+              <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Property Alternatives</div>
               <Link to="/backoffice/master/developers">Developers</Link>
               <Link to="/backoffice/master/projects">Projects</Link>
               <Link to="/backoffice/master/compounds">Compounds</Link>
-              <Link to="/backoffice/master/unit-types">Unit Types</Link>
-              <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Location</div>
-              <Link to="/backoffice/master/cities">Cities</Link>
-              <Link to="/backoffice/master/areas">Areas / Districts</Link>
               <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Organization</div>
               <Link to="/backoffice/master/branches">Branches</Link>
               <Link to="/backoffice/master/teams">Teams</Link>
               <Link to="/backoffice/master/emp-categories">Employment Categories</Link>
               <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Finance & Sales</div>
               <Link to="/backoffice/master/comm-policies">Commission Policies</Link>
-              <Link to="/backoffice/master/payout-cycles">Payout Cycles</Link>
-              <Link to="/backoffice/master/expense-categories">Expense Categories</Link>
               <div style={{fontSize:9,fontWeight:700,color:'var(--sidebar-section)',textTransform:'uppercase',padding:'8px 10px 3px',letterSpacing:'.08em'}}>Other</div>
               <Link to="/backoffice/master/lead-sources">Lead Sources</Link>
             </Sub>
@@ -145,7 +144,6 @@ export const BackofficeLayout = ({ children }) => {
 
           {hasAccess('data') && (
             <>
-              <Link to="/backoffice/exceptions"><AlertTriangle size={16}/>Exceptions & Issues</Link>
               <Link to="/backoffice/audit"><ScrollText size={16}/>Audit Logs</Link>
               <Link to="/backoffice/executive"><Building2 size={16}/>Executive Dashboard</Link>
             </>

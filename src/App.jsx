@@ -1,4 +1,5 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { BackofficeLayout } from './components/BackofficeLayout';
 import { AgentLayout } from './components/AgentLayout';
@@ -22,15 +23,17 @@ import { AuditLogs } from './pages/AuditLogs';
 import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
 import { RolesPermissions } from './pages/RolesPermissions';
 import { Departments } from './pages/Departments';
-import { FinanceOverview, DealsRevenue, CommissionEngine, AgentDues } from './pages/FinancePages';
+import { FinanceOverview, DealsRevenue, CommissionEngine } from './pages/FinancePages';
 import { EmployeeProfiles } from './pages/HRPages';
-import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
-import { ExceptionsIssues, Settings } from './pages/SystemPages';
+// Listings/unit types/cities/areas come from EGMLS — only alternatives for
+// developers, compounds and projects are maintained in Master Data.
+import { Developers, MasterProjects, Compounds, Branches, Teams, EmploymentCategories, MasterCommPolicies, LeadSources } from './pages/MasterDataPages';
+import { Settings } from './pages/SystemPages';
 
-// Federated system placeholders (Marketplace Dashboard) launched via SSO from the Employee Board.
-import { CRMIntro, MarketplaceDashboard } from './pages/ExternalSystem';
+// Federated system intro placeholders launched via SSO from the Employee Board.
+import { CRMIntro, MarketplaceDashboard as MarketplaceDashboardIntro } from './pages/ExternalSystem';
 
-// Real CRM Module (embedded, no separate login)
+// Real CRM Module V2 (embedded, own sidebar/layout via CrmLayout — see main).
 import { CrmLayout } from './components/CrmLayout';
 import { CrmDashboard } from './pages/crm/CrmDashboard';
 import { CrmLeads } from './pages/crm/CrmLeads';
@@ -44,18 +47,79 @@ import { CrmListingShare } from './pages/crm/CrmListingShare';
 import { CrmMiniSite } from './pages/crm/CrmMiniSite';
 import { CrmReports } from './pages/crm/CrmReports';
 
+// Marketplace Dashboard — full federated system with its own layout + nested routes.
+import { MarketplaceLayout } from './components/MarketplaceLayout';
+import {
+  Overview as MPOverview, Listings as MPListings, LeadsRequests as MPLeads,
+  Brokerages as MPBrokerages, Developers as MPDevelopers, Geography as MPGeography,
+  Traffic as MPTraffic, Reports as MPReports, ReportDetail as MPReportDetail,
+  Users as MPUsers, RolesAccess as MPRoles,
+} from './pages/MarketplaceDashboard/index.jsx';
+
 // Employee Board (universal landing)
 import { EmployeeBoardDashboard } from './pages/EmployeeBoardDashboard';
 import { AgentLearning } from './pages/AgentLearning';
 import { AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications } from './pages/AgentPages';
 
+// Public Marketplace (consumer-facing, no auth required)
+import { MarketplaceSiteLayout } from './components/MarketplaceSiteLayout';
+import {
+  Home as PMHome, Buy as PMBuy, Sell as PMSell, Find as PMFind, Mortgage as PMMortgage,
+  ListingDetail as PMListingDetail,
+  MpLogin, MpSignup, MpProfile, MpForgotPassword, MpVerifyOtp, MpResetPassword,
+  Compare as PMCompare, Favorites as PMFavorites,
+  Developers as PMDevelopers, DeveloperDetail as PMDeveloperDetail,
+} from './pages/MarketplaceSite/index.jsx';
+
+// Public marketplace routes — accessible without auth (homes.com.eg consumer surface).
+const PublicMarketplaceRoutes = () => (
+  <MarketplaceSiteLayout>
+    <Routes>
+      <Route path="/" element={<PMHome />} />
+      <Route path="/buy" element={<PMBuy />} />
+      <Route path="/listings/:id" element={<PMListingDetail />} />
+      <Route path="/sell" element={<PMSell />} />
+      <Route path="/find" element={<Navigate to="/marketplace/developers" replace />} />
+      <Route path="/developers" element={<PMDevelopers />} />
+      <Route path="/developers/:slug" element={<PMDeveloperDetail />} />
+      <Route path="/mortgage" element={<PMMortgage />} />
+      <Route path="/compare" element={<PMCompare />} />
+      <Route path="/favorites" element={<PMFavorites />} />
+      <Route path="/login" element={<MpLogin />} />
+      <Route path="/signup" element={<MpSignup />} />
+      <Route path="/forgot-password" element={<MpForgotPassword />} />
+      <Route path="/verify-otp" element={<MpVerifyOtp />} />
+      <Route path="/reset-password" element={<MpResetPassword />} />
+      <Route path="/profile" element={<MpProfile />} />
+      <Route path="*" element={<Navigate to="/marketplace" replace />} />
+    </Routes>
+  </MarketplaceSiteLayout>
+);
+
+// Toggle a body class for app surfaces that own the full viewport (so the
+// public marketplace and login keep page-level scrolling).
+const useBodyLock = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    // The Buy page owns its body lock state itself (because it depends on
+    // map vs list view). Don't fight it from the parent.
+    if (pathname.startsWith('/marketplace/buy')) return;
+    // Public marketplace + login keep page-level scrolling.
+    const isPublic = pathname === '/' || pathname.startsWith('/marketplace') || pathname.startsWith('/login');
+    document.body.classList.toggle('app-locked', !isPublic);
+    return () => document.body.classList.remove('app-locked');
+  }, [pathname]);
+};
+
 const AppRoutes = () => {
   const { authenticated, personaKey } = useApp();
+  useBodyLock();
 
-  // Not signed in → only the login page.
+  // Not signed in → only the login page or the public marketplace.
   if (!authenticated) {
     return (
       <Routes>
+        <Route path="/marketplace/*" element={<PublicMarketplaceRoutes />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -64,10 +128,14 @@ const AppRoutes = () => {
 
   // Backoffice access matrix (controls whether direct /backoffice/* URLs render under
   // the Backoffice layout). Without access, redirect to Employee Board.
-  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
+  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
+  const MARKETPLACE_ROLES = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
 
   return (
     <Routes>
+      {/* ─── Public Marketplace — consumer surface, available even when signed in ─── */}
+      <Route path="/marketplace/*" element={<PublicMarketplaceRoutes />} />
+
       {/* ─── Employee Board (universal hub for every signed-in user) ─── */}
       <Route path="/board/*" element={
         <AgentLayout>
@@ -84,7 +152,7 @@ const AppRoutes = () => {
         </AgentLayout>
       } />
 
-      {/* ─── Real CRM Module (embedded via SSO, own sidebar/layout) ─── */}
+      {/* ─── Real CRM Module V2 (embedded via SSO, own sidebar/layout) ─── */}
       <Route path="/system/crm/*" element={
         <CrmLayout>
           <Routes>
@@ -104,15 +172,41 @@ const AppRoutes = () => {
         </CrmLayout>
       } />
 
-      {/* ─── Other Federated Systems (placeholders) ─── */}
+      {/* ─── Other Federated System intros (placeholders, in Employee Board chrome) ─── */}
       <Route path="/system/*" element={
         <AgentLayout>
           <Routes>
             <Route path="/crm-intro" element={<CRMIntro />} />
-            <Route path="/marketplace-dashboard" element={<MarketplaceDashboard />} />
+            <Route path="/marketplace-dashboard-intro" element={<MarketplaceDashboardIntro />} />
             <Route path="*" element={<Navigate to="/board/dashboard" />} />
           </Routes>
         </AgentLayout>
+      } />
+
+      {/* ─── Marketplace Dashboard — exclusive to Marketplace Dashboard Admin role ─── */}
+      <Route path="/system/marketplace-dashboard/*" element={
+        MARKETPLACE_ROLES.includes(personaKey) ? (
+          <MarketplaceLayout>
+            <Routes>
+              <Route path="/" element={<MPOverview />} />
+              <Route path="/listings" element={<MPListings />} />
+              <Route path="/leads" element={<MPLeads />} />
+              <Route path="/brokerages" element={<MPBrokerages />} />
+              <Route path="/developers" element={<MPDevelopers />} />
+              <Route path="/geography" element={<MPGeography />} />
+              <Route path="/traffic" element={<MPTraffic />} />
+              <Route path="/reports" element={<MPReports />} />
+              <Route path="/reports/:reportId" element={<MPReportDetail />} />
+              <Route path="/users" element={<MPUsers />} />
+              <Route path="/roles" element={<MPRoles />} />
+              <Route path="*" element={<Navigate to="/system/marketplace-dashboard" />} />
+            </Routes>
+          </MarketplaceLayout>
+        ) : (
+          // Any persona without the Marketplace Dashboard Admin role (agents
+          // included) is bounced back to the Employee Board.
+          <Navigate to="/board/dashboard" replace />
+        )
       } />
 
       {/* ─── Backoffice Admin Portal (separate system, role-gated) ─── */}
@@ -131,25 +225,28 @@ const AppRoutes = () => {
               <Route path="/finance/overview" element={<FinanceOverview />} />
               <Route path="/finance/deals-revenue" element={<DealsRevenue />} />
               <Route path="/finance/commission" element={<CommissionEngine />} />
-              <Route path="/finance/agent-dues" element={<AgentDues />} />
+              <Route path="/finance/agent-dues" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/hr" element={<HRPayroll />} />
               <Route path="/hr/profiles" element={<EmployeeProfiles />} />
               <Route path="/recruitment" element={<RecruitmentPipeline />} />
               <Route path="/jobs" element={<JobVacancies />} />
+              {/* Listings, unit types, cities and area lookups are sourced from
+                  EGMLS — the brokerage only maintains alternatives to
+                  developers / compounds / projects locally. */}
               <Route path="/master/developers" element={<Developers />} />
               <Route path="/master/projects" element={<MasterProjects />} />
               <Route path="/master/compounds" element={<Compounds />} />
-              <Route path="/master/unit-types" element={<UnitTypes />} />
-              <Route path="/master/cities" element={<Cities />} />
-              <Route path="/master/areas" element={<AreasDistricts />} />
+              <Route path="/master/unit-types" element={<Navigate to="/backoffice/dashboard" replace />} />
+              <Route path="/master/cities" element={<Navigate to="/backoffice/dashboard" replace />} />
+              <Route path="/master/areas" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/master/branches" element={<Branches />} />
               <Route path="/master/teams" element={<Teams />} />
               <Route path="/master/emp-categories" element={<EmploymentCategories />} />
               <Route path="/master/comm-policies" element={<MasterCommPolicies />} />
-              <Route path="/master/payout-cycles" element={<PayoutCycles />} />
-              <Route path="/master/expense-categories" element={<ExpenseCategories />} />
+              <Route path="/master/payout-cycles" element={<Navigate to="/backoffice/dashboard" replace />} />
+              <Route path="/master/expense-categories" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/master/lead-sources" element={<LeadSources />} />
-              <Route path="/exceptions" element={<ExceptionsIssues />} />
+              <Route path="/exceptions" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/audit" element={<AuditLogs />} />
               <Route path="/executive" element={<ExecutiveDashboard />} />
               <Route path="/roles" element={<RolesPermissions />} />

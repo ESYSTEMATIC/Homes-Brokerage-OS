@@ -79,9 +79,8 @@ export const CRMIntro = () => (
       { role: 'Team Leader', level: 'Full + team visibility' },
       { role: 'Sales Manager', level: 'Full + multi-team visibility' },
       { role: 'Sales Director', level: 'Full hierarchy' },
-      { role: 'Marketing Admin', level: 'Read-Only' },
       { role: 'Backoffice Admin', level: 'Audit-only' },
-      { role: 'HR / Finance', level: 'None' },
+      { role: 'HR / Finance / Marketplace Admin', level: 'None' },
     ]}
     launchTarget="#/system/crm"
   />
@@ -132,11 +131,11 @@ const MarketplaceDashboardSystem = () => (
       'Marketplace → CRM handoff','Inventory origin tagging','Conversion drill-down',
     ]}
     accessRoles={[
-      { role: 'Marketing Admin', level: 'Full' },
-      { role: 'Marketplace Operations', level: 'Full' },
-      { role: 'Sales Director', level: 'Read-Only' },
-      { role: 'Executive', level: 'Read-Only' },
-      { role: 'Backoffice Admin', level: 'Audit-only' },
+      { role: 'Marketplace Dashboard Admin', level: 'Full · Exclusive' },
+      { role: 'Sales Agent / Team Leader', level: 'None' },
+      { role: 'Sales Manager / Director', level: 'None' },
+      { role: 'Backoffice Admin / Super Admin', level: 'None' },
+      { role: 'HR / Finance / Executive / System Admin', level: 'None' },
     ]}
   />
 );
