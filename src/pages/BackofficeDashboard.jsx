@@ -26,7 +26,6 @@ export const BackofficeDashboard = () => {
     missingDocs: state.documents.filter(d=>d.status==='Missing').length,
     trainingIncomplete: state.staff.filter(s=>s.status==='Pending').length + 3,
     accessBlocked: state.staff.filter(s=>s.status==='Suspended').length,
-    pendingPayouts: state.agentDues.filter(a=>a.pending>0).length,
   };
 
   const developers = [...new Set(state.deals.map(d=>d.developer))];
@@ -103,19 +102,15 @@ export const BackofficeDashboard = () => {
               <div className="queue-card-left"><div className="kpi-icon red"><ShieldAlert size={18}/></div><div className="queue-card-info"><h4>Access Blocked</h4><div className="queue-card-value">{counts.accessBlocked}</div></div></div>
               <ArrowRight size={16} color="#9ca3af"/>
             </div>
-            <div className="queue-card" onClick={()=>navigate('/backoffice/finance/agent-dues')}>
-              <div className="queue-card-left"><div className="kpi-icon blue"><Wallet size={18}/></div><div className="queue-card-info"><h4>Pending Payouts</h4><div className="queue-card-value">{counts.pendingPayouts}</div></div></div>
-              <ArrowRight size={16} color="#9ca3af"/>
-            </div>
           </div>
         </div>
         <div>
-          <h2 className="section-title">Active Alerts</h2>
+          <h2 className="section-title">Recent Audit Activity</h2>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
-            {state.exceptions.filter(e=>e.status!=='Resolved').slice(0,3).map(e=>(
-              <div key={e.id} className={`alert-card ${e.severity==='Critical'?'critical':'warning'}`}>
-                <span className="alert-card-text">{e.severity}: {e.title}</span>
-                <span className="alert-card-action" onClick={()=>navigate('/backoffice/exceptions')}>View</span>
+            {state.audit.slice(0,3).map(a=>(
+              <div key={a.id} className="alert-card warning">
+                <span className="alert-card-text">{a.action}: {a.target}</span>
+                <span className="alert-card-action" onClick={()=>navigate('/backoffice/audit')}>View</span>
               </div>
             ))}
           </div>

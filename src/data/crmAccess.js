@@ -38,7 +38,6 @@ export const HIERARCHY = {
   executive:       { role: 'Executive / CEO', scope: 'audit' },
   hrRecruiter:     { role: 'HR Recruiter',    scope: 'none' },
   financeOfficer:  { role: 'Finance Officer', scope: 'audit' },
-  marketingAdmin:  { role: 'Marketing Admin', scope: 'none' },
   marketplaceAdmin:{ role: 'Marketplace Admin', scope: 'none' },
 };
 

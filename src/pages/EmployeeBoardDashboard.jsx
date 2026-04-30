@@ -14,7 +14,6 @@ const ROLE_ACCESS = {
   salesDirector:    ['crm','backoffice'],
   hrRecruiter:      ['backoffice'],
   financeOfficer:   ['backoffice'],
-  marketingAdmin:   ['backoffice'],        // Role merged from main; BRD V1.4 keeps Marketplace Dashboard exclusive
   marketplaceAdmin: ['marketplaceDash'],   // EXCLUSIVE access to Marketplace Dashboard
   executive:        ['backoffice'],
   systemAdmin:      ['backoffice'],

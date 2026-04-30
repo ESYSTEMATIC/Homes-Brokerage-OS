@@ -24,7 +24,7 @@ export const AgentLayout = ({ children }) => {
     ),
   });
 
-  const ROLES_WITH_BACKOFFICE = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
+  const ROLES_WITH_BACKOFFICE = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
   const canBackoffice = ROLES_WITH_BACKOFFICE.includes(personaKey);
   // Marketplace Dashboard is exclusive to the Marketplace Dashboard Admin role.
   // Hide its sidebar launcher from every other persona (agents, TLs, managers, directors).

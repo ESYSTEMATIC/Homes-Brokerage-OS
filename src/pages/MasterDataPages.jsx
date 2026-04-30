@@ -163,7 +163,7 @@ const DevelopersGrid = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Master Data</span><span>&gt;</span><span className="current">Developers</span></div>
         <h1 className="page-title">Developer Partners</h1>
-        <p className="page-subtitle">Manage developer partners powering Homes inventory · Property module</p>
+        <p className="page-subtitle">Local alternatives to EGMLS — only used when a developer isn't carried by EGMLS or needs a brokerage-specific override.</p>
       </div>
 
       <div className="data-panel" style={{marginBottom:18}}>
@@ -210,14 +210,14 @@ const DevelopersGrid = () => {
 export const Developers = () => <DevelopersGrid />;
 
 export const MasterProjects = () => <MasterTable
-  title="Projects" breadcrumb="Project" subtitle="Manage project inventory — Property"
+  title="Projects" breadcrumb="Project" subtitle="Local alternatives to EGMLS — only used when a project isn't carried by EGMLS or needs a brokerage-specific override."
   slice="projects" prefix="PRJ"
   columns={[{key:'id',label:'ID'},{key:'name',label:'Project',bold:true},{key:'developer',label:'Developer'},{key:'location',label:'Location'},{key:'units',label:'Units'},{key:'status',label:'Status'}]}
   fields={[[{name:'name',label:'Name',required:true},{name:'developer',label:'Developer',required:true}],[{name:'location',label:'Location'},{name:'units',label:'Units',type:'number'}],[{name:'available',label:'Available',type:'number'},{name:'priceFrom',label:'Price From (EGP)',type:'number'}],[{name:'type',label:'Type',type:'select',options:['Compound','Mixed-Use','Resort','Township']},{name:'status',label:'Status',type:'select',options:['Published','Draft'],default:'Draft'}]]}
 />;
 
 export const Compounds = () => <MasterTable
-  title="Compounds" breadcrumb="Compound" subtitle="Manage compound groupings — Property"
+  title="Compounds" breadcrumb="Compound" subtitle="Local alternatives to EGMLS — only used when a compound isn't carried by EGMLS or needs a brokerage-specific override."
   slice="compounds" prefix="CMP"
   columns={[{key:'id',label:'ID'},{key:'name',label:'Compound',bold:true},{key:'developer',label:'Developer'},{key:'city',label:'City'},{key:'projects',label:'Projects'},{key:'status',label:'Status'}]}
   fields={[[{name:'name',label:'Name',required:true},{name:'developer',label:'Developer'}],[{name:'city',label:'City'},{name:'projects',label:'Projects',type:'number'}],[{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}

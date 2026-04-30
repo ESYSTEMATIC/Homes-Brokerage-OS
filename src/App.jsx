@@ -23,10 +23,12 @@ import { AuditLogs } from './pages/AuditLogs';
 import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
 import { RolesPermissions } from './pages/RolesPermissions';
 import { Departments } from './pages/Departments';
-import { FinanceOverview, DealsRevenue, CommissionEngine, AgentDues } from './pages/FinancePages';
+import { FinanceOverview, DealsRevenue, CommissionEngine } from './pages/FinancePages';
 import { EmployeeProfiles } from './pages/HRPages';
-import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
-import { ExceptionsIssues, Settings } from './pages/SystemPages';
+// Listings/unit types/cities/areas come from EGMLS — only alternatives for
+// developers, compounds and projects are maintained in Master Data.
+import { Developers, MasterProjects, Compounds, Branches, Teams, EmploymentCategories, MasterCommPolicies, LeadSources } from './pages/MasterDataPages';
+import { Settings } from './pages/SystemPages';
 
 // Federated system intro placeholders launched via SSO from the Employee Board.
 import { CRMIntro, MarketplaceDashboard as MarketplaceDashboardIntro } from './pages/ExternalSystem';
@@ -126,8 +128,7 @@ const AppRoutes = () => {
 
   // Backoffice access matrix (controls whether direct /backoffice/* URLs render under
   // the Backoffice layout). Without access, redirect to Employee Board.
-  // `marketingAdmin` was added in main alongside the CRM V2 + Add Property work.
-  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
+  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
   const MARKETPLACE_ROLES = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
 
   return (
@@ -224,25 +225,28 @@ const AppRoutes = () => {
               <Route path="/finance/overview" element={<FinanceOverview />} />
               <Route path="/finance/deals-revenue" element={<DealsRevenue />} />
               <Route path="/finance/commission" element={<CommissionEngine />} />
-              <Route path="/finance/agent-dues" element={<AgentDues />} />
+              <Route path="/finance/agent-dues" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/hr" element={<HRPayroll />} />
               <Route path="/hr/profiles" element={<EmployeeProfiles />} />
               <Route path="/recruitment" element={<RecruitmentPipeline />} />
               <Route path="/jobs" element={<JobVacancies />} />
+              {/* Listings, unit types, cities and area lookups are sourced from
+                  EGMLS — the brokerage only maintains alternatives to
+                  developers / compounds / projects locally. */}
               <Route path="/master/developers" element={<Developers />} />
               <Route path="/master/projects" element={<MasterProjects />} />
               <Route path="/master/compounds" element={<Compounds />} />
-              <Route path="/master/unit-types" element={<UnitTypes />} />
-              <Route path="/master/cities" element={<Cities />} />
-              <Route path="/master/areas" element={<AreasDistricts />} />
+              <Route path="/master/unit-types" element={<Navigate to="/backoffice/dashboard" replace />} />
+              <Route path="/master/cities" element={<Navigate to="/backoffice/dashboard" replace />} />
+              <Route path="/master/areas" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/master/branches" element={<Branches />} />
               <Route path="/master/teams" element={<Teams />} />
               <Route path="/master/emp-categories" element={<EmploymentCategories />} />
               <Route path="/master/comm-policies" element={<MasterCommPolicies />} />
-              <Route path="/master/payout-cycles" element={<PayoutCycles />} />
-              <Route path="/master/expense-categories" element={<ExpenseCategories />} />
+              <Route path="/master/payout-cycles" element={<Navigate to="/backoffice/dashboard" replace />} />
+              <Route path="/master/expense-categories" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/master/lead-sources" element={<LeadSources />} />
-              <Route path="/exceptions" element={<ExceptionsIssues />} />
+              <Route path="/exceptions" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/audit" element={<AuditLogs />} />
               <Route path="/executive" element={<ExecutiveDashboard />} />
               <Route path="/roles" element={<RolesPermissions />} />
