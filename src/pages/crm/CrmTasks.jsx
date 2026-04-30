@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, X, List, CalendarDays, Clock, Phone, MessageSquare, MapPin, FileText, DollarSign, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit, Trash2, X, List, CalendarDays, Clock, Phone, MessageSquare, MapPin, FileText, DollarSign, CheckCircle2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { HIERARCHY, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 
 const TASK_TYPES = ['Call','Tour','WhatsApp','Meeting','Contract','Finance','Follow-up'];
 const TASK_STATUS = ['Pending','In Progress','Completed','Overdue'];
@@ -8,15 +9,36 @@ const PRIOS = ['High','Medium','Low'];
 const typeIcon = {Call:<Phone size={13}/>,Tour:<MapPin size={13}/>,WhatsApp:<MessageSquare size={13}/>,Meeting:<CalendarDays size={13}/>,Contract:<FileText size={13}/>,Finance:<DollarSign size={13}/>,'Follow-up':<Clock size={13}/>};
 const typeColor = {Call:'#3b82f6',Tour:'#10b981',WhatsApp:'#22c55e',Meeting:'#8b5cf6',Contract:'#f59e0b',Finance:'#E8672A','Follow-up':'#64748b'};
 
+// Tasks visibility — Sales Agent: own only · Team Leader/Manager: all owners
+// they can assign to · Director: all · Audit: all (read).
+const canSeeTask = (personaKey, t, ownerSet) => {
+  const h = HIERARCHY[personaKey];
+  if (!h || h.scope === 'none') return false;
+  if (h.scope === 'all' || h.scope === 'audit') return true;
+  if (h.scope === 'self') return t.owner === personaOwnerName(personaKey);
+  return ownerSet.has(t.owner);
+};
+
+const isOverdue = (due, status) => {
+  if (!due || status === 'Completed') return false;
+  return new Date(due) < new Date(new Date().toDateString());
+};
+
 export const CrmTasks = () => {
-  const { state, addItem, updateItem, removeItem, toast } = useApp();
-  const tasks = state.tasks;
+  const { state, addItem, updateItem, removeItem, toast, persona, personaKey, writeAudit } = useApp();
+  const allTasks = state.tasks || [];
+  const readOnly = isReadOnly(personaKey);
+  const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
+  const ownerSet = useMemo(() => new Set((assignableStaff(personaKey, state.staff || [])).map(s => s.name)), [personaKey, state.staff]);
+
+  const tasks = useMemo(() => allTasks.filter(t => canSeeTask(personaKey, t, ownerSet)), [allTasks, personaKey, ownerSet]);
+
   const [view, setView] = useState('list');
   const [fStatus, setFStatus] = useState('All');
   const [fType, setFType] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
-  const def = {title:'',type:'Call',lead:'',owner:'Fatma Ibrahim',due:'',priority:'Medium',status:'Pending',notes:''};
+  const def = {title:'',type:'Call',lead:'',owner: personaOwnerName(personaKey) || 'Fatma Ibrahim',due:'',priority:'Medium',status:'Pending',notes:''};
   const [form, setForm] = useState(def);
 
   const filtered = useMemo(()=>tasks.filter(t=>{
@@ -25,11 +47,32 @@ export const CrmTasks = () => {
     return true;
   }),[tasks,fStatus,fType]);
 
-  const openAdd2=()=>{setForm(def);setEditTask(null);setShowAdd(true);};
+  const openAdd2=()=>{setForm({...def, owner: personaOwnerName(personaKey) || def.owner});setEditTask(null);setShowAdd(true);};
   const openEdit=t=>{setForm({title:t.title,type:t.type||'Call',lead:t.lead||'',owner:t.owner||'',due:t.due||'',priority:t.priority||'Medium',status:t.status||'Pending',notes:t.notes||''});setEditTask(t);setShowAdd(true);};
-  const handleSubmit=e=>{e.preventDefault();if(!form.title.trim()){toast('Title required','error');return;}if(editTask){updateItem('tasks',editTask.id,form);toast('Task updated','success');}else{addItem('tasks',{...form,created:new Date().toISOString().split('T')[0]});toast('Task created','success');}setShowAdd(false);};
-  const handleDel=id=>{removeItem('tasks',id);toast('Task deleted','success');};
-  const toggleComplete=t=>{updateRecord('tasks',t.id,{status:t.status==='Completed'?'Pending':'Completed'});toast(t.status==='Completed'?'Marked pending':'Completed','success');};
+  const handleSubmit=e=>{
+    e.preventDefault();
+    if(!form.title.trim()){toast('Title required','error');return;}
+    if(editTask){
+      updateItem('tasks',editTask.id,form);
+      writeAudit('Task Updated', `${form.title}`, 'CRM');
+      toast('Task updated','success');
+    }else{
+      addItem('tasks',{...form,created:new Date().toISOString().split('T')[0]},'TSK');
+      writeAudit('Task Created', `${form.title} → ${form.owner}`, 'CRM');
+      toast('Task created','success');
+    }
+    setShowAdd(false);
+  };
+  const handleDel=id=>{removeItem('tasks',id);writeAudit('Task Deleted', id, 'CRM');toast('Task deleted','success');};
+  const toggleComplete=t=>{
+    const next = t.status==='Completed'?'Pending':'Completed';
+    updateItem('tasks',t.id,{status:next});
+    writeAudit('Task Status Changed', `${t.title}: ${t.status} → ${next}`, 'CRM');
+    toast(next === 'Completed' ? 'Completed' : 'Marked pending','success');
+  };
+  // Auto-promote Pending tasks past their due date to Overdue (visual hint).
+  // Doesn't mutate state — only used for badge rendering below.
+  const stageOf = t => isOverdue(t.due, t.status) && t.status !== 'Overdue' ? 'Overdue' : t.status;
 
   // Calendar data
   const today = new Date();
@@ -50,9 +93,29 @@ export const CrmTasks = () => {
 
   const stats = {total:tasks.length,pending:tasks.filter(t=>t.status==='Pending').length,overdue:tasks.filter(t=>t.status==='Overdue').length,completed:tasks.filter(t=>t.status==='Completed').length};
 
+  const roleScopeLabel = h.scope === 'self' ? 'Own tasks only' : h.scope === 'team' ? `Team ${h.team}` : h.scope === 'cross' ? `Teams ${h.teams?.join(' + ')}` : h.scope === 'all' ? 'All teams' : h.scope === 'audit' ? 'Audit-only' : 'No access';
+  const overdueCount = tasks.filter(t => isOverdue(t.due, t.status)).length;
+
   return (
-    <div>
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tasks</span></div><h1 className="page-title">Tasks & Calendar</h1><p className="page-subtitle">Manage tasks, schedule follow-ups, and track team activities</p></div>
+    <div className="crm-page">
+      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tasks</span></div><h1 className="page-title">Tasks & Calendar</h1><p className="page-subtitle">Manage tasks, schedule follow-ups, and track team activities · BRD V1.4 §6.5</p></div>
+
+      <div className="crm-role-banner">
+        <div className="ico"><ShieldCheck size={18}/></div>
+        <div className="meat">
+          <div className="title">{persona.label} · {h.role}</div>
+          <div className="line">
+            <span className="kv"><b>Visibility:</b> {roleScopeLabel}</span>
+            <span className="kv"><b>Assign tasks:</b> {readOnly ? 'Read-only' : h.scope === 'self' ? 'Self only' : 'Hierarchy-scoped'}</span>
+            <span className="kv"><b>Overdue:</b> {overdueCount}{overdueCount > 0 && ' · auto-escalates to TL'}</span>
+          </div>
+        </div>
+        <div className="kpis">
+          <div><div className="num">{stats.total}</div><div className="lbl">Visible</div></div>
+          <div><div className="num">{stats.pending}</div><div className="lbl">Pending</div></div>
+          <div><div className="num">{stats.completed}</div><div className="lbl">Completed</div></div>
+        </div>
+      </div>
 
       {/* Mini KPIs */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
@@ -73,22 +136,28 @@ export const CrmTasks = () => {
         {view==='list'&&<><select className="filter-select" value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="All">All Status</option>{TASK_STATUS.map(s=><option key={s}>{s}</option>)}</select>
         <select className="filter-select" value={fType} onChange={e=>setFType(e.target.value)}><option value="All">All Types</option>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select></>}
         <div style={{flex:1}}/>
-        <button className="btn btn-brand" onClick={openAdd2}><Plus size={16}/> Add Task</button>
+        {!readOnly && <button className="btn btn-brand" onClick={openAdd2}><Plus size={16}/> Add Task</button>}
+        {readOnly && <span className="badge badge-warning">Read-only · audit role</span>}
       </div>
 
       {view==='list' ? (
         <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th style={{width:36}}></th><th>Title</th><th>Type</th><th>Lead</th><th>Owner</th><th>Due Date</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>{filtered.length===0?<tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'var(--text-tertiary)'}}>No tasks found</td></tr>:filtered.map(t=>(
             <tr key={t.id} style={{opacity:t.status==='Completed'?.6:1}}>
-              <td><button className="btn-icon" onClick={()=>toggleComplete(t)} style={{color:t.status==='Completed'?'var(--success)':'var(--text-tertiary)'}}><CheckCircle2 size={16}/></button></td>
-              <td className="bold" style={{textDecoration:t.status==='Completed'?'line-through':'none'}}>{t.title}</td>
+              <td><button className="btn-icon" disabled={readOnly} onClick={()=>!readOnly && toggleComplete(t)} style={{color:t.status==='Completed'?'var(--success)':'var(--text-tertiary)'}}><CheckCircle2 size={16}/></button></td>
+              <td className="bold" style={{textDecoration:t.status==='Completed'?'line-through':'none'}}>{t.title}{isOverdue(t.due, t.status) && <span title="Overdue — escalates to Team Leader" style={{marginLeft:6}}><AlertTriangle size={12} color="var(--danger)"/></span>}</td>
               <td><span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:12,color:typeColor[t.type]||'#64748b',fontWeight:600}}>{typeIcon[t.type]||<Clock size={13}/>}{t.type}</span></td>
               <td className="muted">{t.lead||'—'}</td>
               <td className="muted">{t.owner}</td>
               <td className="muted">{t.due||'—'}</td>
               <td><span className={`badge ${t.priority==='High'?'badge-danger':t.priority==='Medium'?'badge-warning':'badge-gray'}`}>{t.priority}</span></td>
-              <td><span className={`badge ${t.status==='Completed'?'badge-success':t.status==='Overdue'?'badge-danger':t.status==='In Progress'?'badge-info':'badge-warning'}`}>{t.status}</span></td>
-              <td><div style={{display:'flex',gap:6}}><button className="btn-icon" onClick={()=>openEdit(t)}><Edit size={14}/></button><button className="btn-icon" style={{color:'var(--danger)'}} onClick={()=>handleDel(t.id)}><Trash2 size={14}/></button></div></td>
+              <td><span className={`badge ${stageOf(t)==='Completed'?'badge-success':stageOf(t)==='Overdue'?'badge-danger':stageOf(t)==='In Progress'?'badge-info':'badge-warning'}`}>{stageOf(t)}</span></td>
+              <td>
+                <div style={{display:'flex',gap:4}}>
+                  {!readOnly && <button className="btn-icon" onClick={()=>openEdit(t)} title="Edit"><Edit size={14}/></button>}
+                  {!readOnly && <button className="btn-icon" style={{color:'var(--danger)'}} onClick={()=>handleDel(t.id)} title="Delete"><Trash2 size={14}/></button>}
+                </div>
+              </td>
             </tr>
           ))}</tbody></table></div></div>
       ) : (
@@ -120,7 +189,12 @@ export const CrmTasks = () => {
           <div className="form-group" style={{gridColumn:'span 2'}}><label>Title *</label><input type="text" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} required/></div>
           <div className="form-group"><label>Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
           <div className="form-group"><label>Lead</label><input type="text" value={form.lead} onChange={e=>setForm({...form,lead:e.target.value})}/></div>
-          <div className="form-group"><label>Owner</label><input type="text" value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})}/></div>
+          <div className="form-group"><label>Owner</label>
+            <select value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})} disabled={h.scope === 'self'}>
+              <option value="">Unassigned</option>
+              {assignableStaff(personaKey, state.staff || []).map(s => <option key={s.id || s.name} value={s.name}>{s.name}{s.team ? ` — ${s.team}` : ''}</option>)}
+            </select>
+          </div>
           <div className="form-group"><label>Due Date</label><input type="date" value={form.due} onChange={e=>setForm({...form,due:e.target.value})}/></div>
           <div className="form-group"><label>Priority</label><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>{PRIOS.map(p=><option key={p}>{p}</option>)}</select></div>
           <div className="form-group"><label>Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{TASK_STATUS.map(s=><option key={s}>{s}</option>)}</select></div>

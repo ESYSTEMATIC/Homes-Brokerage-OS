@@ -14,10 +14,12 @@ const ROLE_ACCESS = {
   salesDirector:    ['crm','backoffice'],
   hrRecruiter:      ['backoffice'],
   financeOfficer:   ['backoffice'],
+  marketingAdmin:   ['backoffice'],        // Role merged from main; BRD V1.4 keeps Marketplace Dashboard exclusive
   marketplaceAdmin: ['marketplaceDash'],   // EXCLUSIVE access to Marketplace Dashboard
   executive:        ['backoffice'],
   systemAdmin:      ['backoffice'],
   agent:            ['crm','matrix'],      // Agents explicitly do NOT see marketplaceDash
+  agentActive:      ['crm','matrix'],      // Same scope as agent — but with onboarding complete (CRM unlocked)
   teamLeader:       ['crm','matrix'],
 };
 
@@ -52,7 +54,7 @@ export const EmployeeBoardDashboard = () => {
   const teamAssignment = isAgent ? {
     team: personaKey === 'teamLeader' ? 'Alpha (Lead)' : 'Alpha',
     teamLeader: personaKey === 'teamLeader' ? '— (you are the TL)' : 'Omar Sherif',
-    salesManager: 'Karim Mostafa',
+    salesManager: 'Sales Manager',
     salesDirector: 'Tarek Amin',
     branch: persona.scope.includes('New Cairo') ? 'New Cairo' : '6th October',
     introCall: onboardingComplete ? 'Completed 2024-01-12' : 'Scheduled · Tomorrow 10:30 AM',

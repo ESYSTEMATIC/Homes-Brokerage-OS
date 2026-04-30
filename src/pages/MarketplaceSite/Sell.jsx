@@ -1,9 +1,33 @@
 import { useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, CheckCircle2 } from 'lucide-react';
 import { PM_HOW_IT_WORKS, PM_FAQ_SELL } from '../../data/publicMarketplaceData';
+import { addLead } from '../../data/marketplaceStore';
 
 export const Sell = () => {
   const [open, setOpen] = useState(0);
+  const [form, setForm] = useState({
+    name: '', phone: '', email: '',
+    propertyType: '', city: '', subType: '', address: '',
+    agree: true,
+  });
+  const [errors, setErrors] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const submit = (e) => {
+    e.preventDefault();
+    const err = {};
+    if (!form.name.trim()) err.name = 'Required';
+    if (!/^[\d+\s-]{8,}$/.test(form.phone)) err.phone = 'Enter a valid phone';
+    if (!/^\S+@\S+\.\S+$/.test(form.email)) err.email = 'Invalid email';
+    if (!form.propertyType) err.propertyType = 'Required';
+    if (!form.city) err.city = 'Required';
+    if (!form.address.trim()) err.address = 'Required';
+    if (!form.agree) err.agree = 'You must agree';
+    setErrors(err);
+    if (Object.keys(err).length) return;
+    addLead({ kind: 'sell', payload: form });
+    setSubmitted(true);
+  };
 
   return (
     <>
@@ -45,38 +69,55 @@ export const Sell = () => {
         <h2>Submit Your Property Details</h2>
         <p className="lead">Tell us about your property and our team will reach out within 24 hours with a free valuation.</p>
 
-        <form className="pm-form-card" style={{ marginTop: 28 }} onSubmit={e=>{e.preventDefault(); alert('Property details submitted (demo)');}}>
-          <h3>Owner Information</h3>
-          <div className="pm-form-row">
-            <div className="pm-form-field"><label>Full Name *</label><input placeholder="Your Full Name" required/></div>
-            <div className="pm-form-field"><label>Phone Number *</label><input placeholder="+20 xxx xxx xxxx" required/></div>
+        {submitted ? (
+          <div className="pm-form-card" style={{ marginTop: 28, textAlign: 'center', padding: '40px 22px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(16,185,129,0.12)', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <CheckCircle2 size={28}/>
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 800 }}>Thanks {form.name.split(' ')[0]} — your property is in the queue</h3>
+            <p style={{ color: '#6b7280', marginTop: 8 }}>
+              A Homes specialist will call you on <b>{form.phone}</b> within 24 hours
+              with a free valuation for your <b>{form.propertyType}</b> in <b>{form.city}</b>.
+            </p>
+            <button type="button" className="pm-btn-outline" style={{ marginTop: 18 }} onClick={() => { setSubmitted(false); setForm({...form, name:'',phone:'',email:''}); }}>Submit another property</button>
           </div>
-          <div className="pm-form-row single">
-            <div className="pm-form-field"><label>Email *</label><input type="email" placeholder="you@example.com" required/></div>
-          </div>
+        ) : (
+          <form className="pm-form-card" style={{ marginTop: 28 }} onSubmit={submit}>
+            <h3>Owner Information</h3>
+            <div className="pm-form-row">
+              <div className="pm-form-field"><label>Full Name *</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Your Full Name"/>{errors.name && <span className="pm-form-err">{errors.name}</span>}</div>
+              <div className="pm-form-field"><label>Phone Number *</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="+20 xxx xxx xxxx"/>{errors.phone && <span className="pm-form-err">{errors.phone}</span>}</div>
+            </div>
+            <div className="pm-form-row single">
+              <div className="pm-form-field"><label>Email *</label><input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="you@example.com"/>{errors.email && <span className="pm-form-err">{errors.email}</span>}</div>
+            </div>
 
-          <h3 style={{marginTop:24}}>Property Details</h3>
-          <div className="pm-form-row">
-            <div className="pm-form-field"><label>Property Type *</label>
-              <select required defaultValue=""><option value="">Select type</option><option>Apartment</option><option>Villa</option><option>Townhouse</option><option>Penthouse</option><option>Chalet</option></select>
+            <h3 style={{marginTop:24}}>Property Details</h3>
+            <div className="pm-form-row">
+              <div className="pm-form-field"><label>Property Type *</label>
+                <select value={form.propertyType} onChange={e => setForm({...form, propertyType: e.target.value})}><option value="">Select type</option><option>Apartment</option><option>Villa</option><option>Townhouse</option><option>Penthouse</option><option>Chalet</option></select>
+                {errors.propertyType && <span className="pm-form-err">{errors.propertyType}</span>}
+              </div>
+              <div className="pm-form-field"><label>City / Area *</label>
+                <select value={form.city} onChange={e => setForm({...form, city: e.target.value})}><option value="">Select city</option><option>New Cairo</option><option>6th of October</option><option>Sheikh Zayed</option><option>North Coast</option><option>New Capital</option></select>
+                {errors.city && <span className="pm-form-err">{errors.city}</span>}
+              </div>
             </div>
-            <div className="pm-form-field"><label>City / Area *</label>
-              <select required defaultValue=""><option value="">Select city</option><option>New Cairo</option><option>6th of October</option><option>Sheikh Zayed</option><option>North Coast</option><option>New Capital</option></select>
+            <div className="pm-form-row">
+              <div className="pm-form-field"><label>Property Sub Type</label>
+                <select value={form.subType} onChange={e => setForm({...form, subType: e.target.value})}><option value="">Select sub type</option><option>Standalone</option><option>Twin</option><option>Duplex</option></select>
+              </div>
+              <div className="pm-form-field"><label>Address / Location Description *</label><input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="e.g. Compound Azure, Fifth Settlement"/>{errors.address && <span className="pm-form-err">{errors.address}</span>}</div>
             </div>
-          </div>
-          <div className="pm-form-row">
-            <div className="pm-form-field"><label>Property Sub Type</label>
-              <select defaultValue=""><option value="">Select sub type</option><option>Standalone</option><option>Twin</option><option>Duplex</option></select>
-            </div>
-            <div className="pm-form-field"><label>Address / Location Description *</label><input placeholder="e.g. Compound Azure, Fifth Settlement" required/></div>
-          </div>
 
-          <div className="pm-form-checkbox">
-            <input type="checkbox" id="agree" defaultChecked/>
-            <label htmlFor="agree">I agree to be contacted by Homes regarding the sale of my property</label>
-          </div>
-          <button type="submit" className="pm-form-submit">Submit Property Details</button>
-        </form>
+            <div className="pm-form-checkbox">
+              <input type="checkbox" id="agree" checked={form.agree} onChange={e => setForm({...form, agree: e.target.checked})}/>
+              <label htmlFor="agree">I agree to be contacted by Homes regarding the sale of my property</label>
+            </div>
+            {errors.agree && <span className="pm-form-err">{errors.agree}</span>}
+            <button type="submit" className="pm-form-submit">Submit Property Details</button>
+          </form>
+        )}
       </section>
 
       <section className="pm-section tight">

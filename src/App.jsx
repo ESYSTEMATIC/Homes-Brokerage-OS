@@ -28,8 +28,22 @@ import { EmployeeProfiles } from './pages/HRPages';
 import { Developers, MasterProjects, Compounds, UnitTypes, Cities, AreasDistricts, Branches, Teams, EmploymentCategories, MasterCommPolicies, PayoutCycles, ExpenseCategories, LeadSources } from './pages/MasterDataPages';
 import { ExceptionsIssues, Settings } from './pages/SystemPages';
 
-// Federated system placeholders (CRM) launched via SSO from the Employee Board.
-import { CRMLeads, DealsPipeline, TasksCalendar } from './pages/ExternalSystem';
+// Federated system intro placeholders launched via SSO from the Employee Board.
+import { CRMIntro, MarketplaceDashboard as MarketplaceDashboardIntro } from './pages/ExternalSystem';
+
+// Real CRM Module V2 (embedded, own sidebar/layout via CrmLayout — see main).
+import { CrmLayout } from './components/CrmLayout';
+import { CrmDashboard } from './pages/crm/CrmDashboard';
+import { CrmLeads } from './pages/crm/CrmLeads';
+import { CrmLeadDetail } from './pages/crm/CrmLeadDetail';
+import { CrmListings } from './pages/crm/CrmListings';
+import { CrmTours } from './pages/crm/CrmTours';
+import { CrmDeals } from './pages/crm/CrmDeals';
+import { CrmContracts } from './pages/crm/CrmContracts';
+import { CrmTasks } from './pages/crm/CrmTasks';
+import { CrmListingShare } from './pages/crm/CrmListingShare';
+import { CrmMiniSite } from './pages/crm/CrmMiniSite';
+import { CrmReports } from './pages/crm/CrmReports';
 
 // Marketplace Dashboard — full federated system with its own layout + nested routes.
 import { MarketplaceLayout } from './components/MarketplaceLayout';
@@ -47,7 +61,13 @@ import { AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications } fr
 
 // Public Marketplace (consumer-facing, no auth required)
 import { MarketplaceSiteLayout } from './components/MarketplaceSiteLayout';
-import { Home as PMHome, Buy as PMBuy, Sell as PMSell, Find as PMFind, Mortgage as PMMortgage } from './pages/MarketplaceSite/index.jsx';
+import {
+  Home as PMHome, Buy as PMBuy, Sell as PMSell, Find as PMFind, Mortgage as PMMortgage,
+  ListingDetail as PMListingDetail,
+  MpLogin, MpSignup, MpProfile, MpForgotPassword, MpVerifyOtp, MpResetPassword,
+  Compare as PMCompare, Favorites as PMFavorites,
+  Developers as PMDevelopers, DeveloperDetail as PMDeveloperDetail,
+} from './pages/MarketplaceSite/index.jsx';
 
 // Public marketplace routes — accessible without auth (homes.com.eg consumer surface).
 const PublicMarketplaceRoutes = () => (
@@ -55,9 +75,20 @@ const PublicMarketplaceRoutes = () => (
     <Routes>
       <Route path="/" element={<PMHome />} />
       <Route path="/buy" element={<PMBuy />} />
+      <Route path="/listings/:id" element={<PMListingDetail />} />
       <Route path="/sell" element={<PMSell />} />
-      <Route path="/find" element={<PMFind />} />
+      <Route path="/find" element={<Navigate to="/marketplace/developers" replace />} />
+      <Route path="/developers" element={<PMDevelopers />} />
+      <Route path="/developers/:slug" element={<PMDeveloperDetail />} />
       <Route path="/mortgage" element={<PMMortgage />} />
+      <Route path="/compare" element={<PMCompare />} />
+      <Route path="/favorites" element={<PMFavorites />} />
+      <Route path="/login" element={<MpLogin />} />
+      <Route path="/signup" element={<MpSignup />} />
+      <Route path="/forgot-password" element={<MpForgotPassword />} />
+      <Route path="/verify-otp" element={<MpVerifyOtp />} />
+      <Route path="/reset-password" element={<MpResetPassword />} />
+      <Route path="/profile" element={<MpProfile />} />
       <Route path="*" element={<Navigate to="/marketplace" replace />} />
     </Routes>
   </MarketplaceSiteLayout>
@@ -68,10 +99,10 @@ const PublicMarketplaceRoutes = () => (
 const useBodyLock = () => {
   const { pathname } = useLocation();
   useEffect(() => {
-    // Public marketplace and login keep page-level scrolling. The Buy page
-    // owns its own internal layout: in Map view it locks the viewport so the
-    // map can stay fixed, in List view it scrolls the page normally — that
-    // toggle is handled inside the page by adding/removing `app-locked`.
+    // The Buy page owns its body lock state itself (because it depends on
+    // map vs list view). Don't fight it from the parent.
+    if (pathname.startsWith('/marketplace/buy')) return;
+    // Public marketplace + login keep page-level scrolling.
     const isPublic = pathname === '/' || pathname.startsWith('/marketplace') || pathname.startsWith('/login');
     document.body.classList.toggle('app-locked', !isPublic);
     return () => document.body.classList.remove('app-locked');
@@ -95,7 +126,8 @@ const AppRoutes = () => {
 
   // Backoffice access matrix (controls whether direct /backoffice/* URLs render under
   // the Backoffice layout). Without access, redirect to Employee Board.
-  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
+  // `marketingAdmin` was added in main alongside the CRM V2 + Add Property work.
+  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
   const MARKETPLACE_ROLES = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
 
   return (
@@ -119,14 +151,32 @@ const AppRoutes = () => {
         </AgentLayout>
       } />
 
-      {/* ─── CRM federated placeholders — rendered inside Employee Board chrome ─── */}
+      {/* ─── Real CRM Module V2 (embedded via SSO, own sidebar/layout) ─── */}
       <Route path="/system/crm/*" element={
+        <CrmLayout>
+          <Routes>
+            <Route path="/" element={<CrmDashboard />} />
+            <Route path="/leads" element={<CrmLeads />} />
+            <Route path="/leads/:id" element={<CrmLeadDetail />} />
+            <Route path="/listings" element={<CrmListings />} />
+            <Route path="/tours" element={<CrmTours />} />
+            <Route path="/deals" element={<CrmDeals />} />
+            <Route path="/contracts" element={<CrmContracts />} />
+            <Route path="/tasks" element={<CrmTasks />} />
+            <Route path="/shares" element={<CrmListingShare />} />
+            <Route path="/minisite" element={<CrmMiniSite />} />
+            <Route path="/reports" element={<CrmReports />} />
+            <Route path="*" element={<Navigate to="/system/crm" />} />
+          </Routes>
+        </CrmLayout>
+      } />
+
+      {/* ─── Other Federated System intros (placeholders, in Employee Board chrome) ─── */}
+      <Route path="/system/*" element={
         <AgentLayout>
           <Routes>
-            <Route path="/" element={<CRMLeads />} />
-            <Route path="/leads" element={<CRMLeads />} />
-            <Route path="/deals" element={<DealsPipeline />} />
-            <Route path="/tasks" element={<TasksCalendar />} />
+            <Route path="/crm-intro" element={<CRMIntro />} />
+            <Route path="/marketplace-dashboard-intro" element={<MarketplaceDashboardIntro />} />
             <Route path="*" element={<Navigate to="/board/dashboard" />} />
           </Routes>
         </AgentLayout>

@@ -162,7 +162,7 @@ export const AgentProfile = () => {
         <div style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,padding:24}}>
           <h3 style={{fontWeight:700,marginBottom:16}}>Personal Information</h3>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-            {[['Full Name','Sarah El-Masry'],['Email','sarah@homesbrokerage.eg'],['Phone','+20 100 123 4567'],['Branch','New Cairo'],['Department','Sales'],['Manager','Karim Mostafa'],['Team','Alpha'],['Join Date','2024-01-01']].map(([l,v])=>(
+            {[['Full Name','Sarah El-Masry'],['Email','sarah@homesbrokerage.eg'],['Phone','+20 100 123 4567'],['Branch','New Cairo'],['Department','Sales'],['Manager','Sales Manager'],['Team','Alpha'],['Join Date','2024-01-01']].map(([l,v])=>(
               <div key={l}><div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',marginBottom:4}}>{l}</div><div style={{fontWeight:500}}>{v}</div></div>
             ))}
           </div>

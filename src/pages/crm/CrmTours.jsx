@@ -1,18 +1,42 @@
 import React, { useState, useMemo } from 'react';
 import { TOUR_STATUS } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, X, List, CalendarDays, MapPin, Clock, Star, User, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, X, List, CalendarDays, MapPin, Clock, Star, User, Eye, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { HIERARCHY, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 
 const statusColor = s => s==='Completed'?'badge-success':s==='Scheduled'?'badge-info':s==='No-Show'?'badge-danger':'badge-gray';
 
+// Tour visibility — Sales Agent: own only · Team Leader: team · Manager: cross · Director/Audit: all.
+const canSeeTour = (personaKey, t, persona) => {
+  const h = HIERARCHY[personaKey];
+  if (!h || h.scope === 'none') return false;
+  if (h.scope === 'all' || h.scope === 'audit') return true;
+  if (h.scope === 'self') return t.agent === personaOwnerName(personaKey);
+  // Tours don't carry a team field by default — fall back to agent membership.
+  return true;
+};
+
+// Detect overlapping tour times for the same agent on the same day.
+const findConflicts = (tours, candidate, ignoreId = null) => tours.filter(t =>
+  t.id !== ignoreId &&
+  t.agent === candidate.agent &&
+  t.date === candidate.date &&
+  t.time && candidate.time &&
+  Math.abs((parseInt(t.time.replace(':',''),10)) - parseInt(candidate.time.replace(':',''),10)) < 100
+);
+
 export const CrmTours = () => {
-  const { state, addItem, toast, openDrawer } = useApp();
+  const { state, addItem, toast, openDrawer, persona, personaKey, writeAudit } = useApp();
+  const readOnly = isReadOnly(personaKey);
+  const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
   const [view, setView] = useState('list');
   const [fStatus, setFStatus] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({leadName:'', property:'', date:'', time:'', agent:'Fatma Ibrahim', status:'Scheduled', rating:null, feedback:''});
+  const [form, setForm] = useState({leadName:'', property:'', date:'', time:'', agent: personaOwnerName(personaKey) || 'Fatma Ibrahim', status:'Scheduled', rating:null, feedback:''});
 
-  const tours = state.tours || [];
+  const allTours = state.tours || [];
+  // Role-scoped view
+  const tours = useMemo(() => allTours.filter(t => canSeeTour(personaKey, t, persona)), [allTours, personaKey, persona]);
   const filtered = useMemo(()=>tours.filter(t=>fStatus==='All'||t.status===fStatus),[tours, fStatus]);
 
   const stats = {total:tours.length,scheduled:tours.filter(t=>t.status==='Scheduled').length,completed:tours.filter(t=>t.status==='Completed').length,noShow:tours.filter(t=>t.status==='No-Show').length};
@@ -39,9 +63,27 @@ export const CrmTours = () => {
   const calDays = []; for(let i=0;i<firstDay;i++) calDays.push(null); for(let d=1;d<=daysInMonth;d++) calDays.push(d);
   const toursByDate = useMemo(()=>{const m={};tours.forEach(t=>{const d=new Date(t.date).getDate();if(!m[d])m[d]=[];m[d].push(t);});return m;},[tours]);
 
+  const roleScopeLabel = h.scope === 'self' ? 'Own tours only' : h.scope === 'team' ? `Team ${h.team}` : h.scope === 'cross' ? `Teams ${h.teams?.join(' + ')}` : h.scope === 'all' ? 'All teams' : h.scope === 'audit' ? 'Audit-only' : 'No access';
+
   return (
-    <div>
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tours</span></div><h1 className="page-title">Tour Management</h1><p className="page-subtitle">Schedule property tours, track attendance, and log feedback</p></div>
+    <div className="crm-page">
+      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tours</span></div><h1 className="page-title">Tour Management</h1><p className="page-subtitle">Schedule property tours, track attendance, and log feedback · BRD V1.4 §6.3</p></div>
+
+      <div className="crm-role-banner">
+        <div className="ico"><ShieldCheck size={18}/></div>
+        <div className="meat">
+          <div className="title">{persona.label} · {h.role}</div>
+          <div className="line">
+            <span className="kv"><b>Visibility:</b> {roleScopeLabel}</span>
+            <span className="kv"><b>Scheduling:</b> {readOnly ? 'Read-only' : 'Allowed'}</span>
+            <span className="kv"><b>Conflict check:</b> Same agent / same hour</span>
+          </div>
+        </div>
+        <div className="kpis">
+          <div><div className="num">{tours.length}</div><div className="lbl">Visible</div></div>
+          <div><div className="num">{tours.filter(t=>t.status==='Scheduled').length}</div><div className="lbl">Upcoming</div></div>
+        </div>
+      </div>
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:16,marginBottom:24}}>
         {[['Total Tours',stats.total,'var(--info)'],['Scheduled',stats.scheduled,'var(--brand)'],['Completed',stats.completed,'var(--success)'],['No-Show',stats.noShow,'var(--danger)'],['Avg Rating',avgRating.toFixed(1)+' ★','#f59e0b']].map(([l,v,c])=>(
@@ -56,7 +98,8 @@ export const CrmTours = () => {
         </div>
         {view==='list'&&<select className="filter-select" value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="All">All Status</option>{TOUR_STATUS.map(s=><option key={s}>{s}</option>)}</select>}
         <div style={{flex:1}}/>
-        <button className="btn btn-brand" onClick={()=>setShowAdd(true)}><Plus size={16}/> Schedule Tour</button>
+        {!readOnly && <button className="btn btn-brand" onClick={()=>setShowAdd(true)}><Plus size={16}/> Schedule Tour</button>}
+        {readOnly && <span className="badge badge-warning">Read-only · audit role</span>}
       </div>
 
       {view==='list' ? (
@@ -94,15 +137,43 @@ export const CrmTours = () => {
         </div>
       )}
 
-      {showAdd&&<div className="modal-overlay" onClick={()=>setShowAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Schedule New Tour</h3><button className="btn-icon" onClick={()=>setShowAdd(false)}><X size={18}/></button></div>
-        <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-          <div className="form-group"><label>Lead</label><select value={form.leadName} onChange={e=>setForm({...form,leadName:e.target.value})}><option value="">Select Lead…</option>{state.leads?.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
-          <div className="form-group"><label>Listing</label><select value={form.property} onChange={e=>setForm({...form,property:e.target.value})}><option value="">Select Listing…</option><option>Palm Hills V101</option><option>ZED East A205</option><option>Hyde Park TH-B304</option></select></div>
-          <div className="form-group"><label>Date</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
-          <div className="form-group"><label>Time</label><input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value})}/></div>
-          <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select value={form.agent} onChange={e=>setForm({...form,agent:e.target.value})}><option>Ahmed Hassan</option><option>Fatma Ibrahim</option><option>Hana Mahmoud</option><option>Omar Sherif</option></select></div>
+      {showAdd && <div className="modal-overlay" onClick={()=>setShowAdd(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+          <div className="modal-header"><h3>Schedule New Tour</h3><button className="btn-icon" onClick={()=>setShowAdd(false)}><X size={18}/></button></div>
+          <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <div className="form-group" style={{gridColumn:'span 2'}}><label>Lead</label><select value={form.leadName} onChange={e=>setForm({...form,leadName:e.target.value})}><option value="">Select Lead…</option>{state.leads?.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
+            <div className="form-group" style={{gridColumn:'span 2'}}><label>Listing</label><select value={form.property} onChange={e=>setForm({...form,property:e.target.value})}><option value="">Select Listing…</option>{state.listings?.map(l=><option key={l.id} value={`${l.project} — ${l.unitCode}`}>{l.project} — {l.unitCode}</option>)}</select></div>
+            <div className="form-group"><label>Date</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+            <div className="form-group"><label>Time</label><input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value})}/></div>
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Agent</label>
+              <select value={form.agent} onChange={e=>setForm({...form,agent:e.target.value})} disabled={h.scope === 'self'}>
+                {assignableStaff(personaKey, state.staff || []).map(s => <option key={s.id || s.name} value={s.name}>{s.name}{s.team ? ` — ${s.team}` : ''}</option>)}
+                {assignableStaff(personaKey, state.staff || []).length === 0 && <option>{form.agent}</option>}
+              </select>
+              <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{h.scope === 'self' ? 'Agents schedule tours under their own name only.' : 'Hierarchy-scoped — limited to assignable agents.'}</div>
+            </div>
+            {form.agent && form.date && form.time && findConflicts(allTours, form).length > 0 && (
+              <div style={{gridColumn:'span 2',padding:'10px 12px',background:'#fee2e2',border:'1px solid #fca5a5',borderRadius:8,fontSize:12,display:'flex',alignItems:'center',gap:8}}>
+                <AlertTriangle size={14} color="#b91c1c"/>
+                <span><b>Conflict:</b> {form.agent} already has a tour at {findConflicts(allTours, form)[0].time} on {form.date}.</span>
+              </div>
+            )}
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button>
+            <button className="btn btn-brand" onClick={()=>{
+              if (!form.leadName) { toast('Select a lead','error'); return; }
+              if (!form.date || !form.time) { toast('Pick date and time','error'); return; }
+              if (findConflicts(allTours, form).length > 0) { toast('Resolve scheduling conflict first','error'); return; }
+              addItem('tours', form, 'TR');
+              writeAudit('Tour Scheduled', `${form.leadName} · ${form.property || '—'} · ${form.date} ${form.time}`, 'CRM', `Agent: ${form.agent}`);
+              toast('Tour scheduled','success');
+              setShowAdd(false);
+            }}>Schedule Tour</button>
+          </div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{if(!form.leadName){toast('Select a lead','error');return;} addItem('tours',form,'TR'); toast('Tour scheduled','success');setShowAdd(false);}}>Schedule Tour</button></div></div></div>}
+      </div>}
     </div>
   );
 };

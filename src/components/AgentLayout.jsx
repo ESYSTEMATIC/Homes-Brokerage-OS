@@ -1,19 +1,14 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Globe } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Loader2, Globe } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
 
 // "AgentLayout" is now the Employee Board layout — the universal SSO landing for all roles.
 export const AgentLayout = ({ children }) => {
-  const { persona, personaKey, signOut, openDrawer, state, toast, writeAudit, PERSONAS, setPersonaKey } = useApp();
+  const { persona, personaKey, signOut, openDrawer, state, toast, writeAudit, PERSONAS, setPersonaKey, ssoSplash, triggerSsoLaunch } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
   const unread = state.agentNotifications.length;
-
-  const ssoLaunch = (system, target) => {
-    toast(`Launching ${system} via Microsoft Entra SSO…`, 'info');
-    writeAudit('SSO Launch', `${system} (federated)`, 'Security', 'Token issued via Employee Board');
-    if (target) setTimeout(() => { window.location.hash = target; }, 250);
-  };
 
   const openNotifs = () => openDrawer({
     title: 'Notifications', subtitle: `${unread} unread`,
@@ -29,13 +24,36 @@ export const AgentLayout = ({ children }) => {
     ),
   });
 
-  // Show Backoffice topbar shortcut only if role has access.
-  const ROLES_WITH_BACKOFFICE = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
+  const ROLES_WITH_BACKOFFICE = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','marketingAdmin','executive','systemAdmin'];
   const canBackoffice = ROLES_WITH_BACKOFFICE.includes(personaKey);
+  // Marketplace Dashboard is exclusive to the Marketplace Dashboard Admin role.
+  // Hide its sidebar launcher from every other persona (agents, TLs, managers, directors).
+  const canMarketplaceDash = personaKey === 'marketplaceAdmin';
   const isAgent = persona.hub === 'agent';
 
   return (
     <div className="app-shell">
+      {/* SSO Splash Overlay (from main) */}
+      {ssoSplash && (
+        <div className="sso-splash">
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:20,animation:'fadeIn .4s ease'}}>
+            <div style={{width:72,height:72,borderRadius:18,background:'rgba(232,103,42,.15)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}>
+              <KeyRound size={32} color="#E8672A"/>
+            </div>
+            <h2>Launching {ssoSplash.system}</h2>
+            <p>Authenticating via Microsoft Entra ID…</p>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,marginTop:12}}>
+              <div className="sso-spinner"/>
+              <div style={{display:'flex',flexDirection:'column',gap:8,alignItems:'flex-start',fontSize:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,color:'#10b981'}}><ShieldCheck size={14}/> SSO token issued</div>
+                <div style={{display:'flex',alignItems:'center',gap:8,color:'#E8672A'}}><Loader2 size={14} className="spin-icon"/> Establishing session…</div>
+                <div style={{display:'flex',alignItems:'center',gap:8,color:'rgba(255,255,255,.4)'}}>● Loading workspace…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <aside className="sidebar agent-sidebar">
         <div className="sidebar-brand"><HomesLogoAgent /></div>
         <nav className="sidebar-nav">
@@ -53,11 +71,12 @@ export const AgentLayout = ({ children }) => {
           </NavLink>
 
           <div className="sidebar-section" style={{marginTop:14}}>Federated Systems · SSO</div>
-          <button className="sidebar-link" onClick={()=>ssoLaunch('CRM','#/system/crm')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
-          <button className="sidebar-link" onClick={()=>ssoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
-          <button className="sidebar-link" onClick={()=>ssoLaunch('Matrix EGMLS')}><KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
+          {/* CRM → intro placeholder. From there the user clicks Simulate SSO to enter the real CRM V2. */}
+          <button className="sidebar-link" onClick={()=>navigate('/system/crm-intro')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
+          {canMarketplaceDash && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
+          <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Matrix EGMLS')}><KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           {canBackoffice && (
-            <button className="sidebar-link" onClick={()=>ssoLaunch('Backoffice Admin Portal','#/backoffice/dashboard')}><ShieldCheck size={16}/>Backoffice Admin <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
+            <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Backoffice Admin Portal','#/backoffice/dashboard')}><ShieldCheck size={16}/>Backoffice Admin <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           )}
 
           {/* Public Marketplace — consumer-facing homes.com.eg surface, available

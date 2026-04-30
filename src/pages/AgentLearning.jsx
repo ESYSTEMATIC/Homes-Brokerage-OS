@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { CheckCircle, Play, Lock, ExternalLink } from 'lucide-react';
+import { CheckCircle, Play, Lock, ExternalLink, GraduationCap } from 'lucide-react';
 
 export const AgentLearning = () => {
   const { state, updateItem, openConfirm, openModal, toast, writeAudit } = useApp();

@@ -1,21 +1,30 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { CRM_ACTIVITY } from '../../data/staticData';
-import { Users, KanbanSquare, TrendingUp, Target, ArrowUpRight, ArrowDownRight, UserPlus, Briefcase, CheckCircle2, Phone } from 'lucide-react';
+import { Users, KanbanSquare, TrendingUp, Target, ArrowUpRight, ArrowDownRight, UserPlus, Briefcase, CheckCircle2, Phone, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { HIERARCHY, canSeeLead, MODULE_ACCESS, slaForStage, leadAgeDays } from '../../data/crmAccess';
 
 const fmt = (n) => new Intl.NumberFormat('en-EG').format(n);
 
 export const CrmDashboard = () => {
-  const { state } = useApp();
+  const { state, persona, personaKey } = useApp();
   const navigate = useNavigate();
-  const { leads, deals, tasks } = state;
+
+  const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
+
+  // Role-scoped slices — agents see only own leads/deals, TLs see team, etc.
+  const leads = (state.leads || []).filter(l => canSeeLead(personaKey, l));
+  const deals = (state.deals || []).filter(d => canSeeLead(personaKey, d));
+  const tasks = state.tasks || [];
 
   const totalLeads = leads.length;
   const activeDeals = deals.filter(d => d.status === 'Active').length;
   const pipelineValue = deals.filter(d => d.status === 'Active').reduce((s,d) => s + d.value, 0);
   const closedWon = deals.filter(d => d.stage === 'Closed Won' || d.stage === 'Reservation' || d.stage === 'Contracting').length;
   const conversionRate = totalLeads ? Math.round((closedWon / totalLeads) * 100) : 0;
+  const slaBreaches = leads.filter(l => slaForStage(l.stage, leadAgeDays(l.created)).level === 'breach').length;
+  const overrideQueue = deals.filter(d => d.commissionOverride?.status === 'Pending').length;
 
   const kpis = [
     { label: 'Total Leads', value: totalLeads, icon: Users, color: 'blue', change: '+12%', up: true },
@@ -42,13 +51,51 @@ export const CrmDashboard = () => {
   const activityIcon = { lead: <UserPlus size={14}/>, deal: <Briefcase size={14}/>, task: <CheckCircle2 size={14}/> };
   const activityColor = { lead: 'var(--info)', deal: 'var(--success)', task: 'var(--brand)' };
 
+  const access = MODULE_ACCESS[personaKey];
+  const roleScopeLabel = h.scope === 'self' ? 'Own scope only' : h.scope === 'team' ? `Team ${h.team}` : h.scope === 'cross' ? `Teams ${h.teams?.join(' + ')}` : h.scope === 'all' ? 'All teams' : h.scope === 'audit' ? 'Audit-only' : 'No access';
+
   return (
-    <div>
+    <div className="crm-page">
       <div className="page-header">
         <div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Dashboard</span></div>
         <h1 className="page-title">CRM Dashboard</h1>
-        <p className="page-subtitle">Lead management, deals pipeline, and sales performance overview</p>
+        <p className="page-subtitle">Lead management, deals pipeline, and sales performance overview · BRD V1.4 §6 / §11</p>
       </div>
+
+      {/* Role banner — same pattern as Leads / Deals */}
+      <div className="crm-role-banner">
+        <div className="ico"><ShieldCheck size={18}/></div>
+        <div className="meat">
+          <div className="title">{persona.label} · {h.role}</div>
+          <div className="line">
+            <span className="kv"><b>Visibility:</b> {roleScopeLabel}</span>
+            <span className="kv"><b>Pending approvals:</b> {overrideQueue}</span>
+            <span className="kv"><b>SLA breaches:</b> {slaBreaches}</span>
+          </div>
+        </div>
+        <div className="kpis">
+          <div><div className="num">{totalLeads}</div><div className="lbl">Leads</div></div>
+          <div><div className="num">{activeDeals}</div><div className="lbl">Active deals</div></div>
+        </div>
+      </div>
+
+      {/* Module access matrix — what this role can do across CRM */}
+      {access && (
+        <div className="data-panel" style={{marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <h3 style={{fontSize:14,fontWeight:700}}>Your CRM module access</h3>
+            <span style={{fontSize:11,color:'var(--text-tertiary)'}}>From BRD V1.4 §11 entitlement matrix</span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
+            {Object.entries(access).map(([mod, level]) => (
+              <div key={mod} style={{padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}>
+                <div style={{textTransform:'capitalize',fontWeight:700,color:'#0f172a'}}>{mod}</div>
+                <div style={{color:'var(--text-secondary)',marginTop:2}}>{level}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="kpi-grid kpi-grid-4">

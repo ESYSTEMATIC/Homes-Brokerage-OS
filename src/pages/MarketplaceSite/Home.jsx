@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, ChevronDown, Building2, Home as HomeIcon, DollarSign, BedDouble,
   ArrowRight, ArrowLeft, MapPin, Bath, Maximize2, Phone, Heart, GitCompare,
-  Tag, Calculator, ChevronRight, Newspaper, Calendar,
+  Tag, Calculator, ChevronRight, Newspaper, Calendar, X, Sliders,
 } from 'lucide-react';
 import {
   PM_AREAS, PM_FEATURED, PM_SERVICES, PM_POPULAR_READS,
@@ -74,6 +74,15 @@ export const Home = () => {
   const next = () => setCarouselIx(i => Math.min(maxIx, i + 1));
   const prev = () => setCarouselIx(i => Math.max(0, i - 1));
 
+  // Advanced search panel — only fields NOT already in the basic filter row.
+  // EREP spec: Payment + Area Range (m²) min/max + Amenity. Property
+  // type / sub type / price / beds / baths are reused from the basic row
+  // above, so we don't duplicate them here.
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [adv, setAdv] = useState({
+    payment: '', amenity: '', areaMin: '', areaMax: '',
+  });
+
   const submitSearch = () => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
@@ -84,6 +93,21 @@ export const Home = () => {
     if (baths) params.set('baths', baths);
     const qs = params.toString();
     navigate(`/marketplace/buy${qs ? `?${qs}` : ''}`);
+  };
+
+  const submitAdvanced = () => {
+    // Combine basic filter row values + advanced extras into one URL.
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (type && type !== 'All') params.set('type', type);
+    if (sub) params.set('sub', sub);
+    if (price && price !== 'Any') params.set('price', price);
+    if (beds) params.set('beds', beds);
+    if (baths) params.set('baths', baths);
+    Object.entries(adv).forEach(([k, v]) => { if (v && v !== 'Any' && v !== 'All') params.set(k, v); });
+    const qs = params.toString();
+    navigate(`/marketplace/buy${qs ? `?${qs}` : ''}`);
+    setShowAdvanced(false);
   };
 
   const onTour = (l) => {
@@ -111,7 +135,7 @@ export const Home = () => {
                 onChange={e => setQ(e.target.value)}
               />
             </div>
-            <button className="pm-advanced" type="button" onClick={() => navigate('/marketplace/buy')}>⚙ Advanced</button>
+            <button className={`pm-advanced ${showAdvanced ? 'on' : ''}`} type="button" onClick={() => setShowAdvanced(s => !s)}><Sliders size={13}/> Advanced</button>
           </div>
           <div className="pm-filters-row">
             <FilterDropdown icon={Building2} label="Properties type" value={type}>
@@ -149,6 +173,43 @@ export const Home = () => {
               <Search size={14} /> Search
             </button>
           </div>
+
+          {/* Inline expanding Advanced panel — only the EXTRA filters not
+              already exposed in the basic row above (per EREP: Payment +
+              Area Range (m²) + Amenity). Submit combines both rows. */}
+          {showAdvanced && (
+            <div className="pm-advanced-panel">
+              <div className="pm-adv-eyebrow">More filters</div>
+              <div className="pm-adv-grid">
+                <div className="pm-adv-field">
+                  <label>Payment</label>
+                  <select value={adv.payment} onChange={e => setAdv({...adv, payment: e.target.value})}>
+                    <option value="">Any</option>
+                    <option>Cash</option><option>Installments</option><option>Mortgage Eligible</option>
+                  </select>
+                </div>
+                <div className="pm-adv-field">
+                  <label>Amenity</label>
+                  <select value={adv.amenity} onChange={e => setAdv({...adv, amenity: e.target.value})}>
+                    <option value="">Any</option>
+                    <option>Pool</option><option>Gym</option><option>Garden</option><option>Smart Home</option><option>Security</option>
+                  </select>
+                </div>
+                <div className="pm-adv-field">
+                  <label>Area range (m²)</label>
+                  <div className="pm-adv-range">
+                    <input type="number" placeholder="Min" value={adv.areaMin} onChange={e => setAdv({...adv, areaMin: e.target.value})}/>
+                    <span>—</span>
+                    <input type="number" placeholder="Max" value={adv.areaMax} onChange={e => setAdv({...adv, areaMax: e.target.value})}/>
+                  </div>
+                </div>
+              </div>
+              <div className="pm-advanced-foot">
+                <button type="button" className="pm-pop-clear" onClick={() => setAdv({ payment:'',amenity:'',areaMin:'',areaMax:'' })}>Reset</button>
+                <button type="button" className="pm-search-btn" onClick={() => { submitAdvanced(); setShowAdvanced(false); }}><Search size={14}/> Search</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <button
@@ -278,6 +339,7 @@ export const Home = () => {
           ))}
         </div>
       </section>
+
     </>
   );
 };

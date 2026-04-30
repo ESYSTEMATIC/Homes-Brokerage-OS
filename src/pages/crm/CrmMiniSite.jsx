@@ -75,8 +75,13 @@ export const CrmMiniSite = () => {
           <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>Featured Listings</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16}}>
             {featured.map(l=>(
-              <div key={l.id} style={{border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',cursor:'pointer',transition:'all .2s'}}>
-                <div style={{height:100,background:'linear-gradient(135deg,#f1f5f9,#e2e8f0)',display:'flex',alignItems:'center',justifyContent:'center'}}><Home size={32} color="var(--brand)"/></div>
+              <div key={l.id} className="listing-card" style={{cursor:'pointer'}}>
+                <div
+                  className="listing-card-img"
+                  style={l.image ? { backgroundImage:`url(${l.image})`, backgroundSize:'cover', backgroundPosition:'center', height:160 } : { height:160 }}
+                >
+                  {!l.image && <Home size={36} color="var(--brand)"/>}
+                </div>
                 <div style={{padding:'14px 16px'}}>
                   <div style={{fontSize:14,fontWeight:700}}>{l.project}</div>
                   <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:2}}>{l.developer} · {l.unitCode}</div>
