@@ -1,13 +1,18 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, MapPin, FileText, Share2, Globe, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, MapPin, FileText, Share2, Globe, BarChart3, Megaphone } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
+import { canSeeCampaigns } from '../data/crmAccess';
 
 export const CrmLayout = ({ children }) => {
-  const { persona, signOut, openDrawer, state, toast, writeAudit } = useApp();
+  const { persona, personaKey, signOut, openDrawer, state, toast, writeAudit } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const unread = state.agentNotifications.length;
+  // Marketing persona sees only the Campaigns module — every other CRM
+  // surface (Leads, Listings, Deals, Contracts, Tasks, Reports, etc.) is
+  // hidden from the sidebar and route guards bounce direct URLs to /campaigns.
+  const isMarketing = canSeeCampaigns(personaKey);
 
   const backToBoard = () => {
     toast('Returning to Employee Board…', 'info');
@@ -36,39 +41,51 @@ export const CrmLayout = ({ children }) => {
           <div style={{fontSize:10,fontWeight:800,letterSpacing:2,color:'rgba(255,255,255,.4)',paddingLeft:4}}>CRM MODULE</div>
         </div>
         <nav className="sidebar-nav">
-          <div className="sidebar-section">CRM</div>
-          <NavLink to="/system/crm" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <LayoutDashboard size={16} />Dashboard
-          </NavLink>
-          <NavLink to="/system/crm/leads" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <Users size={16} />Leads
-          </NavLink>
-          <NavLink to="/system/crm/listings" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <Home size={16} />Listings
-          </NavLink>
-          <NavLink to="/system/crm/tours" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <MapPin size={16} />Tours
-          </NavLink>
-          <NavLink to="/system/crm/deals" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <KanbanSquare size={16} />Deals Pipeline
-          </NavLink>
-          <NavLink to="/system/crm/contracts" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <FileText size={16} />Contracts
-          </NavLink>
-          <NavLink to="/system/crm/tasks" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <CalendarCheck2 size={16} />Tasks & Calendar
-          </NavLink>
+          {isMarketing ? (
+            // Marketing-only sidebar — Campaigns module exclusively.
+            <>
+              <div className="sidebar-section">Marketing</div>
+              <NavLink to="/system/crm/campaigns" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Megaphone size={16} />Social Campaigns
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <div className="sidebar-section">CRM</div>
+              <NavLink to="/system/crm" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <LayoutDashboard size={16} />Dashboard
+              </NavLink>
+              <NavLink to="/system/crm/leads" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Users size={16} />Leads
+              </NavLink>
+              <NavLink to="/system/crm/listings" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Home size={16} />Listings
+              </NavLink>
+              <NavLink to="/system/crm/tours" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <MapPin size={16} />Tours
+              </NavLink>
+              <NavLink to="/system/crm/deals" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <KanbanSquare size={16} />Deals Pipeline
+              </NavLink>
+              <NavLink to="/system/crm/contracts" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <FileText size={16} />Contracts
+              </NavLink>
+              <NavLink to="/system/crm/tasks" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <CalendarCheck2 size={16} />Tasks & Calendar
+              </NavLink>
 
-          <div className="sidebar-section" style={{marginTop:10}}>Tools</div>
-          <NavLink to="/system/crm/shares" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <Share2 size={16} />Listing Shares
-          </NavLink>
-          <NavLink to="/system/crm/minisite" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <Globe size={16} />Mini-Site
-          </NavLink>
-          <NavLink to="/system/crm/reports" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <BarChart3 size={16} />Reports
-          </NavLink>
+              <div className="sidebar-section" style={{marginTop:10}}>Tools</div>
+              <NavLink to="/system/crm/shares" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Share2 size={16} />Listing Shares
+              </NavLink>
+              <NavLink to="/system/crm/minisite" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Globe size={16} />Mini-Site
+              </NavLink>
+              <NavLink to="/system/crm/reports" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <BarChart3 size={16} />Reports
+              </NavLink>
+            </>
+          )}
         </nav>
         <div style={{padding:'14px 12px',borderTop:'1px solid rgba(255,255,255,.06)'}}>
           <button className="sidebar-link" style={{color:'#94a3b8'}} onClick={()=>{toast('Signed out','info'); writeAudit('SSO Logout', persona.label, 'Security'); setTimeout(()=>signOut(),350);}}>
@@ -84,7 +101,7 @@ export const CrmLayout = ({ children }) => {
               <ArrowLeft size={14} /> Employee Board
             </button>
             <div style={{width:1,height:24,background:'var(--border)',margin:'0 4px'}} />
-            <span style={{fontSize:13,color:'var(--text-secondary)',fontWeight:500}}>Lead Management & Sales Pipeline</span>
+            <span style={{fontSize:13,color:'var(--text-secondary)',fontWeight:500}}>{isMarketing ? 'Social & Ad Campaigns' : 'Lead Management & Sales Pipeline'}</span>
           </div>
           <div className="topbar-right">
             <div className="topbar-status"><div className="topbar-status-dot"></div>SSO via Microsoft Entra · session active</div>

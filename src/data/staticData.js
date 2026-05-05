@@ -12,9 +12,14 @@ export const PERSONAS = {
   marketplaceAdmin: { label: "Marketplace Dashboard Admin", scope: "Marketplace Dashboard system — exclusive access", hub: "backoffice", email: "marketplace@homesbrokerage.eg" },
   executive: { label: "Executive / CEO", scope: "Corporate visibility", hub: "backoffice", email: "ceo@homesbrokerage.eg" },
   systemAdmin: { label: "System Admin", scope: "Platform configuration", hub: "backoffice", email: "sysadmin@homesbrokerage.eg" },
-  agent: { label: "Sarah El-Masry", scope: "Licensed Agent · New Cairo Branch", hub: "agent", email: "sarah@homesbrokerage.eg", mls: "Pending", role: "Licensed Agent (Onboarding)", onboardingComplete: false },
-  agentActive: { label: "Fatma Ibrahim", scope: "Licensed Agent · Team Alpha · New Cairo", hub: "agent", email: "fatma@homesbrokerage.eg", mls: "EGMLS-291004", role: "Licensed Agent (Active)", onboardingComplete: true },
-  teamLeader: { label: "Omar Sherif", scope: "Team Leader · Alpha Team", hub: "agent", email: "omar@homesbrokerage.eg", mls: "EGMLS-287451", role: "Team Leader", onboardingComplete: true },
+  agent: { label: "Sarah El-Masry", scope: "Licensed Agent · New Cairo Branch", hub: "agent", email: "sarah@homesbrokerage.eg", mls: "Pending", role: "Licensed Agent (Onboarding)", onboardingComplete: false, salesTrack: true },
+  agentActive: { label: "Fatma Ibrahim", scope: "Licensed Agent · Team Alpha · New Cairo", hub: "agent", email: "fatma@homesbrokerage.eg", mls: "EGMLS-291004", role: "Licensed Agent (Active)", onboardingComplete: true, salesTrack: true },
+  teamLeader: { label: "Omar Sherif", scope: "Team Leader · Alpha Team", hub: "agent", email: "omar@homesbrokerage.eg", mls: "EGMLS-287451", role: "Team Leader", onboardingComplete: true, salesTrack: true },
+  // Marketing — runs social media + ad campaigns. SSO-only into CRM Campaigns
+  // (BRD §8.23). Not on the sales track: no onboarding journey, no training
+  // compliance, no MLS, no team assignment, no agent score, no Viva Learning,
+  // no Performance metrics, no Matrix EGMLS launcher.
+  marketing: { label: "Ahmed Hassan", scope: "Marketing · Social & ad campaigns", hub: "agent", email: "marketing@homesbrokerage.eg", role: "Marketing", onboardingComplete: true, salesTrack: false },
 };
 
 // ── DEPARTMENTS ──

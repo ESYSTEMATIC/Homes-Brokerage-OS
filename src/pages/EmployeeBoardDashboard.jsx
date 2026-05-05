@@ -20,6 +20,7 @@ const ROLE_ACCESS = {
   agent:            ['crm','matrix'],      // Agents explicitly do NOT see marketplaceDash
   agentActive:      ['crm','matrix'],      // Same scope as agent — but with onboarding complete (CRM unlocked)
   teamLeader:       ['crm','matrix'],
+  marketing:        ['crm'],               // CRM-only — sidebar inside CRM is restricted to Campaigns (BRD §8.23)
 };
 
 export const EmployeeBoardDashboard = () => {
@@ -28,7 +29,11 @@ export const EmployeeBoardDashboard = () => {
   const [splash, setSplash] = useState(null);
 
   const allowed = ROLE_ACCESS[personaKey] || [];
-  const isAgent = persona.hub === 'agent'; // agent or teamLeader
+  // "isAgent" gates the sales-track UI: onboarding journey, training compliance,
+  // MLS, team assignment, agent score, Viva Learning, Performance metrics.
+  // Marketing has hub='agent' for layout chrome but salesTrack=false so it
+  // skips all of these (BRD §8.23).
+  const isAgent = persona.hub === 'agent' && persona.salesTrack === true;
   const onboardingComplete = persona.onboardingComplete === true;
 
   // ── Agent onboarding state (used only for agent personas) ──
@@ -312,7 +317,9 @@ export const EmployeeBoardDashboard = () => {
 
       <h3 style={{fontSize:14,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:14}}>Federated Systems · SSO</h3>
       <div className="launcher-grid" style={{marginBottom:32}}>
-        {ssoTiles.map(t => {
+        {/* Single-system personas (e.g. marketing) only see their allowed tile —
+            no NO-ACCESS noise. Multi-system roles still see the full grid. */}
+        {(allowed.length <= 1 ? ssoTiles.filter(t => allowed.includes(t.key)) : ssoTiles).map(t => {
           const has = allowed.includes(t.key);
           const trainingLocked = isLockedForAgent(t.key);
           const isLocked = !has || trainingLocked;
@@ -354,7 +361,7 @@ export const EmployeeBoardDashboard = () => {
         ))}
       </div>
 
-      <div style={{marginTop:28,padding:18,background:'#fff',border:'1px solid var(--border)',borderRadius:12,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:18}}>
+      <div style={{marginTop:28,padding:18,background:'#fff',border:'1px solid var(--border)',borderRadius:12,display:'grid',gridTemplateColumns: isAgent ? '1fr 1fr 1fr' : '1fr 1fr',gap:18}}>
         <div onClick={()=>navigate('/board/profile')} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
           <User size={18} color="var(--text-secondary)"/>
           <div><div style={{fontSize:13,fontWeight:600}}>Profile</div><div style={{fontSize:11,color:'var(--text-tertiary)'}}>Personal & employment info</div></div>
@@ -363,10 +370,12 @@ export const EmployeeBoardDashboard = () => {
           <BellRing size={18} color="var(--text-secondary)"/>
           <div><div style={{fontSize:13,fontWeight:600}}>Notifications</div><div style={{fontSize:11,color:'var(--text-tertiary)'}}>Onboarding & task updates</div></div>
         </div>
-        <div onClick={()=>navigate('/board/performance')} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
-          <ChevronRight size={18} color="var(--text-secondary)"/>
-          <div><div style={{fontSize:13,fontWeight:600}}>Performance</div><div style={{fontSize:11,color:'var(--text-tertiary)'}}>Sales metrics & productivity</div></div>
-        </div>
+        {isAgent && (
+          <div onClick={()=>navigate('/board/performance')} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+            <ChevronRight size={18} color="var(--text-secondary)"/>
+            <div><div style={{fontSize:13,fontWeight:600}}>Performance</div><div style={{fontSize:11,color:'var(--text-tertiary)'}}>Sales metrics & productivity</div></div>
+          </div>
+        )}
       </div>
     </div>
   );

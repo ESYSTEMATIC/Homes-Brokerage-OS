@@ -46,6 +46,7 @@ import { CrmTasks } from './pages/crm/CrmTasks';
 import { CrmListingShare } from './pages/crm/CrmListingShare';
 import { CrmMiniSite } from './pages/crm/CrmMiniSite';
 import { CrmReports } from './pages/crm/CrmReports';
+import { CrmCampaigns } from './pages/crm/CrmCampaigns';
 
 // Marketplace Dashboard — full federated system with its own layout + nested routes.
 import { MarketplaceLayout } from './components/MarketplaceLayout';
@@ -153,20 +154,23 @@ const AppRoutes = () => {
       } />
 
       {/* ─── Real CRM Module V2 (embedded via SSO, own sidebar/layout) ─── */}
+      {/* Marketing persona is scoped to Campaigns only — every CRM URL except
+          /campaigns redirects them, mirroring the sidebar. */}
       <Route path="/system/crm/*" element={
         <CrmLayout>
           <Routes>
-            <Route path="/" element={<CrmDashboard />} />
-            <Route path="/leads" element={<CrmLeads />} />
-            <Route path="/leads/:id" element={<CrmLeadDetail />} />
-            <Route path="/listings" element={<CrmListings />} />
-            <Route path="/tours" element={<CrmTours />} />
-            <Route path="/deals" element={<CrmDeals />} />
-            <Route path="/contracts" element={<CrmContracts />} />
-            <Route path="/tasks" element={<CrmTasks />} />
-            <Route path="/shares" element={<CrmListingShare />} />
-            <Route path="/minisite" element={<CrmMiniSite />} />
-            <Route path="/reports" element={<CrmReports />} />
+            <Route path="/" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmDashboard />} />
+            <Route path="/leads" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmLeads />} />
+            <Route path="/leads/:id" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmLeadDetail />} />
+            <Route path="/listings" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmListings />} />
+            <Route path="/tours" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmTours />} />
+            <Route path="/deals" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmDeals />} />
+            <Route path="/contracts" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmContracts />} />
+            <Route path="/tasks" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmTasks />} />
+            <Route path="/shares" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmListingShare />} />
+            <Route path="/minisite" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmMiniSite />} />
+            <Route path="/reports" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmReports />} />
+            <Route path="/campaigns" element={<CrmCampaigns />} />
             <Route path="*" element={<Navigate to="/system/crm" />} />
           </Routes>
         </CrmLayout>

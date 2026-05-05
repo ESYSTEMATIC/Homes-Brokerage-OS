@@ -39,6 +39,9 @@ export const HIERARCHY = {
   hrRecruiter:     { role: 'HR Recruiter',    scope: 'none' },
   financeOfficer:  { role: 'Finance Officer', scope: 'audit' },
   marketplaceAdmin:{ role: 'Marketplace Admin', scope: 'none' },
+  // Marketing — CRM-only persona scoped to the Campaigns module.
+  // Cannot see leads, deals, contracts, tours, listings — only social campaigns.
+  marketing:       { role: 'Marketing',         scope: 'campaigns' },
 };
 
 // Map persona → identifier used in `lead.owner` / `deal.owner`
@@ -64,12 +67,19 @@ export const isReadOnly = (personaKey) => {
 // Returns true if the user can SEE a lead (or deal — same shape: { owner, team }).
 export const canSeeLead = (personaKey, lead) => {
   const h = HIERARCHY[personaKey];
-  if (!h || h.scope === 'none') return false;
+  if (!h || h.scope === 'none' || h.scope === 'campaigns') return false;
   if (h.scope === 'all' || h.scope === 'audit') return true;
   if (h.scope === 'self') return lead.owner === personaOwnerName(personaKey);
   if (h.scope === 'team') return lead.team === h.team;
   if (h.scope === 'cross') return (h.teams || []).includes(lead.team);
   return false;
+};
+
+// Returns true if the user can SEE the Campaigns module.
+// Only the marketing persona reaches this surface in V1.5 (BRD §8.23).
+export const canSeeCampaigns = (personaKey) => {
+  const h = HIERARCHY[personaKey];
+  return h?.scope === 'campaigns';
 };
 
 // Returns true if the user can ASSIGN / REASSIGN a lead's owner.

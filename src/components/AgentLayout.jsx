@@ -29,7 +29,11 @@ export const AgentLayout = ({ children }) => {
   // Marketplace Dashboard is exclusive to the Marketplace Dashboard Admin role.
   // Hide its sidebar launcher from every other persona (agents, TLs, managers, directors).
   const canMarketplaceDash = personaKey === 'marketplaceAdmin';
-  const isAgent = persona.hub === 'agent';
+  // "isAgent" gates sales-track items (Learning, Performance, Matrix EGMLS).
+  // Marketing has hub='agent' but salesTrack=false — they don't get any of these.
+  const isAgent = persona.hub === 'agent' && persona.salesTrack === true;
+  // Matrix EGMLS — Egyptian MLS for property listings. Marketing doesn't need it.
+  const canMatrix = persona.hub === 'agent' ? persona.salesTrack === true : true;
 
   return (
     <div className="app-shell">
@@ -66,15 +70,17 @@ export const AgentLayout = ({ children }) => {
               <GraduationCap size={16} />Learning (Viva)
             </NavLink>
           )}
-          <NavLink to="/board/performance" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <BarChart3 size={16} />Performance
-          </NavLink>
+          {isAgent && (
+            <NavLink to="/board/performance" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+              <BarChart3 size={16} />Performance
+            </NavLink>
+          )}
 
           <div className="sidebar-section" style={{marginTop:14}}>Federated Systems · SSO</div>
           {/* CRM → intro placeholder. From there the user clicks Simulate SSO to enter the real CRM V2. */}
           <button className="sidebar-link" onClick={()=>navigate('/system/crm-intro')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           {canMarketplaceDash && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
-          <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Matrix EGMLS')}><KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
+          {canMatrix && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Matrix EGMLS')}><KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
           {canBackoffice && (
             <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Backoffice Admin Portal','#/backoffice/dashboard')}><ShieldCheck size={16}/>Backoffice Admin <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           )}
