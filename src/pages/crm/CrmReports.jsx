@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { STAGES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
-import { BarChart3, TrendingUp, Users, MapPin, Calendar, Share2, Target } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, MapPin, Calendar, Share2, Target, AlertTriangle } from 'lucide-react';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 
@@ -54,7 +54,37 @@ export const CrmReports = () => {
     return { property:p, shares:shares.length, interested:shares.filter(s=>s.response==='Interested').length, viewed:shares.filter(s=>s.response==='Viewed').length };
   }).sort((a,b)=>b.shares-a.shares);
 
+  // 11-May meeting (42:00-42:54): apply a 2-3 month KPI evaluation to each
+  // team. Teams with zero deals during the window get a warning so managers
+  // can act before the gap widens. Window = 60 days from "today" (demo data
+  // is dated 2024-01 so we use a relative cutoff of 60 days back from now).
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0,10);
+  const teams = [...new Set(leads.map(l => l.team).filter(Boolean))];
+  const teamPerformance = teams.map(team => {
+    const teamLeads = leads.filter(l => l.team === team);
+    const teamDeals = deals.filter(d => d.team === team);
+    const dealsInWindow = teamDeals.filter(d => (d.created || '') >= sixtyDaysAgo);
+    const closedWonInWindow = dealsInWindow.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
+    const pipelineActive = teamDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s,d) => s + (d.value || 0), 0);
+    const dealsInWindowCount = dealsInWindow.length;
+    let status;
+    if (dealsInWindowCount === 0) status = 'critical';
+    else if (closedWonInWindow === 0 && dealsInWindowCount < 3) status = 'warning';
+    else status = 'ok';
+    return {
+      team,
+      leadsCount: teamLeads.length,
+      dealsInWindow: dealsInWindowCount,
+      closedWonInWindow,
+      pipelineActive,
+      status,
+    };
+  }).sort((a,b) => (a.status === 'critical' ? -1 : a.status === 'warning' ? 0 : 1) - (b.status === 'critical' ? -1 : b.status === 'warning' ? 0 : 1));
+
+  const warningCount = teamPerformance.filter(t => t.status !== 'ok').length;
+
   const reports = [
+    {id:'warnings',label:`Team Warnings${warningCount > 0 ? ` (${warningCount})` : ''}`,icon:<AlertTriangle size={16}/>},
     {id:'funnel',label:'Conversion Funnel',icon:<Target size={16}/>},
     {id:'source',label:'Source ROI',icon:<TrendingUp size={16}/>},
     {id:'agents',label:'Agent Leaderboard',icon:<Users size={16}/>},
@@ -76,6 +106,59 @@ export const CrmReports = () => {
       </div>
 
       {/* Funnel */}
+      {/* 11-May meeting: KPI warnings — teams with zero deals in last 60d
+          get flagged for manager action. */}
+      {activeReport==='warnings'&&(
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div className="data-panel" style={{padding:'18px 22px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,gap:14,flexWrap:'wrap'}}>
+              <div>
+                <h3 style={{fontSize:16,fontWeight:800,display:'flex',alignItems:'center',gap:8}}><AlertTriangle size={18} color={warningCount > 0 ? '#dc2626' : '#16a34a'}/> Team Performance Warnings</h3>
+                <p style={{fontSize:12,color:'var(--text-secondary)',marginTop:4}}>Rolling 60-day evaluation window. Teams with zero deals in the window are flagged for manager intervention (BRD §6.1.5 — escalation pattern extended to team level per 11-May review).</p>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:11,color:'var(--text-tertiary)'}}>Window cutoff</div>
+                <div style={{fontSize:13,fontWeight:700,fontFamily:'monospace'}}>{sixtyDaysAgo} → today</div>
+              </div>
+            </div>
+          </div>
+
+          {teamPerformance.length === 0 ? (
+            <div className="data-panel" style={{padding:40,textAlign:'center',color:'var(--text-tertiary)'}}>No teams in scope.</div>
+          ) : teamPerformance.map(t => {
+            const tone = t.status === 'critical' ? { bg:'#fef2f2', border:'#fecaca', color:'#dc2626', label:'CRITICAL', advice:'Recommend immediate review with the Team Leader and a refreshed lead source mix. Consider reassigning a senior agent.' }
+                        : t.status === 'warning' ? { bg:'#fef3c7', border:'#fcd34d', color:'#b45309', label:'WARNING', advice:'Team is active but not closing. Review pipeline quality and time-to-respond on assigned leads.' }
+                        : { bg:'#f0fdf4', border:'#86efac', color:'#166534', label:'ON TRACK', advice:'No action required. Maintain cadence.' };
+            return (
+              <div key={t.team} style={{background:tone.bg,border:`1px solid ${tone.border}`,borderRadius:12,padding:'16px 20px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12,gap:14}}>
+                  <div>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <h4 style={{fontSize:16,fontWeight:800}}>Team {t.team}</h4>
+                      <span style={{fontSize:10,fontWeight:700,letterSpacing:'.05em',padding:'3px 8px',background:tone.color,color:'#fff',borderRadius:4}}>{tone.label}</span>
+                    </div>
+                    <p style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,lineHeight:1.5}}>{tone.advice}</p>
+                  </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+                  {[
+                    ['Leads owned',          t.leadsCount],
+                    ['Deals last 60 days',   t.dealsInWindow],
+                    ['Closed Won last 60 days', t.closedWonInWindow],
+                    ['Active pipeline (EGP)', `${(t.pipelineActive / 1e6).toFixed(1)}M`],
+                  ].map(([k,v]) => (
+                    <div key={k} style={{padding:'10px 12px',background:'#fff',borderRadius:8,border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{k}</div>
+                      <div style={{fontSize:18,fontWeight:800,marginTop:2,color: t.status === 'critical' && (k === 'Deals last 60 days' || k === 'Closed Won last 60 days') ? tone.color : 'var(--text-primary)'}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {activeReport==='funnel'&&(
         <div className="data-panel" style={{padding:28}}>
           <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>Lead Conversion Funnel</h3>

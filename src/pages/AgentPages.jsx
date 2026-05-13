@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
-import { Search, Plus, Download, Upload, X, Filter } from 'lucide-react';
+import { Search, Plus, Download, Upload, X, Filter, User, UsersRound, Award, ChevronRight, BellRing } from 'lucide-react';
+import { personaOwnerName } from '../data/crmAccess';
 
 const fmt = v => new Intl.NumberFormat('en-EG',{style:'currency',currency:'EGP',maximumFractionDigits:0}).format(v||0);
 const today = () => new Date().toISOString().split('T')[0];
@@ -75,12 +76,148 @@ export const AgentProducts = () => {
   );
 };
 
-// ─────────── Performance (Platform §2.3 score + §3.9 analytics) ───────────
+// ─────────── Performance (own-data only) ───────────
+// Per stakeholder review: Performance shows ONLY the signed-in agent's own
+// sales metrics — no team, peer, or company aggregates, and no onboarding /
+// HR score (those live on the Profile page now). All numbers are derived
+// from live CRM state filtered by the agent's ownership.
 export const AgentPerformance = () => {
-  const { persona, state } = useApp();
+  const { persona, personaKey, state } = useApp();
   const onboardingComplete = persona.onboardingComplete === true;
-  const completed = state.training.filter(c=>c.required && c.status==='Completed').length;
-  const total = state.training.filter(c=>c.required).length;
+  const ownerName = personaOwnerName(personaKey);
+
+  // ── Sales analytics — sourced from real CRM state for THIS agent ──
+  const myLeads = (state.leads || []).filter(l => l.owner === ownerName);
+  const myDeals = (state.deals || []).filter(d => d.owner === ownerName);
+  const myTours = (state.tours || []).filter(t => t.agent === ownerName);
+
+  const leadsCount = myLeads.length;
+  const toursCompleted = myTours.filter(t => t.status === 'Completed').length;
+  const dealsClosed = myDeals.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
+  const conversion = leadsCount ? Math.round((dealsClosed / leadsCount) * 100) : 0;
+  const myActivePipeline = myDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s,d) => s + (d.value || 0), 0);
+  const revenueRecognised = myDeals.filter(d => d.revenueRecognised).reduce((s,d) => s + ((d.value || 0) * (d.commission || 0) / 100), 0);
+
+  // Average days from lead creation to first deal — own data only.
+  const dealsWithLead = myDeals.filter(d => d.created);
+  const conversionDays = dealsWithLead.length ? Math.round(dealsWithLead.reduce((sum, d) => {
+    const lead = myLeads.find(l => l.name === (d.leadName || d.lead));
+    if (!lead || !lead.created) return sum;
+    return sum + Math.max(0, Math.ceil((new Date(d.created) - new Date(lead.created)) / 86_400_000));
+  }, 0) / dealsWithLead.length) : 0;
+
+  // ── Personal targets ──────────────────────────────────────────────
+  const myTarget = state.targets?.[personaKey];
+  const targetProgress = myTarget ? [
+    { key:'leads',    label:'Leads',          actual: leadsCount,      target: myTarget.leadsTarget },
+    { key:'deals',    label:'Deals',          actual: myDeals.length,  target: myTarget.dealsTarget },
+    { key:'pipeline', label:'Pipeline value', actual: myActivePipeline, target: myTarget.pipelineTarget, fmt: v => `EGP ${(v/1e6).toFixed(1)}M`, targetFmt: v => `EGP ${(v/1e6).toFixed(0)}M` },
+    { key:'closed',   label:'Closed Won',     actual: dealsClosed,     target: myTarget.closedWonTarget },
+  ].map(t => ({ ...t, pct: Math.min(100, Math.round((Number(t.actual) / Math.max(1, t.target)) * 100)) })) : null;
+
+  return (
+    <div>
+      <h1 className="page-title">Performance</h1>
+      <p className="page-subtitle" style={{marginBottom:24}}>{persona.label}'s own sales metrics and target progress. No team or company aggregates. Onboarding & HR score live on your Profile.</p>
+
+      <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>My Sales Analytics</h3>
+      <div className="kpi-grid kpi-grid-4" style={{marginBottom:16}}>
+        <div className="kpi-card"><div><div className="kpi-label">My Leads</div><div className="kpi-value">{leadsCount}</div><div className="kpi-change">owned by you</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📋</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Tours Completed</div><div className="kpi-value">{toursCompleted}</div><div className="kpi-change">{myTours.length} scheduled</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🏠</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Deals Closed</div><div className="kpi-value">{dealsClosed}</div><div className="kpi-change">{myDeals.length} total</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💼</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Conversion Rate</div><div className="kpi-value">{conversion}%</div><div className="kpi-change">deals / leads</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📈</span></div></div>
+      </div>
+      <div className="kpi-grid kpi-grid-3" style={{marginBottom:24}}>
+        <div className="kpi-card"><div><div className="kpi-label">Active Pipeline</div><div className="kpi-value" style={{fontSize:20}}>EGP {(myActivePipeline/1e6).toFixed(1)}M</div><div className="kpi-change">deals in flight</div></div><div className="kpi-icon orange"><span style={{fontSize:20}}>📊</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Revenue Recognised</div><div className="kpi-value" style={{fontSize:20}}>EGP {revenueRecognised.toLocaleString()}</div><div className="kpi-change">commission released</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💰</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Avg Conversion Time</div><div className="kpi-value" style={{fontSize:20}}>{conversionDays || '—'}{conversionDays ? ' d' : ''}</div><div className="kpi-change">lead → deal</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>⏱️</span></div></div>
+      </div>
+
+      {targetProgress && (
+        <>
+          <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>My Target Progress · {myTarget.period}</h3>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+            {targetProgress.map(t => (
+              <div key={t.key} style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,padding:'14px 16px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                  <span style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{t.label}</span>
+                  <span style={{fontSize:11,fontWeight:800,color: t.pct >= 100 ? '#16a34a' : t.pct >= 60 ? 'var(--brand)' : '#f59e0b'}}>{t.pct}%</span>
+                </div>
+                <div style={{fontSize:18,fontWeight:800,color:'var(--text-primary)'}}>{t.fmt ? t.fmt(t.actual) : t.actual}</div>
+                <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:2}}>of {t.targetFmt ? t.targetFmt(t.target) : t.target}</div>
+                <div style={{height:5,background:'#f1f5f9',borderRadius:3,overflow:'hidden',marginTop:10}}>
+                  <div style={{width:`${t.pct}%`,height:'100%',background: t.pct >= 100 ? '#16a34a' : t.pct >= 60 ? 'var(--brand)' : '#f59e0b',transition:'width .4s'}}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {!onboardingComplete && <div className="info-banner" style={{marginTop:16}}>Sales analytics populate once your onboarding is complete and CRM access is provisioned. Onboarding score is already final.</div>}
+    </div>
+  );
+};
+
+// ─────────── Profile ───────────
+// ─────────── Profile (premium layout · personal + HR + team + scoring) ───────────
+// 11-May stakeholder ask: scoring moves from Performance into Profile, and
+// Profile shows richer employee data. Strictly non-financial — no salary,
+// no commission rate, no payout info.
+export const AgentProfile = () => {
+  const { persona, personaKey, state, openModal, toast } = useApp();
+  const staff = (state.staff || []).find(s => s.name === persona.label) || {};
+
+  const personal = {
+    name: persona.label,
+    email: persona.email,
+    phone: staff.phone || '+20 100 123 4567',
+    branch: staff.branch || (persona.scope?.includes('6th October') ? '6th October' : 'New Cairo'),
+    dob: personaKey === 'agentActive' ? '1992-08-14' : personaKey === 'teamLeader' ? '1985-03-22' : '1995-11-05',
+    nationality: 'Egyptian',
+    maritalStatus: personaKey === 'teamLeader' ? 'Married · 2 children' : personaKey === 'agentActive' ? 'Married' : 'Single',
+    languages: 'Arabic (native), English (fluent)',
+    nationalId: personaKey === 'agentActive' ? '29208140101234' : personaKey === 'teamLeader' ? '28503220101567' : '29511050101890',
+    address: `${staff.branch || 'New Cairo'}, Cairo Governorate`,
+  };
+
+  const hr = {
+    employeeId: staff.id || (personaKey === 'agent' ? 'A009' : personaKey === 'agentActive' ? 'A002' : 'A008'),
+    department: staff.department || 'Sales',
+    title: persona.role || staff.title || 'Licensed Agent',
+    type: staff.type || 'Employee',
+    joinDate: staff.joinDate || '2024-01-01',
+    employmentStatus: staff.status || 'Active',
+    contractType: 'Permanent · Full-time',
+    contractEnds: '2026-12-31',
+    workSchedule: 'Sun–Thu · 09:00 — 17:00',
+    nextReview: '2026-07-15',
+    education: personaKey === 'teamLeader' ? 'BSc Civil Engineering, Cairo University' : personaKey === 'agentActive' ? 'BA Marketing, AUC' : 'BBA Business Admin, GUC',
+    rera: persona.mls ? `RERA-${persona.mls.split('-')[1]}` : 'Pending registration',
+  };
+
+  const teamLabel = personaKey === 'teamLeader' ? 'Alpha (Lead)' : 'Alpha';
+  const tlName = personaKey === 'teamLeader' ? '— (you are the TL)' : 'Omar Sherif';
+  const teamMembers = (state.staff || []).filter(s => s.manager === 'Omar Sherif' || s.name === 'Omar Sherif');
+  const team = {
+    team: teamLabel,
+    teamLeader: tlName,
+    salesManager: 'Nour El-Din',
+    salesDirector: 'Tarek Amin',
+    branch: personal.branch,
+    headcount: teamMembers.length || 4,
+  };
+
+  const emergency = {
+    name: personaKey === 'agentActive' ? 'Mahmoud Ibrahim' : personaKey === 'teamLeader' ? 'Heba Sherif' : 'Mona El-Masry',
+    relation: personaKey === 'agentActive' ? 'Spouse' : personaKey === 'teamLeader' ? 'Spouse' : 'Mother',
+    phone: '+20 100 888 ' + (personaKey === 'agentActive' ? '4422' : personaKey === 'teamLeader' ? '5533' : '6644'),
+  };
+
+  // Onboarding score — moved here from Performance per 11-May stakeholder ask.
+  const onboardingComplete = persona.onboardingComplete === true;
+  const trainingCompleted = state.training.filter(c=>c.required && c.status==='Completed').length;
+  const trainingTotal = state.training.filter(c=>c.required).length;
   const trainingAvg = Math.round(
     state.training.filter(c=>c.required && c.score).reduce((s,c)=>s+c.score,0)
     / Math.max(1, state.training.filter(c=>c.required && c.score).length)
@@ -88,86 +225,201 @@ export const AgentPerformance = () => {
   const interviewScore = onboardingComplete ? 88 : 82;
   const agentScore = Math.round(trainingAvg * 0.6 + interviewScore * 0.4);
 
-  // §3.9 Analytics — populated only after onboarding/CRM access.
-  const leads = onboardingComplete ? 18 : 0;
-  const tours = onboardingComplete ? 7 : 0;
-  const deals = onboardingComplete ? 3 : 0;
-  const revenue = onboardingComplete ? 285000 : 0;
-  const conversionTime = onboardingComplete ? '21 days' : '—';
-  const costPerLead = onboardingComplete ? 'EGP 420' : '—';
-  const conversion = leads ? Math.round((deals/leads)*100) : 0;
-
-  return (
-    <div>
-      <h1 className="page-title">Performance</h1>
-      <p className="page-subtitle" style={{marginBottom:24}}>Onboarding score + sales analytics — Platform §2.3, §3.9</p>
-
-      <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>Onboarding Score (Platform §2.3)</h3>
-      <div className="kpi-grid kpi-grid-4" style={{marginBottom:24}}>
-        <div className="kpi-card"><div><div className="kpi-label">Total Score</div><div className="kpi-value" style={{color:agentScore>=85?'var(--success)':'var(--warning)'}}>{agentScore}/100</div><div className="kpi-change up">Used for team allocation</div></div><div className="kpi-icon orange"><span style={{fontSize:20}}>🏆</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Training Avg</div><div className="kpi-value">{trainingAvg}%</div><div className="kpi-change">{completed}/{total} required courses</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>🎓</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Interview Score</div><div className="kpi-value">{interviewScore}%</div><div className="kpi-change">HR-recorded</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>👤</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Score Weight</div><div className="kpi-value" style={{fontSize:18}}>60% / 40%</div><div className="kpi-change">Training / Interview</div></div><div className="kpi-icon gray"><span style={{fontSize:20}}>⚖️</span></div></div>
-      </div>
-
-      <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>Sales Analytics (Platform §3.9)</h3>
-      <div className="kpi-grid kpi-grid-4" style={{marginBottom:16}}>
-        <div className="kpi-card"><div><div className="kpi-label">Number of Leads</div><div className="kpi-value">{leads}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📋</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Tours Completed</div><div className="kpi-value">{tours}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🏠</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Deals Closed</div><div className="kpi-value">{deals}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💼</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Conversion Rate</div><div className="kpi-value">{conversion}%</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📈</span></div></div>
-      </div>
-      <div className="kpi-grid kpi-grid-3">
-        <div className="kpi-card"><div><div className="kpi-label">Revenue Generated</div><div className="kpi-value" style={{fontSize:20}}>EGP {revenue.toLocaleString()}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💰</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Conversion Time</div><div className="kpi-value" style={{fontSize:20}}>{conversionTime}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>⏱️</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Cost per Lead</div><div className="kpi-value" style={{fontSize:20}}>{costPerLead}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>📊</span></div></div>
-      </div>
-      {!onboardingComplete && <div className="info-banner" style={{marginTop:16}}>Sales analytics populate once your onboarding is complete and CRM access is provisioned. Onboarding score is already final.</div>}
-    </div>
-  );
-};
-
-// ─────────── Profile ───────────
-export const AgentProfile = () => {
-  const { persona, openModal, toast } = useApp();
   const editProfile = () => openModal({
     title:'Edit Profile', submitLabel:'Save changes',
     body:(
       <>
         <FieldRow>
-          <Field label="Full Name" name="name" defaultValue="Sarah El-Masry" required />
-          <Field label="Email" name="email" type="email" defaultValue="sarah@homesbrokerage.eg" required />
+          <Field label="Full Name" name="name" defaultValue={personal.name} required />
+          <Field label="Email" name="email" type="email" defaultValue={personal.email} required />
         </FieldRow>
         <FieldRow>
-          <Field label="Phone" name="phone" defaultValue="+20 100 123 4567" />
-          <Field label="Branch" name="branch" defaultValue="New Cairo" />
+          <Field label="Phone" name="phone" defaultValue={personal.phone} />
+          <Field label="Branch" name="branch" defaultValue={personal.branch} />
+        </FieldRow>
+        <FieldRow>
+          <Field label="Address" name="address" defaultValue={personal.address} />
+          <Field label="Languages" name="languages" defaultValue={personal.languages} />
         </FieldRow>
       </>
     ),
-    onSubmit:(d)=>{ toast('Profile saved'); },
+    onSubmit:()=>{ toast('Profile saved'); },
   });
+
+  // ── Reusable section card ──
+  const Section = ({ title, icon, accent='var(--brand)', children }) => (
+    <div style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:14,padding:'18px 22px',boxShadow:'0 1px 2px rgba(15,23,42,.04)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,paddingBottom:10,borderBottom:'1px solid var(--border)'}}>
+        <div style={{width:28,height:28,borderRadius:8,background:`${accent}1a`,color:accent,display:'flex',alignItems:'center',justifyContent:'center'}}>{icon}</div>
+        <h3 style={{fontSize:13,fontWeight:800,color:'var(--text-primary)',textTransform:'uppercase',letterSpacing:'.06em'}}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+  const Field2 = ({ label, value, mono }) => (
+    <div>
+      <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4}}>{label}</div>
+      <div style={{fontWeight:500,fontSize:13,color:'var(--text-primary)',fontFamily: mono ? 'monospace' : 'inherit'}}>{value || '—'}</div>
+    </div>
+  );
+
+  const initials = persona.label.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+  const scoreColor = agentScore >= 85 ? '#16a34a' : agentScore >= 70 ? '#E8672A' : '#f59e0b';
+
   return (
     <div>
-      <h1 className="page-title">Profile</h1>
-      <p className="page-subtitle" style={{marginBottom:24}}>Manage your account and personal information</p>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:24}}>
-        <div style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,padding:24,textAlign:'center'}}>
-          <div style={{width:80,height:80,borderRadius:'50%',background:'var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,fontWeight:800,color:'#fff',margin:'0 auto 16px'}}>SE</div>
-          <div style={{fontWeight:700,fontSize:18}}>Sarah El-Masry</div>
-          <div style={{color:'var(--text-secondary)',fontSize:13,marginTop:4}}>Licensed Agent · New Cairo Branch</div>
-          <span className="badge badge-success" style={{marginTop:12}}>Approved</span>
-          <div style={{marginTop:16,fontSize:12,color:'var(--text-tertiary)'}}>MLS ID: EGMLS-287451</div>
-          <button className="btn btn-primary btn-sm" style={{marginTop:14}} onClick={editProfile}>Edit Profile</button>
-        </div>
-        <div style={{background:'#fff',border:'1px solid var(--card-border)',borderRadius:12,padding:24}}>
-          <h3 style={{fontWeight:700,marginBottom:16}}>Personal Information</h3>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-            {[['Full Name','Sarah El-Masry'],['Email','sarah@homesbrokerage.eg'],['Phone','+20 100 123 4567'],['Branch','New Cairo'],['Department','Sales'],['Manager','Sales Manager'],['Team','Alpha'],['Join Date','2024-01-01']].map(([l,v])=>(
-              <div key={l}><div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',marginBottom:4}}>{l}</div><div style={{fontWeight:500}}>{v}</div></div>
-            ))}
+      {/* ── Hero card · gradient + avatar + role chips ── */}
+      <div style={{
+        background:'linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#312e81 100%)',
+        borderRadius:18, padding:'28px 32px', marginBottom:24, color:'#fff',
+        position:'relative', overflow:'hidden',
+        boxShadow:'0 16px 40px rgba(15,23,42,.2)',
+      }}>
+        <div style={{position:'absolute',right:-80,top:-80,width:320,height:320,borderRadius:'50%',background:'radial-gradient(circle,rgba(232,103,42,.22),rgba(232,103,42,0))'}}/>
+        <div style={{position:'absolute',left:-40,bottom:-60,width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle,rgba(99,102,241,.18),rgba(99,102,241,0))'}}/>
+
+        <div style={{display:'flex',alignItems:'center',gap:22,position:'relative',flexWrap:'wrap'}}>
+          {/* Avatar */}
+          <div style={{
+            width:84, height:84, borderRadius:22, flexShrink:0,
+            background:'linear-gradient(135deg,#E8672A,#F89357)',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontWeight:800, fontSize:30, color:'#fff',
+            boxShadow:'0 10px 24px rgba(232,103,42,.4)',
+            border:'3px solid rgba(255,255,255,.12)',
+            position:'relative',
+          }}>
+            {initials}
+            <span style={{position:'absolute',bottom:-2,right:-2,width:20,height:20,borderRadius:'50%',background: hr.employmentStatus === 'Active' ? '#10b981' : '#f59e0b',border:'3px solid #1e293b'}}/>
           </div>
+
+          {/* Identity */}
+          <div style={{flex:1,minWidth:240}}>
+            <div style={{fontSize:11,color:'rgba(255,255,255,.55)',fontWeight:600,letterSpacing:'.05em',textTransform:'uppercase'}}>Employee Profile</div>
+            <h1 style={{fontSize:28,fontWeight:800,color:'#fff',margin:0,marginTop:4,lineHeight:1.15}}>{personal.name}</h1>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10,alignItems:'center'}}>
+              <span style={{padding:'4px 10px',background:'rgba(255,255,255,.12)',borderRadius:999,fontSize:11,fontWeight:600}}>{hr.title}</span>
+              <span style={{padding:'4px 10px',background:'rgba(232,103,42,.18)',borderRadius:999,fontSize:11,fontWeight:600,color:'#FBBF24'}}>{hr.department} · {team.team}</span>
+              <span style={{padding:'4px 10px',background:'rgba(255,255,255,.08)',borderRadius:999,fontSize:11,fontWeight:600,color:'rgba(255,255,255,.85)'}}>📍 {personal.branch}</span>
+              {persona.mls && persona.mls !== 'Pending' && (
+                <span style={{padding:'4px 10px',background:'rgba(255,255,255,.08)',borderRadius:999,fontSize:11,fontWeight:600,fontFamily:'monospace',color:'rgba(255,255,255,.85)'}}>MLS {persona.mls}</span>
+              )}
+              <span style={{padding:'4px 10px',background: hr.employmentStatus === 'Active' ? 'rgba(16,185,129,.2)' : 'rgba(245,158,11,.2)',color: hr.employmentStatus === 'Active' ? '#86efac' : '#fbbf24',borderRadius:999,fontSize:11,fontWeight:700}}>● {hr.employmentStatus}</span>
+            </div>
+            <div style={{display:'flex',gap:18,marginTop:14,fontSize:12,color:'rgba(255,255,255,.7)',flexWrap:'wrap'}}>
+              <span style={{display:'flex',alignItems:'center',gap:6}}>📧 {personal.email}</span>
+              <span style={{display:'flex',alignItems:'center',gap:6}}>📱 {personal.phone}</span>
+              <span style={{display:'flex',alignItems:'center',gap:6}}>🆔 {hr.employeeId}</span>
+              <span style={{display:'flex',alignItems:'center',gap:6}}>📅 Joined {hr.joinDate}</span>
+            </div>
+          </div>
+
+          {/* Score chip */}
+          <div style={{textAlign:'center',padding:'14px 22px',background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:14,minWidth:130,position:'relative'}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>Onboarding Score</div>
+            <div style={{fontSize:32,fontWeight:800,marginTop:4,color: scoreColor === '#16a34a' ? '#86efac' : scoreColor === '#E8672A' ? '#FBBF24' : '#fde68a'}}>{agentScore}<span style={{fontSize:14,fontWeight:600,opacity:.6}}>/100</span></div>
+            <div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:2}}>Training {trainingAvg}% · Interview {interviewScore}%</div>
+          </div>
+
+          <button onClick={editProfile} style={{padding:'9px 18px',background:'#fff',color:'#0f172a',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>Edit Profile</button>
         </div>
       </div>
+
+      {/* ── Onboarding & Performance Score card ── */}
+      <Section title="Onboarding & HR Score" icon={<Award size={14}/>} accent="#8b5cf6">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+          {[
+            { label:'Total Score',     value:`${agentScore}/100`, sub:'Used for team allocation', color: scoreColor },
+            { label:'Training Avg',    value:`${trainingAvg}%`,   sub:`${trainingCompleted}/${trainingTotal} required courses`, color:'#3b82f6' },
+            { label:'Interview Score', value:`${interviewScore}%`,sub:'HR-recorded',            color:'#16a34a' },
+            { label:'Weight',          value:'60% / 40%',          sub:'Training / Interview',   color:'#94a3b8' },
+          ].map(s => (
+            <div key={s.label} style={{padding:'14px 16px',background:'#fafbfc',borderRadius:10,border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{s.label}</div>
+              <div style={{fontSize:22,fontWeight:800,color:s.color,marginTop:4}}>{s.value}</div>
+              <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <div style={{height:18}}/>
+
+      {/* ── Personal + Employment (2-col) ── */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18,marginBottom:18}}>
+        <Section title="Personal Information" icon={<User size={14}/>} accent="#3b82f6">
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <Field2 label="Full Name"      value={personal.name}/>
+            <Field2 label="Email"          value={personal.email}/>
+            <Field2 label="Phone"          value={personal.phone}/>
+            <Field2 label="National ID"    value={personal.nationalId} mono/>
+            <Field2 label="Date of Birth"  value={personal.dob}/>
+            <Field2 label="Nationality"    value={personal.nationality}/>
+            <Field2 label="Marital Status" value={personal.maritalStatus}/>
+            <Field2 label="Languages"      value={personal.languages}/>
+            <Field2 label="Address"        value={personal.address}/>
+            <Field2 label="Education"      value={hr.education}/>
+          </div>
+        </Section>
+
+        <Section title="Employment & HR" icon={<UsersRound size={14}/>} accent="#10b981">
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <Field2 label="Employee ID"   value={hr.employeeId} mono/>
+            <Field2 label="Department"    value={hr.department}/>
+            <Field2 label="Job Title"     value={hr.title}/>
+            <Field2 label="Branch"        value={personal.branch}/>
+            <Field2 label="Contract Type" value={hr.contractType}/>
+            <Field2 label="Employment Type" value={hr.type}/>
+            <Field2 label="Work Schedule" value={hr.workSchedule}/>
+            <Field2 label="Status"        value={hr.employmentStatus}/>
+            <Field2 label="Join Date"     value={hr.joinDate}/>
+            <Field2 label="Contract Ends" value={hr.contractEnds}/>
+            <Field2 label="Next Review"   value={hr.nextReview}/>
+            <Field2 label="RERA"          value={hr.rera} mono/>
+          </div>
+        </Section>
+      </div>
+
+      {/* ── Team + Hierarchy (2-col) ── */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18,marginBottom:18}}>
+        <Section title="Team Data" icon={<UsersRound size={14}/>} accent="#E8672A">
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <Field2 label="Team"          value={team.team}/>
+            <Field2 label="Branch"        value={team.branch}/>
+            <Field2 label="Headcount"     value={String(team.headcount)}/>
+            <Field2 label="Team Leader"   value={team.teamLeader}/>
+          </div>
+        </Section>
+
+        <Section title="Reporting Hierarchy" icon={<ChevronRight size={14}/>} accent="#8b5cf6">
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {[
+              { role:'Sales Director', name: team.salesDirector,  level: 0 },
+              { role:'Sales Manager',  name: team.salesManager,   level: 1 },
+              { role:'Team Leader',    name: team.teamLeader,     level: 2 },
+              { role:'You',            name: persona.label,        level: 3, self: true },
+            ].map((r,i,arr) => (
+              <div key={r.role} style={{display:'flex',alignItems:'center',gap:12,paddingLeft: r.level * 14}}>
+                <div style={{width:8,height:8,borderRadius:4,background: r.self ? 'var(--brand)' : '#cbd5e1',flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{r.role}</div>
+                  <div style={{fontSize:13,fontWeight: r.self ? 800 : 500,color: r.self ? 'var(--brand)' : 'var(--text-primary)'}}>{r.name}</div>
+                </div>
+                {i < arr.length - 1 && <ChevronRight size={14} color="var(--text-tertiary)"/>}
+              </div>
+            ))}
+          </div>
+        </Section>
+      </div>
+
+      {/* ── Emergency Contact ── */}
+      <Section title="Emergency Contact" icon={<BellRing size={14}/>} accent="#dc2626">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+          <Field2 label="Name"     value={emergency.name}/>
+          <Field2 label="Relation" value={emergency.relation}/>
+          <Field2 label="Phone"    value={emergency.phone}/>
+        </div>
+      </Section>
     </div>
   );
 };
@@ -199,25 +451,36 @@ export const AgentDocuments = () => {
     <div>
       <h1 className="page-title">Documents</h1>
       <p className="page-subtitle" style={{marginBottom:24}}>Upload and manage your required documents</p>
-      <div className="kpi-grid kpi-grid-3" style={{marginBottom:24}}>
+      <div className="kpi-grid kpi-grid-4" style={{marginBottom:24}}>
         <div className="kpi-card"><div><div className="kpi-label">Approved</div><div className="kpi-value">{state.agentDocs.filter(d=>d.status==='Approved').length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>✅</span></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Pending</div><div className="kpi-value">{state.agentDocs.filter(d=>d.status==='Pending').length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Expiring (≤30d)</div><div className="kpi-value">{state.agentDocs.filter(d=>{if(!d.expires) return false; const days=Math.ceil((new Date(d.expires)-new Date())/86_400_000); return days>=0 && days<30;}).length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏰</span></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Total Required</div><div className="kpi-value">{state.agentDocs.length}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📄</span></div></div>
       </div>
       <div className="data-panel">
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>Document</th><th>Type</th><th>Status</th><th>Upload Date</th><th style={{textAlign:'right'}}>Action</th></tr></thead>
+            <thead><tr><th>Document</th><th>Type</th><th>Status</th><th>Upload Date</th><th>Expires</th><th style={{textAlign:'right'}}>Action</th></tr></thead>
             <tbody>
-              {state.agentDocs.map(d => (
-                <tr key={d.id}>
-                  <td className="bold">{d.doc}</td>
-                  <td>{d.type}</td>
-                  <td><span className={`badge ${d.status==='Approved'?'badge-success':'badge-warning'}`}>{d.status}</span></td>
-                  <td className="muted">{d.date}</td>
-                  <td style={{textAlign:'right'}}>{d.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>upload(d)}><Upload size={13}/> Upload</button>}</td>
-                </tr>
-              ))}
+              {state.agentDocs.map(d => {
+                let expLabel = '—', expColor = 'var(--text-tertiary)', expWeight = 400;
+                if (d.expires) {
+                  const days = Math.ceil((new Date(d.expires) - new Date()) / 86_400_000);
+                  if (days < 0)       { expLabel = `${d.expires} · expired`; expColor = 'var(--danger)';  expWeight = 600; }
+                  else if (days < 30) { expLabel = `${d.expires} · in ${days}d`; expColor = 'var(--warning)'; expWeight = 600; }
+                  else                { expLabel = d.expires; expColor = 'var(--text-primary)'; }
+                }
+                return (
+                  <tr key={d.id}>
+                    <td className="bold">{d.doc}</td>
+                    <td>{d.type}</td>
+                    <td><span className={`badge ${d.status==='Approved'?'badge-success':'badge-warning'}`}>{d.status}</span></td>
+                    <td className="muted">{d.date}</td>
+                    <td style={{color: expColor, fontWeight: expWeight}}>{expLabel}</td>
+                    <td style={{textAlign:'right'}}>{d.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>upload(d)}><Upload size={13}/> Upload</button>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -227,22 +490,32 @@ export const AgentDocuments = () => {
   );
 };
 
-// ─────────── Notifications (Platform §3.10 — categorized panel) ───────────
-// Categories: Tasks · Lead updates · System alerts · Approval requests
-// Meeting (line 31): "Notifications will include over due tasks and needed updates"
+// ─────────── Notifications (Employee Board — non-CRM feeds only) ───────────
+// 11-May stakeholder ask: the Employee Board notifications drawer must NOT
+// surface CRM-related events (tasks, lead reassignments, override approvals)
+// — those live inside the CRM module. Employee Board keeps Documents / HR /
+// Department / New Feature / Training / System Alert categories.
+const CRM_CATEGORIES = new Set(['task','lead','approval']);
 const CAT_META = {
-  task:     { label: 'Tasks',             icon: '📋', tint: 'var(--warning-bg)',  color: 'var(--warning)' },
-  lead:     { label: 'Lead Updates',      icon: '🎯', tint: 'var(--info-bg)',     color: 'var(--info)' },
-  system:   { label: 'System Alerts',     icon: '🛡️', tint: '#f3f4f6',            color: 'var(--text-secondary)' },
-  approval: { label: 'Approval Requests', icon: '✋', tint: 'var(--brand-tint)',   color: 'var(--brand)' },
+  document:   { label: 'Documents',      icon: '📄', tint: '#fef3c7',            color: '#92400e' },
+  hr:         { label: 'HR',             icon: '🧑‍💼', tint: '#dbeafe',            color: '#1e40af' },
+  department: { label: 'Department',     icon: '🏢', tint: '#e0f2fe',            color: '#075985' },
+  feature:    { label: 'New Features',   icon: '✨', tint: '#dcfce7',            color: '#166534' },
+  training:   { label: 'Training',       icon: '🎓', tint: 'var(--warning-bg)',  color: 'var(--warning)' },
+  system:     { label: 'System Alerts',  icon: '🛡️', tint: '#f3f4f6',            color: 'var(--text-secondary)' },
 };
-// Categorize each notification — fall back to 'system' if not provided.
+// Categorize each notification — fall back to keyword sniffing if not provided.
 const categorize = (n) => {
   if (n.category) return n.category;
   const t = (n.text || '').toLowerCase();
-  if (t.includes('overdue') || t.includes('task') || t.includes('due')) return 'task';
-  if (t.includes('lead') || t.includes('deal') || t.includes('reassign')) return 'lead';
-  if (t.includes('approve') || t.includes('approval') || t.includes('override')) return 'approval';
+  if (t.includes('expires') || t.includes('document') || t.includes('upload')) return 'document';
+  if (t.includes('overdue') || t.includes('task')      || t.includes('due'))    return 'task';
+  if (t.includes('approve') || t.includes('approval')  || t.includes('override')) return 'approval';
+  if (t.includes('lead')    || t.includes('deal')      || t.includes('reassign')) return 'lead';
+  if (t.includes('review')  || t.includes('salary')    || t.includes('leave'))   return 'hr';
+  if (t.includes('meeting') || t.includes('briefing')  || t.includes('working hours') || t.includes('launch')) return 'department';
+  if (t.includes('new ·')   || t.includes('update ·')) return 'feature';
+  if (t.includes('training')) return 'training';
   return 'system';
 };
 
@@ -253,13 +526,11 @@ export const AgentNotifications = () => {
   const dismiss = (n) => { removeItem('agentNotifications', n.id, { action: 'Notification Dismissed', module: 'Agent', target: n.id }); toast('Notification dismissed','info'); };
   const dismissAll = () => { state.agentNotifications.forEach(n => removeItem('agentNotifications', n.id)); toast('All notifications cleared','info'); };
 
-  // Demo: synthesize a couple of overdue/approval entries on top of the persisted ones to illustrate categories.
-  const synthesized = [
-    { id: 'syn-overdue', category: 'task', text: 'Task overdue: Follow up with Mohamed Hassan (L-1001)', time: '15 min ago', type: 'warning' },
-    { id: 'syn-deal',    category: 'lead', text: 'Deal D-503 closed — commission queued for finance', time: '1 hour ago', type: 'success' },
-    { id: 'syn-approval',category: 'approval', text: 'Commission override for D-503 awaiting Sales Director approval', time: '2 hours ago', type: 'info' },
-  ];
-  const merged = [...synthesized, ...state.agentNotifications].map(n => ({ ...n, category: categorize(n) }));
+  // 11-May ask: CRM-related notifications (tasks / leads / approvals) are
+  // suppressed on the Employee Board — they belong inside the CRM module.
+  const merged = state.agentNotifications
+    .map(n => ({ ...n, category: categorize(n) }))
+    .filter(n => !CRM_CATEGORIES.has(n.category));
 
   const counts = merged.reduce((a,n)=>{a[n.category]=(a[n.category]||0)+1; return a;},{});
   const filtered = activeCat === 'all' ? merged : merged.filter(n=>n.category===activeCat);
@@ -269,7 +540,7 @@ export const AgentNotifications = () => {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
         <div>
           <h1 className="page-title">Notifications</h1>
-          <p className="page-subtitle">Tasks · Lead updates · System alerts · Approval requests — Platform §3.10</p>
+          <p className="page-subtitle">Tasks · Leads · Approvals · Documents · HR · Department · New Features</p>
         </div>
         {state.agentNotifications.length > 0 && <button className="btn btn-outline btn-sm" onClick={dismissAll}>Clear All</button>}
       </div>

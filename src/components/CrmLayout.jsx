@@ -1,8 +1,9 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, MapPin, FileText, Share2, Globe, BarChart3, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, FileText, Globe, BarChart3, Megaphone, PhoneCall } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
-import { canSeeCampaigns } from '../data/crmAccess';
+import { canSeeCampaigns, canSeeCrmModule } from '../data/crmAccess';
+import { SmartSearch } from './SmartSearch';
 
 export const CrmLayout = ({ children }) => {
   const { persona, personaKey, signOut, openDrawer, state, toast, writeAudit } = useApp();
@@ -13,6 +14,20 @@ export const CrmLayout = ({ children }) => {
   // surface (Leads, Listings, Deals, Contracts, Tasks, Reports, etc.) is
   // hidden from the sidebar and route guards bounce direct URLs to /campaigns.
   const isMarketing = canSeeCampaigns(personaKey);
+  // Reports module is manager-only (Sales Manager + Sales Director) per the
+  // 08-May stakeholder review. Team Leader, Agent and audit roles do NOT see
+  // the sidebar link or reach the page directly.
+  const canSeeReports = personaKey === 'salesManager' || personaKey === 'salesDirector';
+  // Cold Calls — full module for Sales Manager+Director, assignment-only view
+  // for agents/TL, import-only view for Marketing. Sidebar link visible if any
+  // of the three module keys is in the persona's crmModules.
+  const canSeeColdCalls =
+    canSeeCrmModule(personaKey, 'coldCalls') ||
+    canSeeCrmModule(personaKey, 'coldCallsAssigned') ||
+    canSeeCrmModule(personaKey, 'coldCallsImport');
+  // Contracts module retired entirely on 08-May. Contract lifecycle is tracked
+  // through the Deal at Contract Signed (Off Plan) / Contract Signed & Payment
+  // (Resale) stages — commission locks and revenue recognition happen there.
 
   const backToBoard = () => {
     toast('Returning to Employee Board…', 'info');
@@ -42,11 +57,14 @@ export const CrmLayout = ({ children }) => {
         </div>
         <nav className="sidebar-nav">
           {isMarketing ? (
-            // Marketing-only sidebar — Campaigns module exclusively.
+            // Marketing sidebar — Campaigns + Cold Calls (import-only).
             <>
               <div className="sidebar-section">Marketing</div>
               <NavLink to="/system/crm/campaigns" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <Megaphone size={16} />Social Campaigns
+              </NavLink>
+              <NavLink to="/system/crm/cold-calls" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <PhoneCall size={16} />Cold Calls
               </NavLink>
             </>
           ) : (
@@ -58,32 +76,38 @@ export const CrmLayout = ({ children }) => {
               <NavLink to="/system/crm/leads" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <Users size={16} />Leads
               </NavLink>
+              {canSeeColdCalls && (
+                <NavLink to="/system/crm/cold-calls" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <PhoneCall size={16} />Cold Calls
+                </NavLink>
+              )}
               <NavLink to="/system/crm/listings" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <Home size={16} />Listings
               </NavLink>
-              <NavLink to="/system/crm/tours" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                <MapPin size={16} />Tours
-              </NavLink>
+              {/* Tours module merged into Leads on 08-May. Tour scheduling
+                  lives inside the Lead detail drawer; tour history surfaces in
+                  the lead's activity timeline. */}
               <NavLink to="/system/crm/deals" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <KanbanSquare size={16} />Deals Pipeline
               </NavLink>
-              <NavLink to="/system/crm/contracts" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                <FileText size={16} />Contracts
-              </NavLink>
+              {/* Contracts module retired — contract lifecycle tracked via Deal. */}
               <NavLink to="/system/crm/tasks" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <CalendarCheck2 size={16} />Tasks & Calendar
               </NavLink>
 
               <div className="sidebar-section" style={{marginTop:10}}>Tools</div>
-              <NavLink to="/system/crm/shares" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                <Share2 size={16} />Listing Shares
-              </NavLink>
+              {/* Listing Shares rewired on 08-May: the Share button now lives
+                  on each Listing card with multi-lead picker. Share history is
+                  surfaced inside the Lead Detail timeline + Listing Shares
+                  report. The standalone page was removed. */}
               <NavLink to="/system/crm/minisite" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <Globe size={16} />Mini-Site
               </NavLink>
-              <NavLink to="/system/crm/reports" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                <BarChart3 size={16} />Reports
-              </NavLink>
+              {canSeeReports && (
+                <NavLink to="/system/crm/reports" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <BarChart3 size={16} />Reports
+                </NavLink>
+              )}
             </>
           )}
         </nav>
@@ -102,6 +126,18 @@ export const CrmLayout = ({ children }) => {
             </button>
             <div style={{width:1,height:24,background:'var(--border)',margin:'0 4px'}} />
             <span style={{fontSize:13,color:'var(--text-secondary)',fontWeight:500}}>{isMarketing ? 'Social & Ad Campaigns' : 'Lead Management & Sales Pipeline'}</span>
+            {/* Smart Search keyboard hint — full handler lives in SmartSearch.jsx */}
+            <button
+              onClick={()=>{
+                const ev = new KeyboardEvent('keydown', { key:'k', metaKey:true, bubbles:true });
+                window.dispatchEvent(ev);
+              }}
+              title="Press ⌘K (or Ctrl-K) anywhere to open Smart Search"
+              style={{display:'flex',alignItems:'center',gap:8,background:'#fafbfc',border:'1px solid var(--border)',padding:'5px 10px',borderRadius:6,fontSize:11,color:'var(--text-secondary)',cursor:'pointer'}}
+            >
+              <span>Search leads, deals, listings…</span>
+              <span style={{padding:'1px 6px',background:'#fff',border:'1px solid var(--border)',borderRadius:4,fontFamily:'monospace',fontSize:10}}>⌘K</span>
+            </button>
           </div>
           <div className="topbar-right">
             <div className="topbar-status"><div className="topbar-status-dot"></div>SSO via Microsoft Entra · session active</div>
@@ -117,6 +153,9 @@ export const CrmLayout = ({ children }) => {
         </header>
         <div className="page-content"><div className="page-inner animate-fade-in" key={location.pathname}>{children}</div></div>
       </main>
+
+      {/* Global Smart Search — Cmd-K / Ctrl-K toggles (11-May meeting ask). */}
+      <SmartSearch />
     </div>
   );
 };

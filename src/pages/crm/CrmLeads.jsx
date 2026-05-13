@@ -164,7 +164,11 @@ export const CrmLeads = () => {
           <select className="filter-select" value={fStage} onChange={e=>setFStage(e.target.value)}><option value="All">All Stages</option>{STAGES.map(s=><option key={s}>{s}</option>)}</select>
           <select className="filter-select" value={fPrio} onChange={e=>setFPrio(e.target.value)}><option value="All">All Priorities</option>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select>
           <select className="filter-select" value={fSrc} onChange={e=>setFSrc(e.target.value)}><option value="All">All Sources</option>{SOURCES.map(s=><option key={s}>{s}</option>)}</select>
-          <button className="btn btn-sm btn-outline" onClick={exportCSV}><Download size={14}/> Export</button>
+          {/* Export Leads removed for individual-contributor agents per 08-May
+              stakeholder review. TL / Manager / Director / audit roles keep it. */}
+          {h.scope !== 'self' && (
+            <button className="btn btn-sm btn-outline" onClick={exportCSV}><Download size={14}/> Export</button>
+          )}
           <button className="btn btn-sm btn-outline" onClick={() => openDrawer({ title: 'Reassignment Audit Trail', subtitle: 'Last 50 reassignments', content: (
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {(state.audit || []).filter(a => a.action?.includes('Reassigned') || a.action?.includes('Lead')).slice(0, 50).map(a => (

@@ -6,6 +6,23 @@ import { DOC_STATUS } from '../data/staticData';
 
 const badgeFor = s => s==='Approved' ? 'badge-success' : s==='Rejected' || s==='Missing' ? 'badge-danger' : 'badge-warning';
 
+// Returns { label, tone } describing the document's expiry state.
+// tone: 'ok' | 'warn' (within 30 days) | 'expired' | 'none'
+const expiryState = (iso) => {
+  if (!iso) return { label: '—', tone: 'none' };
+  const due = new Date(iso);
+  if (isNaN(due)) return { label: iso, tone: 'none' };
+  const days = Math.ceil((due - new Date()) / 86_400_000);
+  if (days < 0)  return { label: `${iso} · expired`, tone: 'expired' };
+  if (days < 30) return { label: `${iso} · in ${days}d`, tone: 'warn' };
+  return { label: iso, tone: 'ok' };
+};
+const ExpiryCell = ({ iso }) => {
+  const { label, tone } = expiryState(iso);
+  const color = tone === 'expired' ? 'var(--danger)' : tone === 'warn' ? 'var(--warning)' : tone === 'ok' ? 'var(--text-primary)' : 'var(--text-tertiary)';
+  return <span style={{color, fontWeight: tone==='expired'||tone==='warn'?600:400}}>{label}</span>;
+};
+
 export const DocumentsReview = () => {
   const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
 
@@ -35,7 +52,7 @@ export const DocumentsReview = () => {
     content: (
       <>
         <div className="detail-grid">
-          {[['ID',d.id],['Document',d.doc],['Type',d.type],['Agent',d.agent],['Upload Date',d.date],['Status',d.status]].map(([k,v])=>(
+          {[['ID',d.id],['Document',d.doc],['Type',d.type],['Agent',d.agent],['Upload Date',d.date],['Status',d.status],['Expires', d.expires || '—']].map(([k,v])=>(
             <div key={k}><label>{k}</label><div className="v">{v}</div></div>
           ))}
         </div>
@@ -62,11 +79,14 @@ export const DocumentsReview = () => {
           <Field label="Document" name="doc" required placeholder="e.g. Brokerage Agreement" />
           <Field label="Type" name="type" type="select" required options={['Identity','Financial','Legal','Regulatory']} />
         </FieldRow>
-        <Field label="Agent" name="agent" type="select" required options={state.staff.map(s=>s.name)} />
+        <FieldRow>
+          <Field label="Agent" name="agent" type="select" required options={state.staff.map(s=>s.name)} />
+          <Field label="Expires (optional)" name="expires" type="date" placeholder="YYYY-MM-DD" />
+        </FieldRow>
       </>
     ),
     onSubmit: (data) => {
-      const c = addItem('documents', { ...data, date: '—', status: 'Missing' }, 'DOC', { action: 'Document Requested', module: 'Backoffice', detail: `${data.doc} from ${data.agent}` });
+      const c = addItem('documents', { ...data, date: '—', status: 'Missing', expires: data.expires || null }, 'DOC', { action: 'Document Requested', module: 'Backoffice', detail: `${data.doc} from ${data.agent}` });
       toast(`Request created · ${c.id}`);
     },
   });
@@ -96,7 +116,7 @@ export const DocumentsReview = () => {
         </div>
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>ID</th><th>Document</th><th>Type</th><th>Agent</th><th>Upload Date</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <thead><tr><th>ID</th><th>Document</th><th>Type</th><th>Agent</th><th>Upload Date</th><th>Expires</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>{filtered.map(d=>(
               <tr key={d.id}>
                 <td className="muted">{d.id}</td>
@@ -104,6 +124,7 @@ export const DocumentsReview = () => {
                 <td>{d.type}</td>
                 <td>{d.agent}</td>
                 <td className="muted">{d.date}</td>
+                <td><ExpiryCell iso={d.expires}/></td>
                 <td><span className={`badge ${badgeFor(d.status)}`}>{d.status}</span></td>
                 <td style={{textAlign:'right'}}><div className="row-actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>view(d)}><Eye size={13}/> View</button>

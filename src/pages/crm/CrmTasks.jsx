@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, X, List, CalendarDays, Clock, Phone, MessageSquare, MapPin, FileText, DollarSign, CheckCircle2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, X, List, CalendarDays, Clock, Phone, MessageSquare, MapPin, FileText, DollarSign, CheckCircle2, ShieldCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 import { HIERARCHY, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 
 const TASK_TYPES = ['Call','Tour','WhatsApp','Meeting','Contract','Finance','Follow-up'];
@@ -98,7 +98,14 @@ export const CrmTasks = () => {
 
   return (
     <div className="crm-page">
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tasks</span></div><h1 className="page-title">Tasks & Calendar</h1><p className="page-subtitle">Manage tasks, schedule follow-ups, and track team activities · BRD V1.4 §6.5</p></div>
+      <div className="page-header" style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:14}}>
+        <div>
+          <div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tasks</span></div>
+          <h1 className="page-title">Tasks & Calendar</h1>
+          <p className="page-subtitle">Manage tasks, schedule follow-ups, and track team activities · BRD V1.4 §6.5</p>
+        </div>
+        <M365SyncButton />
+      </div>
 
       <div className="crm-role-banner">
         <div className="ico"><ShieldCheck size={18}/></div>
@@ -200,6 +207,44 @@ export const CrmTasks = () => {
           <div className="form-group"><label>Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{TASK_STATUS.map(s=><option key={s}>{s}</option>)}</select></div>
           <div className="form-group" style={{gridColumn:'span 2'}}><label>Notes</label><textarea rows={2} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></div>
         </div><div className="modal-footer"><button type="button" className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button type="submit" className="btn btn-brand">{editTask?'Update':'Create'} Task</button></div></form></div></div>}
+    </div>
+  );
+};
+
+// Microsoft 365 Calendar sync — demo simulation. Stakeholder ask 08-May (item 14).
+// In production this would use Microsoft Graph API to two-way sync tasks/tours
+// with the user's Outlook calendar. The demo simulates a 1.5s sync window and
+// updates state.calendarSync with the last-synced timestamp.
+const M365SyncButton = () => {
+  const { state, toast, writeAudit } = useApp();
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(state.calendarSync?.lastSyncedAt || null);
+
+  const sync = () => {
+    setSyncing(true);
+    writeAudit('Calendar Sync', 'Microsoft 365 Calendar', 'CRM', 'Tasks and tours synced bidirectionally');
+    setTimeout(() => {
+      const ts = new Date().toLocaleString();
+      setLastSyncedAt(ts);
+      setSyncing(false);
+      toast('Calendar synced with Microsoft 365', 'success');
+    }, 1500);
+  };
+
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:10}}>
+      {lastSyncedAt && (
+        <span style={{fontSize:11,color:'var(--text-tertiary)'}}>Last sync: {lastSyncedAt}</span>
+      )}
+      <button
+        className="btn btn-outline btn-sm"
+        onClick={sync}
+        disabled={syncing}
+        title="Sync tasks and tours with your Microsoft 365 calendar"
+      >
+        <RefreshCw size={13} className={syncing ? 'spin-icon' : ''}/>
+        {syncing ? 'Syncing…' : 'Sync with M365 Calendar'}
+      </button>
     </div>
   );
 };

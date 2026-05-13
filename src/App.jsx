@@ -41,12 +41,13 @@ import { CrmLeadDetail } from './pages/crm/CrmLeadDetail';
 import { CrmListings } from './pages/crm/CrmListings';
 import { CrmTours } from './pages/crm/CrmTours';
 import { CrmDeals } from './pages/crm/CrmDeals';
-import { CrmContracts } from './pages/crm/CrmContracts';
+// Contracts module retired — contract lifecycle tracked through Deals.
 import { CrmTasks } from './pages/crm/CrmTasks';
 import { CrmListingShare } from './pages/crm/CrmListingShare';
 import { CrmMiniSite } from './pages/crm/CrmMiniSite';
 import { CrmReports } from './pages/crm/CrmReports';
 import { CrmCampaigns } from './pages/crm/CrmCampaigns';
+import { CrmColdCalls } from './pages/crm/CrmColdCalls';
 
 // Marketplace Dashboard — full federated system with its own layout + nested routes.
 import { MarketplaceLayout } from './components/MarketplaceLayout';
@@ -61,6 +62,7 @@ import {
 import { EmployeeBoardDashboard } from './pages/EmployeeBoardDashboard';
 import { AgentLearning } from './pages/AgentLearning';
 import { AgentPerformance, AgentProfile, AgentDocuments, AgentNotifications } from './pages/AgentPages';
+import { AgentServices } from './pages/AgentServices';
 
 // Public Marketplace (consumer-facing, no auth required)
 import { MarketplaceSiteLayout } from './components/MarketplaceSiteLayout';
@@ -143,6 +145,7 @@ const AppRoutes = () => {
           <Routes>
             <Route path="/" element={<Navigate to="/board/dashboard" />} />
             <Route path="/dashboard" element={<EmployeeBoardDashboard />} />
+            <Route path="/services" element={<AgentServices />} />
             <Route path="/learning" element={<AgentLearning />} />
             <Route path="/performance" element={<AgentPerformance />} />
             <Route path="/profile" element={<AgentProfile />} />
@@ -159,18 +162,37 @@ const AppRoutes = () => {
       <Route path="/system/crm/*" element={
         <CrmLayout>
           <Routes>
+            {/* Marketing's allowed CRM surfaces are /campaigns and
+                /cold-calls; everything else bounces. Default landing for
+                marketing is /campaigns. */}
             <Route path="/" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmDashboard />} />
             <Route path="/leads" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmLeads />} />
             <Route path="/leads/:id" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmLeadDetail />} />
             <Route path="/listings" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmListings />} />
-            <Route path="/tours" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmTours />} />
+            {/* Tours module merged into Leads on 08-May. Direct URL bounces
+                to the Leads list — tour scheduling now lives in the lead
+                detail drawer. */}
+            <Route path="/tours" element={<Navigate to="/system/crm/leads" replace />} />
             <Route path="/deals" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmDeals />} />
-            <Route path="/contracts" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmContracts />} />
+            {/* Contracts module retired — every visitor goes to Deals where
+                contract lifecycle is now tracked. */}
+            <Route path="/contracts" element={<Navigate to="/system/crm/deals" replace />} />
             <Route path="/tasks" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmTasks />} />
-            <Route path="/shares" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmListingShare />} />
+            {/* Listing Shares rewired 08-May — direct URL bounces to Listings
+                where the per-card Share button lives now. */}
+            <Route path="/shares" element={<Navigate to="/system/crm/listings" replace />} />
             <Route path="/minisite" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmMiniSite />} />
-            <Route path="/reports" element={personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace /> : <CrmReports />} />
+            {/* Reports is manager-only — TL/Agent/audit bounce to dashboard. */}
+            <Route path="/reports" element={
+              personaKey === 'marketing' ? <Navigate to="/system/crm/campaigns" replace />
+              : (personaKey === 'salesManager' || personaKey === 'salesDirector') ? <CrmReports />
+              : <Navigate to="/system/crm" replace />
+            } />
             <Route path="/campaigns" element={<CrmCampaigns />} />
+            {/* Cold Calls — visible to managers (full), agents (their
+                assignments) and marketing (import-only). Page renders the
+                role-appropriate variant internally. */}
+            <Route path="/cold-calls" element={<CrmColdCalls />} />
             <Route path="*" element={<Navigate to="/system/crm" />} />
           </Routes>
         </CrmLayout>

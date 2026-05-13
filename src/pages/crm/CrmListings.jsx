@@ -1,13 +1,171 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { LISTING_STATUS, PROPERTY_TYPES } from '../../data/staticData';
-import { Search, Plus, Edit, Trash2, Eye, X, LayoutGrid, List, Home, Bed, Bath, Maximize, Share2, Building, Upload } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, X, LayoutGrid, List, Home, Bed, Bath, Maximize, Share2, Building, Upload, MapPin } from 'lucide-react';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 const statusColor = s => s==='Available'?'badge-success':s==='Reserved'?'badge-warning':'badge-danger';
 
+// Multi-select Lead picker + channel selector for the Share modal.
+// Uses local component state because the Modal's submit collects FormData,
+// and we need a set + a string (not flat form fields).
+const ShareBody = ({ leads, channels, onLeadsChange, onChannelChange }) => {
+  const [picked, setPicked] = useState(() => new Set());
+  const [channel, setChannel] = useState(channels[0]);
+  const [q, setQ] = useState('');
+
+  const filtered = leads.filter(l =>
+    !q || l.name.toLowerCase().includes(q.toLowerCase()) || l.phone?.includes(q) || l.id.toLowerCase().includes(q.toLowerCase())
+  );
+
+  const toggle = (id) => {
+    const next = new Set(picked);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setPicked(next);
+    onLeadsChange(next);
+  };
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div>
+        <label style={{fontSize:12,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:6}}>Channel</label>
+        <div style={{display:'flex',gap:8}}>
+          {channels.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => { setChannel(c); onChannelChange(c); }}
+              style={{
+                padding:'8px 14px', borderRadius:8, cursor:'pointer',
+                fontSize:12, fontWeight:600,
+                border: channel === c ? '1px solid var(--brand)' : '1px solid var(--border)',
+                background: channel === c ? 'var(--brand-tint)' : '#fff',
+                color: channel === c ? 'var(--brand)' : 'var(--text-primary)',
+              }}
+            >{c}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label style={{fontSize:12,fontWeight:600,color:'var(--text-secondary)',display:'flex',justifyContent:'space-between',marginBottom:6}}>
+          <span>Leads ({picked.size} selected)</span>
+          <span style={{fontWeight:500,color:'var(--text-tertiary)'}}>Multi-select supported</span>
+        </label>
+        <input
+          placeholder="Search lead by name, phone, ID…"
+          value={q}
+          onChange={e=>setQ(e.target.value)}
+          style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',marginBottom:8}}
+        />
+        <div style={{maxHeight:280,overflowY:'auto',border:'1px solid var(--border)',borderRadius:8}}>
+          {filtered.map(l => (
+            <label
+              key={l.id}
+              style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',cursor:'pointer',borderBottom:'1px solid var(--border)',background: picked.has(l.id) ? 'var(--brand-tint)' : '#fff'}}
+            >
+              <input type="checkbox" checked={picked.has(l.id)} onChange={()=>toggle(l.id)} />
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{l.name}</div>
+                <div style={{fontSize:11,color:'var(--text-tertiary)'}}>{l.id} · {l.phone} · {l.stage}</div>
+              </div>
+            </label>
+          ))}
+          {filtered.length === 0 && <div style={{padding:'20px',textAlign:'center',color:'var(--text-tertiary)',fontSize:12}}>No leads match.</div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Map view (Leaflet + Google tiles) ─────────────────────────
+// 11-May meeting (1:35-1:36): "Nawy-style maps are powerful — other
+// brokerages use them." Visualise the agent's inventory geographically so
+// they can answer "what do you have in [area]?" during a live call.
+const STATUS_PIN_COLOR = { Available:'#16a34a', Reserved:'#f59e0b', Sold:'#ef4444' };
+
+const ListingsMap = ({ listings, onMarkerClick }) => {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+
+  // Drop listings without coordinates (fallback safety).
+  const geoListings = useMemo(() => listings.filter(l => typeof l.lat === 'number' && typeof l.lng === 'number'), [listings]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const init = () => {
+      if (cancelled || !window.L || !containerRef.current || mapRef.current) return;
+      const map = window.L.map(containerRef.current, { center: [30.05, 31.45], zoom: 9, zoomControl: true, scrollWheelZoom: true });
+      window.L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20, subdomains: ['mt0','mt1','mt2','mt3'], attribution: '© Google',
+      }).addTo(map);
+      mapRef.current = { map, markers: [] };
+    };
+    if (window.L) { init(); }
+    else if (!document.getElementById('leaflet-css')) {
+      const css = document.createElement('link');
+      css.id = 'leaflet-css'; css.rel = 'stylesheet';
+      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(css);
+      const js = document.createElement('script');
+      js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      js.async = true; js.onload = init;
+      document.body.appendChild(js);
+    } else {
+      const wait = setInterval(() => { if (window.L) { clearInterval(wait); init(); } }, 80);
+      return () => clearInterval(wait);
+    }
+    return () => { cancelled = true; if (mapRef.current?.map) { mapRef.current.map.remove(); mapRef.current = null; } };
+  }, []);
+
+  useEffect(() => {
+    const ref = mapRef.current;
+    if (!ref || !window.L) return;
+    ref.markers.forEach(m => m.remove());
+    ref.markers = geoListings.map(l => {
+      const color = STATUS_PIN_COLOR[l.status] || '#64748b';
+      const html = `<div style="background:${color};color:#fff;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.25);white-space:nowrap;">EGP ${(l.price/1e6).toFixed(1)}M</div>`;
+      const icon = window.L.divIcon({ className: 'crm-map-pin', html, iconSize: [70, 26], iconAnchor: [35, 13] });
+      const m = window.L.marker([l.lat, l.lng], { icon })
+        .addTo(ref.map)
+        .bindPopup(`
+          <div style="font-family:inherit;min-width:200px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${l.project} · ${l.unitCode}</div>
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px;">${l.developer} · ${l.unitType} · ${l.bedrooms}BD · ${l.area}m²</div>
+            <div style="font-weight:800;color:#E8672A;font-size:13px;margin-bottom:6px;">EGP ${l.price.toLocaleString()}</div>
+            <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${color}1a;color:${color};font-size:10px;font-weight:700;text-transform:uppercase;">${l.status}</span>
+          </div>
+        `);
+      m.on('click', () => onMarkerClick?.(l));
+      return m;
+    });
+    if (geoListings.length && !ref.fittedFor || (ref.fittedFor !== geoListings.length)) {
+      const bounds = window.L.latLngBounds(geoListings.map(l => [l.lat, l.lng]));
+      ref.map.fitBounds(bounds.pad(0.25), { animate: false });
+      ref.fittedFor = geoListings.length;
+    }
+  }, [geoListings, onMarkerClick]);
+
+  return (
+    <div className="data-panel" style={{padding:0,overflow:'hidden'}}>
+      <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+        <div style={{fontSize:13,fontWeight:700}}>Geographic view · {geoListings.length} listing{geoListings.length===1?'':'s'} mapped</div>
+        <div style={{display:'flex',gap:12,fontSize:11,color:'var(--text-secondary)'}}>
+          {Object.entries(STATUS_PIN_COLOR).map(([s,c]) => (
+            <div key={s} style={{display:'flex',alignItems:'center',gap:5}}>
+              <span style={{width:10,height:10,borderRadius:5,background:c,display:'inline-block'}}/>
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div ref={containerRef} style={{height: 520, width:'100%', background:'#e2e8f0'}}/>
+    </div>
+  );
+};
+
 export const CrmListings = () => {
-  const { state, addItem, toast, openDrawer } = useApp();
+  const { state, addItem, toast, openDrawer, openModal, writeAudit, persona } = useApp();
   const [view, setView] = useState('grid');
   const [search, setSearch] = useState('');
   const [fDev, setFDev] = useState('All');
@@ -20,8 +178,63 @@ export const CrmListings = () => {
 
   const listings = state.listings || [];
   const staff = state.staff || [];
+  const leads = state.leads || [];
+  const listingShares = state.listingShares || [];
 
   const developers = [...new Set(listings.map(l=>l.developer))];
+
+  // ───── Listing Shares (rewired 08-May) ─────
+  // Share button on every listing card. Multi-lead picker, multi-channel.
+  // Writes one row per (listing × lead) into state.listingShares + an
+  // activity entry on each chosen lead via the audit log.
+  const shareCountFor = (listingId) => listingShares.filter(s => s.listingId === listingId).length;
+
+  const shareListing = (l) => {
+    const SHARE_CHANNELS = ['WhatsApp','Email','SMS','Call'];
+    let selectedLeads = new Set();
+    let channel = 'WhatsApp';
+
+    const submit = () => {
+      const picked = Array.from(selectedLeads);
+      if (picked.length === 0) { toast('Pick at least one lead to share with','warning'); return; }
+      const ts = new Date().toISOString().slice(0,16).replace('T',' ');
+      picked.forEach(leadId => {
+        const lead = leads.find(x => x.id === leadId);
+        if (!lead) return;
+        addItem('listingShares', {
+          listingId: l.id,
+          property: `${l.project} ${l.unitCode}`,
+          leadId: lead.id,
+          leadName: lead.name,
+          channel,
+          agent: persona?.label || 'Fatma Ibrahim',
+          timestamp: ts,
+          response: 'No Response',
+        }, 'SHR', {
+          action: 'Listing Shared',
+          module: 'CRM',
+          target: lead.id,
+          detail: `${l.project} ${l.unitCode} → ${lead.name} via ${channel}`,
+        });
+      });
+      toast(`Shared "${l.project} ${l.unitCode}" with ${picked.length} lead${picked.length===1?'':'s'} via ${channel}`,'success');
+    };
+
+    openModal({
+      title: `Share — ${l.project} ${l.unitCode}`,
+      subtitle: `Pick one or more leads and a channel`,
+      submitLabel: 'Share',
+      body: (
+        <ShareBody
+          leads={leads}
+          channels={SHARE_CHANNELS}
+          onLeadsChange={(set) => { selectedLeads = set; }}
+          onChannelChange={(ch) => { channel = ch; }}
+        />
+      ),
+      onSubmit: submit,
+    });
+  };
 
   const filtered = useMemo(()=>listings.filter(l=>{
     if(search && !l.project.toLowerCase().includes(search.toLowerCase()) && !l.unitCode.toLowerCase().includes(search.toLowerCase())) return false;
@@ -46,7 +259,7 @@ export const CrmListings = () => {
         {[['Developer',l.developer],['Unit Code',l.unitCode],['Unit Type',l.unitType],['Area',`${l.area} m²`],['Bedrooms',l.bedrooms],['Bathrooms',l.bathrooms],['Floor',l.floor],['Created',l.created]].map(([k,v])=>(<div key={k}><div className="drawer-label">{k}</div><div className="drawer-value">{v}</div></div>))}
       </div>
       <div><div className="drawer-label">Features</div><div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:6}}>{l.features.map(f=><span key={f} style={{padding:'4px 10px',background:'var(--brand-tint)',color:'var(--brand)',borderRadius:20,fontSize:11,fontWeight:600}}>{f}</span>)}</div></div>
-      <button className="btn btn-brand" onClick={()=>toast('Share modal would open','info')}><Share2 size={14}/> Share Listing</button>
+      <button className="btn btn-brand" onClick={()=>shareListing(l)}><Share2 size={14}/> Share Listing</button>
     </div>
   )});
 
@@ -71,15 +284,20 @@ export const CrmListings = () => {
           <div style={{display:'flex',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}>
             <button className={`btn btn-sm ${view==='grid'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('grid')}><LayoutGrid size={14}/></button>
             <button className={`btn btn-sm ${view==='table'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('table')}><List size={14}/></button>
+            <button className={`btn btn-sm ${view==='map'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('map')}><MapPin size={14}/></button>
           </div>
           <button className="btn btn-brand" onClick={()=>setShowAdd(true)}><Plus size={16}/> Add Listing</button>
         </div>
         <div style={{marginTop:10,fontSize:12,color:'var(--text-tertiary)'}}>Showing {filtered.length} listings</div>
       </div>
 
-      {view==='grid' ? (
+      {view==='map' ? (
+        <ListingsMap listings={filtered} onMarkerClick={viewDetail}/>
+      ) : view==='grid' ? (
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
-          {filtered.map(l=>(
+          {filtered.map(l=>{
+            const shareCount = shareCountFor(l.id);
+            return (
             <div key={l.id} className="listing-card" onClick={()=>viewDetail(l)}>
               <div
                 className="listing-card-img"
@@ -87,6 +305,11 @@ export const CrmListings = () => {
               >
                 {!l.image && <Building size={40} color="var(--brand)"/>}
                 <span className={`badge ${statusColor(l.status)}`} style={{position:'absolute',top:12,left:12}}>{l.status}</span>
+                {shareCount > 0 && (
+                  <span title={`${shareCount} share${shareCount===1?'':'s'}`} style={{position:'absolute',top:12,right:12,background:'rgba(255,255,255,.95)',color:'var(--brand)',padding:'3px 8px',borderRadius:6,fontSize:11,fontWeight:700,display:'flex',alignItems:'center',gap:4}}>
+                    <Share2 size={11}/> {shareCount}
+                  </span>
+                )}
                 <span style={{position:'absolute',bottom:10,right:12,background:'rgba(15,23,42,.78)',color:'#fff',padding:'3px 10px',borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:'.04em'}}>EGYPT MLS</span>
               </div>
               <div style={{padding:'16px 20px'}}>
@@ -103,10 +326,20 @@ export const CrmListings = () => {
                   <span style={{display:'flex',alignItems:'center',gap:4}}><Bath size={13}/>{l.bathrooms} BA</span>
                   <span style={{display:'flex',alignItems:'center',gap:4}}><Maximize size={13}/>{l.area}m²</span>
                 </div>
-                <div style={{fontSize:11,color:'var(--text-tertiary)',padding:'6px 0',borderTop:'1px solid var(--border)'}}>{l.paymentPlan}</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0 0',borderTop:'1px solid var(--border)',gap:8}}>
+                  <span style={{fontSize:11,color:'var(--text-tertiary)',flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{l.paymentPlan}</span>
+                  <button
+                    className="btn btn-sm btn-outline"
+                    onClick={(e)=>{e.stopPropagation(); shareListing(l);}}
+                    title="Share with one or more leads"
+                    style={{padding:'5px 10px',fontSize:11}}
+                  >
+                    <Share2 size={12}/> Share
+                  </button>
+                </div>
               </div>
             </div>
-          ))}
+          );})}
         </div>
       ) : (
         <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th>ID</th><th>Project</th><th>Developer</th><th>Type</th><th>Code</th><th>Area</th><th>BD</th><th>Price</th><th>Plan</th><th>Status</th><th>Actions</th></tr></thead>
@@ -122,7 +355,11 @@ export const CrmListings = () => {
               <td className="bold">EGP {fmt(l.price)}</td>
               <td className="muted" style={{fontSize:11}}>{l.paymentPlan}</td>
               <td><span className={`badge ${statusColor(l.status)}`}>{l.status}</span></td>
-              <td><div style={{display:'flex',gap:6}}><button className="btn-icon" onClick={()=>viewDetail(l)}><Eye size={14}/></button><button className="btn-icon" onClick={()=>toast('Share','info')}><Share2 size={14}/></button></div></td>
+              <td><div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <button className="btn-icon" onClick={()=>viewDetail(l)} title="View"><Eye size={14}/></button>
+                <button className="btn-icon" onClick={()=>shareListing(l)} title="Share with leads"><Share2 size={14}/></button>
+                {shareCountFor(l.id) > 0 && <span style={{fontSize:11,color:'var(--brand)',fontWeight:700}}>{shareCountFor(l.id)}</span>}
+              </div></td>
             </tr>
           ))}</tbody></table></div></div>
       )}

@@ -68,7 +68,7 @@ export const AgentPortalDashboard = () => {
           {icon:<Users size={20}/>,title:'CRM Portal',desc:'Manage leads, contacts, and deal pipeline',status:trainingDone?'Ready · launch via SSO':'CRM access will be granted once all required training courses are completed.',locked:!trainingDone, system:'CRM'},
           {icon:<FileText size={20}/>,title:'Matrix EGMLS',desc:'MLS listings, market data, and property search',status:'Your MLS ID is pending verification by EGMLS. Estimated: 2-3 business days.',locked:true, system:'Matrix EGMLS'},
           {icon:<Building2 size={20}/>,title:'Marketplace',desc:'Public inventory and lead capture (homes.com.eg)',status:'Federated · launch via SSO',locked:false, system:'Marketplace'},
-          {icon:<GraduationCap size={20}/>,title:'Viva Learning',desc:'Required training courses and certifications',status:`${total-completed} courses remaining`,locked:false, link:'/agent/learning'},
+          {icon:<GraduationCap size={20}/>,title:'Homes Academy',desc:'Mandatory and optional training courses',status:`${total-completed} courses remaining`,locked:false, link:'/agent/learning'},
           {icon:<FileCheck2 size={20}/>,title:'Documents',desc:'Upload and manage required documents',status:`${docsUploaded} of ${docsTotal} uploaded`,locked:false, link:'/agent/documents'},
           {icon:<HelpCircle size={20}/>,title:'Support Center',desc:'Help desk, FAQs, and onboarding guides',status:`${state.supportTickets.filter(t=>t.status==='Open').length} open ticket`,locked:false, link:'/agent/help'},
         ].map(card=>(

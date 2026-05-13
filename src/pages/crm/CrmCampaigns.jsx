@@ -16,7 +16,9 @@ import { canSeeCampaigns } from '../../data/crmAccess';
 import {
   Plus, Megaphone, Users, Eye, DollarSign, Pause, Play, Send,
   Facebook, Instagram, Image, Video, X, MoreHorizontal, ThumbsUp, MessageCircle, Share2,
+  Link as LinkIcon, Copy, Building2, Phone, Mail,
 } from 'lucide-react';
+import { buildAgencyTrackingUrl } from '../../data/staticData';
 
 const SEED_CAMPAIGNS = [
   {
@@ -254,12 +256,15 @@ const CreateCampaignModal = ({ defaultPlatforms, onClose, onCreate }) => {
 
 // ─── Main page ───────────────────────────────────────────────────
 export const CrmCampaigns = () => {
-  const { personaKey, toast, writeAudit } = useApp();
+  const { state, personaKey, toast, writeAudit } = useApp();
   const [campaigns, setCampaigns] = useState(SEED_CAMPAIGNS);
   const [tab, setTab] = useState('All');
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createPlatforms, setCreatePlatforms] = useState([]);
+  // Top-level tab: campaigns vs outsourced agencies (11-May meeting action #3)
+  const [topTab, setTopTab] = useState('campaigns');
+  const agencies = state.marketingAgencies || [];
 
   // Hard-block any non-marketing persona that reaches this URL directly.
   if (!canSeeCampaigns(personaKey)) {
@@ -315,10 +320,37 @@ export const CrmCampaigns = () => {
     <div>
       {/* Header */}
       <div style={{marginBottom:18}}>
-        <h1 style={{fontSize:24,fontWeight:800}}>Social Campaigns</h1>
-        <p style={{color:'var(--text-secondary)',marginTop:4,fontSize:13}}>Manage your social media and ad campaigns</p>
+        <h1 style={{fontSize:24,fontWeight:800}}>{topTab === 'agencies' ? 'Outsourced Marketing Agencies' : 'Social Campaigns'}</h1>
+        <p style={{color:'var(--text-secondary)',marginTop:4,fontSize:13}}>
+          {topTab === 'agencies' ? 'Manage outsourced marketing partners and their unique tracking links (11-May meeting action item).' : 'Manage your social media and ad campaigns'}
+        </p>
       </div>
 
+      {/* Top tabs: Campaigns | Agencies */}
+      <div style={{display:'flex',gap:6,marginBottom:18,borderBottom:'1px solid var(--border)'}}>
+        {[
+          { key:'campaigns', label:'Campaigns',         icon: Megaphone, count: campaigns.length },
+          { key:'agencies',  label:'Outsourced Agencies', icon: Building2, count: agencies.length },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTopTab(t.key)}
+            style={{
+              padding:'10px 18px', background:'transparent', border:'none', cursor:'pointer',
+              fontSize:13, fontWeight:700,
+              color: topTab === t.key ? 'var(--brand)' : 'var(--text-secondary)',
+              borderBottom: topTab === t.key ? '2px solid var(--brand)' : '2px solid transparent',
+              marginBottom:-1, display:'flex', alignItems:'center', gap:8,
+            }}
+          >
+            <t.icon size={14}/> {t.label} <span style={{fontSize:11,fontWeight:600,opacity:.7,marginLeft:4}}>({t.count})</span>
+          </button>
+        ))}
+      </div>
+
+      {topTab === 'agencies' && <AgenciesPanel agencies={agencies} toast={toast} writeAudit={writeAudit}/>}
+
+      {topTab === 'campaigns' && <>
       {/* KPI strip */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:18}}>
         {[
@@ -462,6 +494,116 @@ export const CrmCampaigns = () => {
           onCreate={create}
         />
       )}
+      </>}
+    </div>
+  );
+};
+
+// ─── Agencies panel — outsourced marketing partners + tracking URLs ──────
+// 11-May meeting action: each agency gets a unique landing URL with their
+// UTM token so every lead coming through is attributed back to them.
+const AgenciesPanel = ({ agencies, toast, writeAudit }) => {
+  const totalLeads = agencies.reduce((s,a) => s + (a.leadsThisMonth || 0), 0);
+  const activeCount = agencies.filter(a => a.status === 'Active').length;
+
+  const copyUrl = (agency) => {
+    const url = buildAgencyTrackingUrl(agency);
+    // Demo: navigator.clipboard not always available in sandboxed iframes —
+    // fall back to a textarea trick. Either way we toast confirmation.
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = url; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+      }
+      writeAudit('Agency URL copied', agency.name, 'Campaigns', url);
+      toast(`Tracking URL for ${agency.name} copied to clipboard`, 'success');
+    } catch (err) {
+      toast(`Could not copy — URL: ${url}`, 'info');
+    }
+  };
+
+  return (
+    <div>
+      {/* KPIs */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:18}}>
+        {[
+          ['Total Agencies',     agencies.length, '#16a34a', Building2, 'partners'],
+          ['Active',             activeCount,     '#3b82f6', Send,      'currently live'],
+          ['Leads this month',   totalLeads,      '#8b5cf6', Users,     'across all agencies'],
+          ['Tracking links',     agencies.length, '#f59e0b', LinkIcon,  'unique URLs'],
+        ].map(([label, value, color, Icon, sub]) => (
+          <div key={label} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:38,height:38,borderRadius:10,background:`${color}1a`,color,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Icon size={18}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{label}</div>
+              <div style={{fontSize:22,fontWeight:800,marginTop:2}}>{value}</div>
+              <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:2}}>{sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Agencies list */}
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        {agencies.map(a => {
+          const url = buildAgencyTrackingUrl(a);
+          return (
+            <div key={a.id} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'18px 22px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:14,flexWrap:'wrap',marginBottom:14}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                    <h3 style={{fontSize:16,fontWeight:800,color:'var(--text-primary)'}}>{a.name}</h3>
+                    <span style={{display:'inline-block',padding:'3px 10px',borderRadius:999,background: a.status === 'Active' ? '#dcfce7' : '#fef3c7',color: a.status === 'Active' ? '#166534' : '#92400e',fontSize:10,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase'}}>{a.status}</span>
+                  </div>
+                  <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,display:'flex',gap:14,flexWrap:'wrap'}}>
+                    <span><b>Active campaign:</b> {a.activeCampaign}</span>
+                    <span><b>Focus:</b> {a.focus}</span>
+                    <span><b>Contracted since:</b> {a.contractStart}</span>
+                  </div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:11,color:'var(--text-tertiary)'}}>Leads this month</div>
+                  <div style={{fontSize:22,fontWeight:800,color:'var(--brand)'}}>{a.leadsThisMonth}</div>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,padding:'10px 12px',background:'#fafbfc',borderRadius:8,marginBottom:14,fontSize:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}><Users size={13} color="var(--text-tertiary)"/> {a.contact}</div>
+                <div style={{display:'flex',alignItems:'center',gap:6}}><Mail size={13} color="var(--text-tertiary)"/> {a.email}</div>
+                <div style={{display:'flex',alignItems:'center',gap:6}}><Phone size={13} color="var(--text-tertiary)"/> {a.phone}</div>
+              </div>
+
+              {/* Tracking URL */}
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Custom Tracking URL</div>
+                <div style={{display:'flex',gap:8,alignItems:'stretch'}}>
+                  <input
+                    readOnly
+                    value={url}
+                    onClick={(e)=>e.target.select()}
+                    style={{flex:1,minWidth:0,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:11,fontFamily:'monospace',background:'#fafbfc',color:'var(--text-secondary)'}}
+                  />
+                  <button
+                    onClick={()=>copyUrl(a)}
+                    style={{display:'flex',alignItems:'center',gap:6,background:'var(--brand)',color:'#fff',border:'none',padding:'9px 14px',borderRadius:8,fontSize:12,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}
+                  >
+                    <Copy size={12}/> Copy URL
+                  </button>
+                </div>
+                <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:6,lineHeight:1.5}}>
+                  Hand this URL to <b>{a.name}</b> only. Every lead form submission through it auto-tags <code style={{padding:'1px 5px',background:'#f1f5f9',borderRadius:3}}>source: 'Outsourced Agency'</code>, <code style={{padding:'1px 5px',background:'#f1f5f9',borderRadius:3}}>agency: '{a.name}'</code>, and the UTM parameters in CRM.
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

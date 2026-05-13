@@ -20,8 +20,12 @@ export const CrmLeadDetail = () => {
   const [showPrefAdd, setShowPrefAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showActivityAdd, setShowActivityAdd] = useState(false);
+  // Triggered when a lead's stage transitions to "Qualified" — business team
+  // ask 08-May: auto-prompt to create a Deal at that moment.
+  const [createDealPrompt, setCreateDealPrompt] = useState(null); // null | { type }
+  const [createDealType, setCreateDealType] = useState('OffPlan');
 
-  const { leads=[], deals=[], tasks=[], tours=[], listingShares=[], contracts=[], buyerPreferences=[], sourceHistory=[], duplicateCandidates=[], assignmentLog=[], activities=[], staff=[], projects=[] } = state;
+  const { leads=[], deals=[], tasks=[], tours=[], listingShares=[], buyerPreferences=[], sourceHistory=[], duplicateCandidates=[], assignmentLog=[], activities=[], staff=[], projects=[] } = state;
 
   const lead = leads.find(l => l.id === id);
   if (!lead) return <div style={{padding:40,textAlign:'center'}}><h2>Lead not found</h2><button className="btn btn-brand" onClick={()=>navigate('/system/crm/leads')}>Back to Leads</button></div>;
@@ -50,16 +54,30 @@ export const CrmLeadDetail = () => {
   const linkedTasks = tasks.filter(t => t.lead === id);
   const linkedTours = tours.filter(t => t.leadId === id || t.leadName === lead.name);
   const linkedShares = listingShares.filter(s => s.leadId === id || s.leadName === lead.name);
-  const linkedContracts = contracts.filter(c => linkedDeals.some(d => d.id === c.dealId));
+  // Contracts module retired — contract status lives on the Deal directly
+  // (commissionLocked flag at Contract Signed stage; revenueRecognised at
+  // Standard Collection / Contract Signed & Payment).
 
-  const stageIdx = STAGES.indexOf(lead.stage);
+  // Nurturing is an alternate (off-funnel) state — show no progress fill so
+  // the linear funnel reads as "paused" rather than "completed".
+  const stageIdx = lead.stage === 'Nurturing' ? -1 : STAGES.indexOf(lead.stage);
 
   // Forms
   const [reassignForm, setReassignForm] = useState({toAgent:'Ahmed Hassan', reason:'Territory reassignment'});
   const [tourForm, setTourForm] = useState({property:'', date:'', time:'', agent:'Fatma Ibrahim'});
   const [prefForm, setPrefForm] = useState({propertyTypes:'Apartment', locations:'New Cairo', bedrooms:'3', bathrooms:'2', budgetMin:'5000000', budgetMax:'10000000', timeline:'Within 3 months', notes:''});
   const [editForm, setEditForm] = useState({name:lead.name, phone:lead.phone||'', email:lead.email||'', stage:lead.stage, priority:lead.priority, budget:lead.budget||''});
-  const [activityForm, setActivityForm] = useState({type:'Call', detail:'', sub:''});
+  // 11-May stakeholder ask: agents should log a structured Action (not just a
+  // free-form Note). The Action auto-generates a Note row for the timeline.
+  // Visibility is two-tier: 'communication' (everyone on team sees) vs
+  // 'private' (Lead Note — only the owner + TL/Manager/Director see it).
+  const [activityForm, setActivityForm] = useState({
+    action: 'Call Outcome',
+    outcome: 'Interested',
+    summary: '',
+    note: '',
+    visibility: 'communication',
+  });
 
   const tabs = [
     { id:'overview', label:'Overview', icon:<User size={14}/> },
@@ -96,17 +114,37 @@ export const CrmLeadDetail = () => {
               <span style={{display:'flex',alignItems:'center',gap:4}}><MapPin size={13}/>{lead.project}</span>
             </div>
           </div>
-          <div style={{display:'flex',gap:8}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}}>
             {!readOnly && <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowEdit(true)}><Edit size={14}/> Edit</button>}
             {canReassignThis && <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowReassign(true)}><UserPlus size={14}/> Reassign</button>}
             {!readOnly && <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)}><Calendar size={14}/> Schedule Tour</button>}
+            {/* 11-May stakeholder ask: agents should park leads in Nurturing
+                instead of closing them as Lost prematurely. Hidden when the
+                lead is already closed or already in Nurturing. */}
+            {!readOnly && !['Nurturing','Closed Won','Closed Lost'].includes(lead.stage) && (
+              <button
+                className="btn btn-outline btn-sm"
+                style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}}
+                onClick={() => {
+                  const reason = window.prompt('Why is this lead being moved to Nurturing? (e.g., "budget too low right now", "buying after summer")');
+                  if (!reason) return;
+                  updateItem('leads', lead.id, { stage: 'Nurturing', notes: (lead.notes || '') + `\n[Nurturing] ${reason}` }, { action: 'Lead → Nurturing', module: 'CRM', target: lead.id, detail: reason });
+                  toast(`${lead.name} moved to Nurturing — kept warm for re-engagement`, 'info');
+                }}
+              >Move to Nurturing</button>
+            )}
             {readOnly && <span className="badge badge-warning"><ShieldCheck size={10}/> Audit-only</span>}
           </div>
         </div>
 
-        {/* Stage Progress */}
+        {/* Stage Progress — linear funnel, excludes alternate states. */}
+        {lead.stage === 'Nurturing' && (
+          <div style={{marginTop:16,padding:'10px 14px',background:'rgba(255,255,255,.1)',borderRadius:8,fontSize:12,color:'rgba(255,255,255,.9)',display:'flex',alignItems:'center',gap:10}}>
+            <Star size={14}/> <span>Lead is in <b>Nurturing</b> — kept warm for re-engagement, SLA paused.</span>
+          </div>
+        )}
         <div style={{display:'flex',gap:3,marginTop:20}}>
-          {STAGES.filter(s=>s!=='Closed Lost').map((s,i)=>(
+          {STAGES.filter(s => s !== 'Closed Lost' && s !== 'Nurturing').map((s,i)=>(
             <div key={s} style={{flex:1,textAlign:'center'}}>
               <div style={{height:4,borderRadius:4,background:i<=stageIdx?'var(--brand)':'rgba(255,255,255,.15)',marginBottom:4}}/>
               <div style={{fontSize:9,fontWeight:i<=stageIdx?700:400,color:i<=stageIdx?'var(--brand)':'rgba(255,255,255,.3)'}}>{s}</div>
@@ -160,59 +198,87 @@ export const CrmLeadDetail = () => {
       {/* Tab: Buyer Preferences */}
       {tab==='preferences'&&(
         prefs ? (
+          <>
+            {/* 11-May ask: surface campaign inference so the agent knows
+                these values came from the lead's source, not a phone call. */}
+            {prefs.inferred && (
+              <div style={{padding:'12px 16px',background:'var(--brand-tint)',border:'1px solid rgba(232,103,42,.25)',borderRadius:10,marginBottom:16,display:'flex',gap:12,alignItems:'center'}}>
+                <div style={{width:36,height:36,borderRadius:10,background:'#fff',color:'var(--brand)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:18}}>✨</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Auto-filled from campaign signal · <i>{prefs.inferredFrom}</i></div>
+                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:2,lineHeight:1.4}}>Locations and property types below came from the campaign this lead clicked through. Agent confirms and refines on first call — open the conversation already knowing the interest area.</div>
+                </div>
+              </div>
+            )}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
             <div className="data-panel" style={{padding:20}}>
-              <h3 style={{fontSize:14,fontWeight:700,marginBottom:14}}>Property Requirements</h3>
+              <h3 style={{fontSize:14,fontWeight:700,marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+                Property Requirements
+                {prefs.inferred && <span style={{fontSize:9,fontWeight:700,color:'var(--brand)',background:'var(--brand-tint)',padding:'2px 6px',borderRadius:4,letterSpacing:'.04em'}}>FROM CAMPAIGN</span>}
+              </h3>
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                <div><div className="drawer-label">Property Types</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{prefs.propertyTypes.map(t=><span key={t} style={{padding:'4px 12px',background:'var(--brand-tint)',color:'var(--brand)',borderRadius:20,fontSize:11,fontWeight:600}}>{t}</span>)}</div></div>
-                <div><div className="drawer-label">Preferred Locations</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{prefs.locations.map(l=><span key={l} style={{padding:'4px 12px',background:'#eff6ff',color:'var(--info)',borderRadius:20,fontSize:11,fontWeight:600}}>{l}</span>)}</div></div>
+                <div><div className="drawer-label">Property Types</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{(prefs.propertyTypes || []).map(t=><span key={t} style={{padding:'4px 12px',background:'var(--brand-tint)',color:'var(--brand)',borderRadius:20,fontSize:11,fontWeight:600}}>{t}</span>)}</div></div>
+                <div><div className="drawer-label">Preferred Locations</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{(prefs.locations || []).map(l=><span key={l} style={{padding:'4px 12px',background:'#eff6ff',color:'var(--info)',borderRadius:20,fontSize:11,fontWeight:600}}>{l}</span>)}</div></div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                  <div><div className="drawer-label">Bedrooms</div><div className="drawer-value">{prefs.bedrooms}</div></div>
-                  <div><div className="drawer-label">Bathrooms</div><div className="drawer-value">{prefs.bathrooms}</div></div>
+                  <div><div className="drawer-label">Bedrooms</div><div className="drawer-value">{prefs.bedrooms || (prefs.inferred ? <i style={{color:'var(--text-tertiary)'}}>confirm on call</i> : '—')}</div></div>
+                  <div><div className="drawer-label">Bathrooms</div><div className="drawer-value">{prefs.bathrooms || (prefs.inferred ? <i style={{color:'var(--text-tertiary)'}}>confirm on call</i> : '—')}</div></div>
                 </div>
                 <div><div className="drawer-label">Budget Range</div><div className="drawer-value">EGP {fmt(prefs.budgetMin)} — {fmt(prefs.budgetMax)}</div>
                   <div style={{height:6,background:'#e2e8f0',borderRadius:4,marginTop:6,overflow:'hidden'}}><div style={{width:'60%',height:'100%',background:'linear-gradient(90deg,var(--brand),#f59e0b)',borderRadius:4}}/></div>
                 </div>
-                <div><div className="drawer-label">Timeline</div><div className="drawer-value">{prefs.timeline}</div></div>
+                <div><div className="drawer-label">Timeline</div><div className="drawer-value">{prefs.timeline || (prefs.inferred ? <i style={{color:'var(--text-tertiary)'}}>confirm on call</i> : '—')}</div></div>
               </div>
             </div>
             <div className="data-panel" style={{padding:20}}>
               <h3 style={{fontSize:14,fontWeight:700,marginBottom:14}}>Preferences</h3>
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                <div><div className="drawer-label">Preferred Developers</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{prefs.preferredDevelopers.map(d=><span key={d} style={{padding:'4px 12px',background:'#f0fdf4',color:'var(--success)',borderRadius:20,fontSize:11,fontWeight:600}}>{d}</span>)}</div></div>
-                <div><div className="drawer-label">Amenities</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{prefs.amenities.map(a=><span key={a} style={{padding:'4px 12px',background:'#faf5ff',color:'#8b5cf6',borderRadius:20,fontSize:11,fontWeight:600}}>{a}</span>)}</div></div>
-                <div><div className="drawer-label">Notes</div><div style={{fontSize:13,background:'#f8fafc',padding:14,borderRadius:10,border:'1px solid var(--border)',lineHeight:1.6,marginTop:4}}>{prefs.notes}</div></div>
+                <div><div className="drawer-label">Preferred Developers</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{(prefs.preferredDevelopers || []).map(d=><span key={d} style={{padding:'4px 12px',background:'#f0fdf4',color:'var(--success)',borderRadius:20,fontSize:11,fontWeight:600}}>{d}</span>)}{(!prefs.preferredDevelopers || prefs.preferredDevelopers.length===0) && prefs.inferred && <span style={{fontSize:12,color:'var(--text-tertiary)',fontStyle:'italic'}}>Confirm with the buyer on first call</span>}</div></div>
+                <div><div className="drawer-label">Amenities</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>{(prefs.amenities || []).map(a=><span key={a} style={{padding:'4px 12px',background:'#faf5ff',color:'#8b5cf6',borderRadius:20,fontSize:11,fontWeight:600}}>{a}</span>)}{(!prefs.amenities || prefs.amenities.length===0) && prefs.inferred && <span style={{fontSize:12,color:'var(--text-tertiary)',fontStyle:'italic'}}>To be captured during qualification call</span>}</div></div>
+                <div><div className="drawer-label">Notes</div><div style={{fontSize:13,background:'#f8fafc',padding:14,borderRadius:10,border:'1px solid var(--border)',lineHeight:1.6,marginTop:4,whiteSpace:'pre-wrap'}}>{prefs.notes}</div></div>
               </div>
             </div>
           </div>
+          </>
         ) : <div className="data-panel" style={{padding:40,textAlign:'center'}}><Home size={32} color="var(--text-tertiary)"/><p style={{color:'var(--text-secondary)',marginTop:12}}>No buyer preferences recorded yet</p><button className="btn btn-brand" onClick={()=>setShowPrefAdd(true)}>Add Preferences</button></div>
       )}
 
       {/* Tab: Activity */}
-      {tab==='activity'&&(
-        <div className="data-panel" style={{padding:20}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <h3 style={{fontSize:14,fontWeight:700}}>Activity Timeline</h3>
-            <button className="btn btn-brand btn-sm" onClick={()=>setShowActivityAdd(true)}>+ Log Activity</button>
+      {tab==='activity'&&(() => {
+        // 11-May: filter private Lead Notes — only the owner and managers/
+        // directors/audit roles can see them. Communication notes are visible
+        // to everyone with access to the lead.
+        const canSeePrivate = lead.owner === persona.label || ['salesManager','salesDirector','backofficeAdmin','systemAdmin','executive'].includes(personaKey);
+        const visibleActivities = linkedActivities.filter(a => a.visibility !== 'private' || canSeePrivate);
+        return (
+          <div className="data-panel" style={{padding:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <h3 style={{fontSize:14,fontWeight:700}}>Activity Timeline</h3>
+              <button className="btn btn-brand btn-sm" onClick={()=>setShowActivityAdd(true)}>+ Log Action</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:0,position:'relative',paddingLeft:24}}>
+              <div style={{position:'absolute',left:7,top:0,bottom:0,width:2,background:'var(--border)'}}/>
+              {[...assignments.map(a=>({time:a.date,type:'assignment',detail:`${a.fromAgent?`Reassigned from ${a.fromAgent} to`:'Assigned to'} ${a.toAgent}`,sub:a.reason,visibility:'communication'})),
+                ...linkedTours.map(t=>({time:`${t.date} ${t.time}`,type:'tour',detail:`Tour: ${t.property}`,sub:t.feedback||t.status,visibility:'communication'})),
+                ...linkedShares.map(s=>({time:s.timestamp,type:'share',detail:`${s.channel} share: ${s.property}`,sub:`Response: ${s.response}`,visibility:'communication'})),
+                ...visibleActivities.map(a=>({time:a.date,type:'activity',detail:`${a.type}: ${a.detail}`,sub:a.sub,visibility: a.visibility || 'communication',author: a.author})),
+              ].sort((a,b)=>b.time.localeCompare(a.time)).map((ev,i)=>(
+                <div key={i} style={{padding:'12px 0 12px 20px',position:'relative'}}>
+                  <div style={{position:'absolute',left:-4,top:16,width:12,height:12,borderRadius:'50%',background: ev.visibility === 'private' ? '#92400e' : ev.type==='assignment'?'var(--brand)':ev.type==='tour'?'var(--info)':ev.type==='activity'?'var(--warning)':'var(--success)',border:'2px solid #fff'}}/>
+                  <div style={{fontSize:11,color:'var(--text-tertiary)',marginBottom:2,display:'flex',alignItems:'center',gap:6}}>
+                    <span>{ev.time}</span>
+                    {ev.author && <span>· {ev.author}</span>}
+                    {ev.visibility === 'private' && <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',background:'#fef3c7',color:'#92400e',borderRadius:4,letterSpacing:'.04em'}}>🔒 LEAD NOTE</span>}
+                    {ev.visibility === 'communication' && ev.type === 'activity' && <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',background:'#dbeafe',color:'#1e40af',borderRadius:4,letterSpacing:'.04em'}}>COMMUNICATION</span>}
+                  </div>
+                  <div style={{fontSize:13,fontWeight:600}}>{ev.detail}</div>
+                  {ev.sub&&<div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2,whiteSpace:'pre-wrap'}}>{ev.sub}</div>}
+                </div>
+              ))}
+              {linkedTours.length===0&&linkedShares.length===0&&assignments.length===0&&visibleActivities.length===0&&<div style={{padding:20,color:'var(--text-tertiary)'}}>No activity recorded yet</div>}
+            </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:0,position:'relative',paddingLeft:24}}>
-            <div style={{position:'absolute',left:7,top:0,bottom:0,width:2,background:'var(--border)'}}/>
-            {[...assignments.map(a=>({time:a.date,type:'assignment',detail:`${a.fromAgent?`Reassigned from ${a.fromAgent} to`:'Assigned to'} ${a.toAgent}`,sub:a.reason})),
-              ...linkedTours.map(t=>({time:`${t.date} ${t.time}`,type:'tour',detail:`Tour: ${t.property}`,sub:t.feedback||t.status})),
-              ...linkedShares.map(s=>({time:s.timestamp,type:'share',detail:`${s.channel} share: ${s.property}`,sub:`Response: ${s.response}`})),
-              ...linkedActivities.map(a=>({time:a.date,type:'activity',detail:`${a.type}: ${a.detail}`,sub:a.sub}))
-            ].sort((a,b)=>b.time.localeCompare(a.time)).map((ev,i)=>(
-              <div key={i} style={{padding:'12px 0 12px 20px',position:'relative'}}>
-                <div style={{position:'absolute',left:-4,top:16,width:12,height:12,borderRadius:'50%',background:ev.type==='assignment'?'var(--brand)':ev.type==='tour'?'var(--info)':ev.type==='activity'?'var(--warning)':'var(--success)',border:'2px solid #fff'}}/>
-                <div style={{fontSize:11,color:'var(--text-tertiary)',marginBottom:2}}>{ev.time}</div>
-                <div style={{fontSize:13,fontWeight:600}}>{ev.detail}</div>
-                {ev.sub&&<div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2}}>{ev.sub}</div>}
-              </div>
-            ))}
-            {linkedTours.length===0&&linkedShares.length===0&&assignments.length===0&&<div style={{padding:20,color:'var(--text-tertiary)'}}>No activity recorded yet</div>}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tab: Source History */}
       {tab==='source'&&(
@@ -258,12 +324,8 @@ export const CrmLeadDetail = () => {
             {linkedShares.length?<table className="data-table"><thead><tr><th>Property</th><th>Channel</th><th>Timestamp</th><th>Response</th></tr></thead>
               <tbody>{linkedShares.map(s=><tr key={s.id}><td className="bold">{s.property}</td><td>{s.channel}</td><td className="muted">{s.timestamp}</td><td><span className={`badge ${s.response==='Interested'?'badge-success':s.response==='Viewed'?'badge-info':'badge-gray'}`}>{s.response}</span></td></tr>)}</tbody></table>:<p className="muted">No shares</p>}
           </div>
-          {/* Contracts */}
-          <div className="data-panel" style={{padding:20}}>
-            <h3 style={{fontSize:14,fontWeight:700,marginBottom:12}}>Contracts ({linkedContracts.length})</h3>
-            {linkedContracts.length?<table className="data-table"><thead><tr><th>ID</th><th>Project</th><th>Value</th><th>Stage</th></tr></thead>
-              <tbody>{linkedContracts.map(c=><tr key={c.id}><td className="muted">{c.id}</td><td className="bold">{c.project}</td><td className="bold">EGP {fmt(c.value)}</td><td><span className={`badge ${c.stage==='Signed'||c.stage==='Registered'?'badge-success':c.stage==='Under Review'?'badge-warning':'badge-gray'}`}>{c.stage}</span></td></tr>)}</tbody></table>:<p className="muted">No contracts</p>}
-          </div>
+          {/* Contracts module retired — contract status surfaces directly on
+              the linked Deal at "Contract Signed" / "Contract Signed & Payment". */}
         </div>
       )}
 
@@ -338,16 +400,186 @@ export const CrmLeadDetail = () => {
           <div className="form-group"><label>Priority</label><select value={editForm.priority} onChange={e=>setEditForm({...editForm,priority:e.target.value})}><option>Hot</option><option>Warm</option><option>Cold</option></select></div>
           <div className="form-group" style={{gridColumn:'span 2'}}><label>Budget</label><input type="number" value={editForm.budget} onChange={e=>setEditForm({...editForm,budget:e.target.value})}/></div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowEdit(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{updateItem('leads',lead.id,{...editForm,budget:Number(editForm.budget)||0}); toast('Lead updated','success');setShowEdit(false);}}>Save Changes</button></div></div></div>}
+        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowEdit(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{
+          const wasReservation = lead.stage === 'Reservation';
+          const willBeReservation = editForm.stage === 'Reservation';
+          updateItem('leads',lead.id,{...editForm,budget:Number(editForm.budget)||0}, { action:'Lead Updated', module:'CRM', target: lead.id });
+          toast('Lead updated','success');
+          setShowEdit(false);
+          // 11-May stakeholder decision: the Deal officially enters the pipeline
+          // when the customer formally contracts with the developer and pays
+          // the reservation deposit — i.e. when the lead moves to Reservation,
+          // not when it qualifies. Commission details are deferred.
+          if (!wasReservation && willBeReservation) {
+            const existing = deals.find(d => (d.lead === lead.name || d.leadName === lead.name) && (d.status || '') !== 'Closed Lost');
+            if (!existing) {
+              setCreateDealType('OffPlan');
+              setCreateDealPrompt({ leadName: lead.name, project: lead.project, developer: lead.developer, budget: lead.budget, owner: lead.owner, team: lead.team });
+            }
+          }
+        }}>Save Changes</button></div></div></div>}
 
-      {/* Log Activity Modal */}
-      {showActivityAdd&&<div className="modal-overlay" onClick={()=>setShowActivityAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Log Activity</h3><button className="btn-icon" onClick={()=>setShowActivityAdd(false)}><X size={18}/></button></div>
-        <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:16}}>
-          <div className="form-group"><label>Activity Type</label><select value={activityForm.type} onChange={e=>setActivityForm({...activityForm,type:e.target.value})}><option>Call</option><option>Meeting</option><option>Email</option><option>Note</option><option>WhatsApp</option></select></div>
-          <div className="form-group"><label>Summary</label><input type="text" value={activityForm.detail} onChange={e=>setActivityForm({...activityForm,detail:e.target.value})} placeholder="e.g. Discussed budget constraints"/></div>
-          <div className="form-group"><label>Details / Notes</label><textarea rows={3} value={activityForm.sub} onChange={e=>setActivityForm({...activityForm,sub:e.target.value})}/></div>
+      {/* ─── Create Deal prompt — triggered when lead moves to Reservation ─── */}
+      {/* 11-May stakeholder decision: Deal enters the pipeline at Reservation
+          (customer signed with the developer + paid deposit). Commission
+          details are deferred and entered later in the deal lifecycle. */}
+      {createDealPrompt && (
+        <div className="modal-overlay" onClick={()=>setCreateDealPrompt(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
+            <div className="modal-header">
+              <h3>Create Deal — Reservation entered</h3>
+              <button className="btn-icon" onClick={()=>setCreateDealPrompt(null)}><X size={18}/></button>
+            </div>
+            <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+              <div style={{padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,fontSize:12,lineHeight:1.5}}>
+                <b>{createDealPrompt.leadName}</b> just moved to <b>Reservation</b> — the buyer has formally contracted with the developer and paid the reservation deposit. Per the 11-May decision, the Deal officially enters the pipeline now.<br/>
+                Project: <b>{createDealPrompt.project}</b> · Budget: <b>EGP {fmt(createDealPrompt.budget || 0)}</b>
+              </div>
+              <div className="form-group">
+                <label>Pipeline Type</label>
+                <div style={{display:'flex',gap:8}}>
+                  {['OffPlan','Resale'].map(t => (
+                    <button
+                      key={t} type="button"
+                      onClick={()=>setCreateDealType(t)}
+                      style={{
+                        flex:1,padding:'10px 14px',borderRadius:8,cursor:'pointer',
+                        border: createDealType === t ? '1px solid var(--brand)' : '1px solid var(--border)',
+                        background: createDealType === t ? 'var(--brand-tint)' : '#fff',
+                        color: createDealType === t ? 'var(--brand)' : 'var(--text-primary)',
+                        fontWeight:700,fontSize:13,
+                      }}
+                    >{t === 'OffPlan' ? 'Off Plan' : 'Resale'}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-tertiary)',lineHeight:1.4}}>
+                The deal will be created at stage <b>Reservation</b> for Off Plan or <b>Offer Accepted</b> for Resale. Commission details can be filled in later — they are not required at deal creation.
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={()=>setCreateDealPrompt(null)}>Skip — don't create deal</button>
+              <button className="btn btn-brand" onClick={()=>{
+                const entryStage = createDealType === 'OffPlan' ? 'Reservation' : 'Offer Accepted';
+                const created = addItem('deals', {
+                  type: createDealType,
+                  lead: createDealPrompt.leadName,
+                  leadName: createDealPrompt.leadName,
+                  project: createDealPrompt.project || '',
+                  developer: createDealPrompt.developer || '',
+                  propertyId: '',
+                  value: Number(createDealPrompt.budget) || 0,
+                  // Commission deferred per 11-May meeting — agent or finance fills in later.
+                  commission: 0,
+                  owner: createDealPrompt.owner || persona.label,
+                  team: createDealPrompt.team || h.team || 'Alpha',
+                  stage: entryStage,
+                  reservationDeposit: 0, paymentPlan: '',
+                  offerPrice: 0, paymentMethod: 'Cash',
+                  commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false,
+                  collectionPercent: 0, attachments: [],
+                  status: 'Active',
+                  created: new Date().toISOString().slice(0,10),
+                }, 'D', { action: 'Deal Created (from Lead Reservation)', module: 'CRM', target: lead.id, detail: `${createDealType} · ${createDealPrompt.leadName} · entry stage ${entryStage}` });
+                toast(`Deal ${created?.id || ''} created at ${entryStage} — commission details deferred`, 'success');
+                setCreateDealPrompt(null);
+                navigate('/system/crm/deals');
+              }}>Create deal</button>
+            </div>
+          </div>
         </div>
-        <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowActivityAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{addItem('activities',{leadId:lead.id,date:new Date().toISOString().replace('T',' ').substring(0,16),type:activityForm.type,detail:activityForm.detail,sub:activityForm.sub},'ACT'); toast('Activity logged','success');setShowActivityAdd(false);}}>Log Activity</button></div></div></div>}
+      )}
+
+      {/* ─── Log Action modal — structured Action picker + visibility toggle ─── */}
+      {/* 11-May stakeholder asks (items 1:26 + 1:27): agent logs an Action
+          (not a Note); two-tier visibility — Communication (team-visible) vs
+          Lead Note (private to owner + managers). */}
+      {showActivityAdd && (() => {
+        const ACTION_TYPES = [
+          { key:'Call Outcome',         icon:'📞', outcomes:['Interested','Callback Later','Not Interested','No Answer','Wrong Number','Voicemail'] },
+          { key:'Scheduled Tour',       icon:'🏠', outcomes:['Confirmed','Pending','Rescheduled'] },
+          { key:'Sent Brochure',        icon:'📄', outcomes:['WhatsApp','Email','SMS'] },
+          { key:'Sent Quote',           icon:'💼', outcomes:['Standard plan','Custom plan'] },
+          { key:'Requested Approval',   icon:'✋', outcomes:['Commission override','Manual lock override','Reassignment'] },
+          { key:'Meeting',              icon:'👥', outcomes:['Office','Site visit','Video call'] },
+          { key:'WhatsApp',             icon:'💬', outcomes:['Sent message','Voice note','Document'] },
+          { key:'Email',                icon:'📧', outcomes:['Outbound','Reply received'] },
+        ];
+        const currentType = ACTION_TYPES.find(a => a.key === activityForm.action) || ACTION_TYPES[0];
+        return (
+          <div className="modal-overlay" onClick={()=>setShowActivityAdd(false)}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+              <div className="modal-header">
+                <h3>Log Action</h3>
+                <button className="btn-icon" onClick={()=>setShowActivityAdd(false)}><X size={18}/></button>
+              </div>
+              <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div className="form-group">
+                  <label>Action *</label>
+                  <select value={activityForm.action} onChange={e=>{const t = ACTION_TYPES.find(x=>x.key===e.target.value); setActivityForm({...activityForm,action:e.target.value,outcome:t?.outcomes[0]||''});}}>
+                    {ACTION_TYPES.map(t => <option key={t.key}>{t.icon} {t.key}</option>)}
+                  </select>
+                  <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>Structured action — auto-generates a Note in the timeline. Use Note text below for the conversation context.</div>
+                </div>
+                <div className="form-group">
+                  <label>Outcome / Sub-type</label>
+                  <select value={activityForm.outcome} onChange={e=>setActivityForm({...activityForm,outcome:e.target.value})}>
+                    {currentType.outcomes.map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Summary (one-liner)</label>
+                  <input type="text" value={activityForm.summary} onChange={e=>setActivityForm({...activityForm,summary:e.target.value})} placeholder="e.g. Discussed budget constraints"/>
+                </div>
+                <div className="form-group">
+                  <label>Note (full detail)</label>
+                  <textarea rows={3} value={activityForm.note} onChange={e=>setActivityForm({...activityForm,note:e.target.value})} placeholder="Conversation context, follow-up needed, observations…"/>
+                </div>
+                <div className="form-group">
+                  <label>Visibility</label>
+                  <div style={{display:'flex',gap:8}}>
+                    {[
+                      { key:'communication', label:'Communication', sub:'Everyone on team sees' },
+                      { key:'private',       label:'Lead Note',     sub:'Only owner + managers see' },
+                    ].map(v => (
+                      <button
+                        key={v.key} type="button"
+                        onClick={()=>setActivityForm({...activityForm,visibility:v.key})}
+                        style={{
+                          flex:1,padding:'10px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                          border: activityForm.visibility === v.key ? '1px solid var(--brand)' : '1px solid var(--border)',
+                          background: activityForm.visibility === v.key ? 'var(--brand-tint)' : '#fff',
+                        }}
+                      >
+                        <div style={{fontSize:13,fontWeight:700,color: activityForm.visibility === v.key ? 'var(--brand)' : 'var(--text-primary)'}}>{v.label}</div>
+                        <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:2}}>{v.sub}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-outline" onClick={()=>setShowActivityAdd(false)}>Cancel</button>
+                <button className="btn btn-brand" onClick={()=>{
+                  const detail = `${activityForm.action}: ${activityForm.outcome}${activityForm.summary ? ' — ' + activityForm.summary : ''}`;
+                  addItem('activities', {
+                    leadId: lead.id,
+                    date: new Date().toISOString().replace('T',' ').substring(0,16),
+                    type: activityForm.action,
+                    outcome: activityForm.outcome,
+                    detail,
+                    sub: activityForm.note,
+                    visibility: activityForm.visibility,
+                    author: persona.label,
+                  }, 'ACT', { action: `Action Logged · ${activityForm.action}`, module: 'CRM', target: lead.id, detail });
+                  toast(`Action logged — ${activityForm.visibility === 'private' ? 'private Lead Note' : 'visible to team'}`, 'success');
+                  setShowActivityAdd(false);
+                }}>Log Action</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

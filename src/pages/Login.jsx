@@ -52,7 +52,7 @@ export const LoginPage = () => {
             <div className="system-pill"><Building2 size={16}/>Marketplace Dashboard</div>
             <div className="system-pill"><ShieldCheck size={16}/>Backoffice Admin Portal</div>
             <div className="system-pill"><KeyRound size={16}/>Matrix EGMLS</div>
-            <div className="system-pill"><GraduationCap size={16}/>Viva Learning</div>
+            <div className="system-pill"><GraduationCap size={16}/>Homes Academy</div>
           </div>
         </div>
 

@@ -104,7 +104,7 @@ const SETTING_GROUPS = [
   { key:'general', title:'General', desc:'Company name, timezone, locale settings', items:[['Company','company'],['Timezone','timezone'],['Language','language'],['Currency','currency']] },
   { key:'auth',    title:'Authentication', desc:'SSO and security configuration', items:[['Provider','sso'],['SSO Mode','ssoMode'],['Session Timeout','sessionTimeout'],['MFA','mfa']] },
   { key:'notif',   title:'Notifications', desc:'Email and in-app notification settings', items:[['Lead Assignment','notifLead'],['Task Reminders','notifTask'],['Training Alerts','notifTraining'],['Commission Updates','notifCommission']] },
-  { key:'integ',   title:'Integration', desc:'External system connections', items:[['Matrix EGMLS','integMatrix'],['Viva Learning','integViva'],['WhatsApp Business','integWhatsapp'],['Email SMTP','integSmtp']] },
+  { key:'integ',   title:'Integration', desc:'External system connections', items:[['Matrix EGMLS','integMatrix'],['Homes Academy','integViva'],['WhatsApp Business','integWhatsapp'],['Email SMTP','integSmtp']] },
   { key:'data',    title:'Data & Privacy', desc:'Data retention and privacy settings', items:[['Audit Log Retention','auditRetention'],['Data Backup','backup'],['GDPR Compliance','gdpr'],['Export Restrictions','exportRule']] },
   { key:'brand',   title:'Branding', desc:'Logo, colors, and white-label settings', items:[['Primary Color','primaryColor'],['Tagline','tagline'],['Favicon','favicon']] },
 ];

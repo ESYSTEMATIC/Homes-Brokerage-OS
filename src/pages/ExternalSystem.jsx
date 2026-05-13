@@ -90,7 +90,7 @@ export const DealsPipeline = () => (
   <ExternalSystem
     name="CRM — Deals Pipeline"
     brd=""
-    description="Deal lifecycle, stage progression, contracts and commission foundation"
+    description="Deal lifecycle, stage progression, commission tracking and revenue recognition (contracts retired — tracked via Deal stages)"
     capabilities={['Pipeline board','All deals table','Linked lead & inventory','Stage management','Reservation & contract status','Commission calculation','Override request workflow','Hierarchy approval']}
     accessRoles={[
       { role: 'Sales Agent', level: 'Full' },

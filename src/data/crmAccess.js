@@ -26,22 +26,36 @@
 // SLA aging (BRD §6.1.5):
 //   New ≤ 24h, Contacted ≤ 72h, Qualified ≤ 7d before escalation to Team Leader.
 
+// crmModules — explicit list of CRM modules a persona is entitled to.
+// Used to gate sidebar links + route guards. Empty array = no CRM access.
+// 'all' is shorthand for every CRM module (audit + sales-track roles).
+//
+// Available module keys (in render order):
+//   dashboard · leads · listings · deals · contracts · tasks
+//   minisite · reports · campaigns · coldCalls · coldCallsImport
+// Sales-track modules. Contracts module was retired on 08-May — contract
+// lifecycle is tracked through the Deal at Contract Signed (Off Plan) and
+// Contract Signed & Payment (Resale) stages, where commission locks and
+// revenue recognition happen.
+const SALES_TRACK = ['dashboard','leads','listings','deals','tasks','minisite'];
+// Sales-track agents + their own Cold Calls assignments.
+const SALES_TRACK_PLUS_CC = [...SALES_TRACK, 'coldCallsAssigned'];
+
 export const HIERARCHY = {
-  // demo persona → role title, team scope, can-see-team(s)
-  agent:           { role: 'Sales Agent',     scope: 'self',  team: 'Alpha', leader: 'Omar Sherif',     manager: 'Sales Manager' },
-  agentActive:     { role: 'Sales Agent',     scope: 'self',  team: 'Alpha', leader: 'Omar Sherif',     manager: 'Sales Manager' },
-  teamLeader:      { role: 'Team Leader',     scope: 'team',  team: 'Alpha', leader: null,              manager: 'Sales Manager' },
-  salesManager:    { role: 'Sales Manager',   scope: 'cross', teams: ['Alpha', 'Beta'],                  manager: null },
-  salesDirector:   { role: 'Sales Director',  scope: 'all' },
-  backofficeAdmin: { role: 'Backoffice Admin',scope: 'audit' },
-  systemAdmin:     { role: 'System Admin',    scope: 'audit' },
-  executive:       { role: 'Executive / CEO', scope: 'audit' },
-  hrRecruiter:     { role: 'HR Recruiter',    scope: 'none' },
-  financeOfficer:  { role: 'Finance Officer', scope: 'audit' },
-  marketplaceAdmin:{ role: 'Marketplace Admin', scope: 'none' },
-  // Marketing — CRM-only persona scoped to the Campaigns module.
-  // Cannot see leads, deals, contracts, tours, listings — only social campaigns.
-  marketing:       { role: 'Marketing',         scope: 'campaigns' },
+  agent:           { role: 'Sales Agent',       scope: 'self',  team: 'Alpha', leader: 'Omar Sherif', manager: 'Sales Manager', crmModules: SALES_TRACK_PLUS_CC },
+  agentActive:     { role: 'Sales Agent',       scope: 'self',  team: 'Alpha', leader: 'Omar Sherif', manager: 'Sales Manager', crmModules: SALES_TRACK_PLUS_CC },
+  teamLeader:      { role: 'Team Leader',       scope: 'team',  team: 'Alpha', leader: null,           manager: 'Sales Manager', crmModules: SALES_TRACK_PLUS_CC },
+  salesManager:    { role: 'Sales Manager',     scope: 'cross', teams: ['Alpha', 'Beta'],              manager: null,            crmModules: [...SALES_TRACK,'reports','coldCalls'] },
+  salesDirector:   { role: 'Sales Director',    scope: 'all',                                                                    crmModules: [...SALES_TRACK,'reports','coldCalls'] },
+  backofficeAdmin: { role: 'Backoffice Admin',  scope: 'audit',                                                                   crmModules: 'all' },
+  systemAdmin:     { role: 'System Admin',      scope: 'audit',                                                                   crmModules: 'all' },
+  executive:       { role: 'Executive / CEO',   scope: 'audit',                                                                   crmModules: SALES_TRACK },
+  hrRecruiter:     { role: 'HR Recruiter',      scope: 'none',                                                                    crmModules: [] },
+  financeOfficer:  { role: 'Finance Officer',   scope: 'audit',                                                                   crmModules: SALES_TRACK },
+  marketplaceAdmin:{ role: 'Marketplace Admin', scope: 'none',                                                                    crmModules: [] },
+  // Marketing — CRM-only persona scoped to Campaigns + Cold Calls (import-only
+  // view). Does not see leads, deals, contracts, tours, listings, reports.
+  marketing:       { role: 'Marketing',         scope: 'campaigns',                                                               crmModules: ['campaigns','coldCallsImport'] },
 };
 
 // Map persona → identifier used in `lead.owner` / `deal.owner`
@@ -75,12 +89,28 @@ export const canSeeLead = (personaKey, lead) => {
   return false;
 };
 
-// Returns true if the user can SEE the Campaigns module.
-// Only the marketing persona reaches this surface in V1.5 (BRD §8.23).
-export const canSeeCampaigns = (personaKey) => {
+// Returns true if the user can SEE a specific CRM module by key.
+// Honors HIERARCHY[persona].crmModules. 'all' opens everything.
+export const canSeeCrmModule = (personaKey, moduleKey) => {
   const h = HIERARCHY[personaKey];
-  return h?.scope === 'campaigns';
+  if (!h?.crmModules) return false;
+  if (h.crmModules === 'all') return true;
+  return h.crmModules.includes(moduleKey);
 };
+
+// Returns true if the user can SEE the Campaigns module.
+// Marketing is the only persona with campaigns in V1.5 (BRD §8.23).
+export const canSeeCampaigns = (personaKey) => canSeeCrmModule(personaKey, 'campaigns');
+
+// Returns true if the user has FULL access to the Cold Calls module
+// (assign + review + convert). Sales Director and audit-admin roles.
+export const canManageColdCalls = (personaKey) => canSeeCrmModule(personaKey, 'coldCalls');
+
+// Returns true if the user can IMPORT cold-call contacts only (no assign /
+// review / convert). Marketing — and anyone with full coldCalls also gets
+// import capability transitively.
+export const canImportColdCalls = (personaKey) =>
+  canSeeCrmModule(personaKey, 'coldCallsImport') || canSeeCrmModule(personaKey, 'coldCalls');
 
 // Returns true if the user can ASSIGN / REASSIGN a lead's owner.
 // Honors the 6-month manual-lead protection (BRD §6.1.4).
@@ -117,6 +147,12 @@ export const leadAgeDays = (createdISO) => {
 // SLA evaluator per stage — returns { level, message } where level is
 // 'ok' | 'warn' | 'breach'. Mirrors BRD §6.1.5.
 export const slaForStage = (stage, ageDays) => {
+  // 11-May stakeholder ask: Nurturing leads don't accumulate SLA breach
+  // pressure — they're being kept warm for future re-engagement, not actively
+  // worked. Closed states are also exempt.
+  if (stage === 'Nurturing' || stage === 'Closed Won' || stage === 'Closed Lost') {
+    return { level: 'ok', message: stage === 'Nurturing' ? `Nurturing · ${ageDays}d` : '—' };
+  }
   const limits = {
     'New':            1,    // 24h
     'Contacted':      3,    // 72h

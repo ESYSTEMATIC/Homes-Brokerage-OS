@@ -57,13 +57,53 @@ export const LEADS = [
   { id: "L-1008", name: "Mona Fawzy", phone: "+20 100 666 3344", email: "mona@mail.com", source: "Walk-in", campaign: "Branch Walk-in", project: "Mountain View", developer: "Mountain View", budget: 7000000, stage: "Contacted", owner: "Omar Sherif", team: "Beta", duplicate: "Review", priority: "Warm", created: "2024-01-18" },
 ];
 
+// ── DEAL PIPELINES (Deal Stages.docx · received from business team) ──
+// Two parallel pipelines drive the deal lifecycle. The `type` field picks
+// which stage list applies to a given deal.
+export const DEAL_STAGES_OFFPLAN = [
+  'Lead Qualified',                 // Buyer budget/timeline/project confirmed
+  'Reservation',                    // Reservation deposit paid
+  'Contract Signed',                // SPA executed, down payment per plan, Closed Won, commission LOCKED
+  'Early Collection Trigger (5%)',  // Developer hit initial collection threshold — Homes Advance available
+  'Standard Collection (10%)',      // Developer hit standard threshold — commission released by developer
+];
+export const DEAL_STAGES_RESALE = [
+  'Lead Qualified',                 // Both buyer + seller qualified
+  'Property Viewed',                // Site visit done, feedback logged
+  'Offer Made',                     // Buyer submits price + payment method
+  'Offer Accepted',                 // Seller accepts, MOU prep
+  'Contract Signed & Payment',      // Final SPA + payment + handover, commission released
+];
+// Convenience: returns the right stage list for a deal record.
+export const stagesForDealType = (type) => type === 'Resale' ? DEAL_STAGES_RESALE : DEAL_STAGES_OFFPLAN;
+
 // ── DEALS ──
+// New schema (08-May business inputs from Deal Stages.docx):
+//   type              'OffPlan' | 'Resale'
+//   stage             one of the pipeline stages above
+//   propertyId        FK to a Listing (l.id) — what unit/property the deal is about
+//   attachments       [{ id, name, size, uploadedAt }]
+//   reservationDeposit  Off Plan only (EGP) — deposit at Reservation stage
+//   paymentPlan       Off Plan only — e.g. "10% down, 5y installments"
+//   paymentMethod     Resale only — 'Cash' | 'Mortgage'
+//   offerPrice        Resale only (EGP)
+//   collectionPercent Off Plan only — % collected by developer (0..100)
+//   commissionLocked  true once Contract Signed reached
+//   homesAdvanceAvailable  true at Early Collection Trigger (Off Plan)
+//   revenueRecognised true once commission released (Standard Collection / Resale Contract Signed)
 export const DEALS = [
-  { id: "D-501", lead: "Sara Ali", owner: "Fatma Ibrahim", team: "Alpha", project: "ZED East", developer: "Ora", stage: "Negotiation", value: 12200000, commission: 2.0, status: "Active", created: "2024-01-14" },
-  { id: "D-502", lead: "Youssef Tarek", owner: "Fatma Ibrahim", team: "Alpha", project: "Hyde Park", developer: "Hyde Park", stage: "Reservation", value: 11200000, commission: 1.8, status: "Active", created: "2024-01-10" },
-  { id: "D-503", lead: "Nour Ibrahim", owner: "Hana Mahmoud", team: "Beta", project: "Hacienda Bay", developer: "Palm Hills", stage: "Contracting", value: 16000000, commission: 2.2, status: "Active", created: "2024-01-12" },
-  { id: "D-504", lead: "Mohamed Hassan", owner: "Ahmed Hassan", team: "Alpha", project: "Palm Hills New Cairo", developer: "Palm Hills", stage: "Qualified", value: 8500000, commission: 2.0, status: "Active", created: "2024-01-15" },
-  { id: "D-505", lead: "Tarek Mansour", owner: "Ahmed Hassan", team: "Alpha", project: "Midtown", developer: "Better Home", stage: "Closed Lost", value: 4500000, commission: 1.5, lostReason: "Budget exceeded", status: "Closed", created: "2024-01-10" },
+  // Off Plan — various stages
+  { id: "D-501", type: "OffPlan", lead: "Sara Ali", owner: "Fatma Ibrahim", team: "Alpha", project: "ZED East", developer: "Ora", propertyId: "LST-002", stage: "Reservation", value: 12200000, commission: 2.0, reservationDeposit: 250000, paymentPlan: "15% down · 6y installments", collectionPercent: 0, commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [], status: "Active", created: "2024-01-14" },
+  { id: "D-502", type: "OffPlan", lead: "Youssef Tarek", owner: "Fatma Ibrahim", team: "Alpha", project: "Hyde Park", developer: "Hyde Park", propertyId: "LST-004", stage: "Contract Signed", value: 11200000, commission: 1.8, reservationDeposit: 200000, paymentPlan: "10% down · 8y installments", collectionPercent: 3, commissionLocked: true, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [{ id:'ATT-001', name:'SPA_Hyde_Park_TH-B304.pdf', size:'1.2 MB', uploadedAt:'2024-01-10' }], status: "Active", created: "2024-01-10" },
+  { id: "D-503", type: "OffPlan", lead: "Nour Ibrahim", owner: "Hana Mahmoud", team: "Beta", project: "Hacienda Bay", developer: "Palm Hills", propertyId: "LST-003", stage: "Early Collection Trigger (5%)", value: 16000000, commission: 2.2, reservationDeposit: 400000, paymentPlan: "20% down · 5y installments", collectionPercent: 6, commissionLocked: true, homesAdvanceAvailable: true, revenueRecognised: false, attachments: [{ id:'ATT-002', name:'SPA_Hacienda_CH-A12.pdf', size:'1.4 MB', uploadedAt:'2024-01-12' }, { id:'ATT-003', name:'Reservation_Receipt.pdf', size:'320 KB', uploadedAt:'2024-01-12' }], status: "Active", created: "2024-01-12" },
+  { id: "D-504", type: "OffPlan", lead: "Mohamed Hassan", owner: "Ahmed Hassan", team: "Alpha", project: "Palm Hills New Cairo", developer: "Palm Hills", propertyId: "LST-001", stage: "Lead Qualified", value: 8500000, commission: 2.0, reservationDeposit: 0, paymentPlan: "10% down · 7y installments", collectionPercent: 0, commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [], status: "Active", created: "2024-01-15" },
+  { id: "D-506", type: "OffPlan", lead: "Karim Fouad", owner: "Omar Sherif", team: "Alpha", project: "Madinaty", developer: "Talaat Moustafa", propertyId: "LST-005", stage: "Standard Collection (10%)", value: 5200000, commission: 1.5, reservationDeposit: 100000, paymentPlan: "10% down · 10y installments", collectionPercent: 12, commissionLocked: true, homesAdvanceAvailable: true, revenueRecognised: true, attachments: [{ id:'ATT-004', name:'SPA_Madinaty_APT-C110.pdf', size:'1.1 MB', uploadedAt:'2023-12-20' }, { id:'ATT-005', name:'Commission_Release_TM.pdf', size:'180 KB', uploadedAt:'2024-01-15' }], status: "Closed Won", created: "2023-12-15" },
+  // Resale — various stages
+  { id: "D-507", type: "Resale", lead: "Mona Fawzy", owner: "Omar Sherif", team: "Beta", project: "Mountain View", developer: "Mountain View", propertyId: "LST-007", stage: "Property Viewed", value: 7000000, commission: 2.0, offerPrice: 0, paymentMethod: "Cash", commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [], status: "Active", created: "2024-01-18" },
+  { id: "D-508", type: "Resale", lead: "Layla Ahmed", owner: "Ahmed Hassan", team: "Alpha", project: "Sodic West", developer: "Sodic", propertyId: "LST-006", stage: "Offer Made", value: 9800000, commission: 2.5, offerPrice: 9500000, paymentMethod: "Mortgage", commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [{ id:'ATT-006', name:'Offer_Letter.pdf', size:'95 KB', uploadedAt:'2024-01-17' }], status: "Active", created: "2024-01-17" },
+  { id: "D-509", type: "Resale", lead: "Fatma Tarek", owner: "Fatma Ibrahim", team: "Alpha", project: "Palm Hills Katameya", developer: "Palm Hills", propertyId: "LST-008", stage: "Offer Accepted", value: 14500000, commission: 2.0, offerPrice: 14200000, paymentMethod: "Cash", commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [{ id:'ATT-007', name:'MOU_draft.pdf', size:'240 KB', uploadedAt:'2024-01-16' }], status: "Active", created: "2024-01-14" },
+  // Lost
+  { id: "D-505", type: "OffPlan", lead: "Tarek Mansour", owner: "Ahmed Hassan", team: "Alpha", project: "Midtown", developer: "Better Home", propertyId: null, stage: "Lead Qualified", value: 4500000, commission: 1.5, reservationDeposit: 0, paymentPlan: "—", collectionPercent: 0, commissionLocked: false, homesAdvanceAvailable: false, revenueRecognised: false, attachments: [], lostReason: "Budget exceeded", status: "Closed Lost", created: "2024-01-10" },
 ];
 
 // ── TASKS ──
@@ -88,15 +128,17 @@ export const ONBOARDING = [
 ];
 
 // ── DOCUMENTS ──
+// `expires` is the document's validity end date. Identity / Legal docs that
+// don't expire use null. Regulatory docs (RERA, Tax) carry rolling expiry.
 export const DOCUMENTS = [
-  { id: "DOC001", doc: "National ID", type: "Identity", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review" },
-  { id: "DOC002", doc: "Tax Card", type: "Financial", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review" },
-  { id: "DOC003", doc: "Commercial Register", type: "Legal", agent: "Ahmed Hassan", date: "2024-01-10", status: "Approved" },
-  { id: "DOC004", doc: "National ID", type: "Identity", agent: "Ahmed Hassan", date: "2023-12-20", status: "Approved" },
-  { id: "DOC005", doc: "Brokerage Agreement", type: "Legal", agent: "Yasmin Adel", date: "—", status: "Missing" },
-  { id: "DOC006", doc: "National ID", type: "Identity", agent: "Hana Mahmoud", date: "2024-01-08", status: "Rejected" },
-  { id: "DOC007", doc: "RERA License", type: "Regulatory", agent: "Mohamed Ali", date: "2024-01-12", status: "Approved" },
-  { id: "DOC008", doc: "Contract Agreement", type: "Legal", agent: "Omar Sherif", date: "2024-01-05", status: "Approved" },
+  { id: "DOC001", doc: "National ID", type: "Identity", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review", expires: "2031-01-14" },
+  { id: "DOC002", doc: "Tax Card", type: "Financial", agent: "Fatma Ibrahim", date: "2024-01-14", status: "Pending Review", expires: "2026-12-31" },
+  { id: "DOC003", doc: "Commercial Register", type: "Legal", agent: "Ahmed Hassan", date: "2024-01-10", status: "Approved", expires: "2025-12-31" },
+  { id: "DOC004", doc: "National ID", type: "Identity", agent: "Ahmed Hassan", date: "2023-12-20", status: "Approved", expires: "2030-12-20" },
+  { id: "DOC005", doc: "Brokerage Agreement", type: "Legal", agent: "Yasmin Adel", date: "—", status: "Missing", expires: null },
+  { id: "DOC006", doc: "National ID", type: "Identity", agent: "Hana Mahmoud", date: "2024-01-08", status: "Rejected", expires: null },
+  { id: "DOC007", doc: "RERA License", type: "Regulatory", agent: "Mohamed Ali", date: "2024-01-12", status: "Approved", expires: "2026-06-30" },
+  { id: "DOC008", doc: "Contract Agreement", type: "Legal", agent: "Omar Sherif", date: "2024-01-05", status: "Approved", expires: "2026-01-05" },
 ];
 
 // ── RECRUITMENT / JOB VACANCIES ──
@@ -139,14 +181,25 @@ export const COMMISSION_POLICIES = [
 
 // ── AUDIT LOGS ──
 export const AUDIT_LOGS = [
-  { id: "AUD-001", action: "Lead Assigned", actor: "Nour El-Din", target: "L-1001 → Ahmed Hassan", module: "CRM", timestamp: "2024-01-15 09:23:44", detail: "Lead assigned from manager queue" },
-  { id: "AUD-002", action: "Role Created", actor: "System Admin", target: "Senior Agent Role", module: "Backoffice", timestamp: "2024-01-14 14:11:02", detail: "New role with 12 permissions created" },
-  { id: "AUD-003", action: "Commission Override", actor: "Sales Manager", target: "D-503 Hacienda Bay", module: "Finance", timestamp: "2024-01-13 16:45:00", detail: "Rate changed from 2.0% to 2.2% — Premium launch" },
-  { id: "AUD-004", action: "Document Rejected", actor: "Backoffice Admin", target: "DOC006 National ID", module: "Backoffice", timestamp: "2024-01-12 11:30:00", detail: "Image quality insufficient" },
-  { id: "AUD-005", action: "Employee Suspended", actor: "HR Manager", target: "A005 Yasmin Adel", module: "HR", timestamp: "2024-01-11 10:00:00", detail: "Training compliance overdue" },
-  { id: "AUD-006", action: "Job Published", actor: "Dina Samir", target: "JOB-001 Senior Sales Agent", module: "Recruitment", timestamp: "2024-01-05 08:30:00", detail: "Published to careers page" },
-  { id: "AUD-007", action: "Deal Stage Changed", actor: "Fatma Ibrahim", target: "D-502 → Reservation", module: "CRM", timestamp: "2024-01-10 15:20:00", detail: "Stage moved from Negotiation to Reservation" },
-  { id: "AUD-008", action: "SSO Login", actor: "Ahmed Hassan", target: "Agent Session", module: "Security", timestamp: "2024-01-18 08:00:00", detail: "SSO authenticated via Microsoft Entra" },
+  // ─── CRM activity (appears on CRM Dashboard Recent Activity) ───
+  { id: "AUD-001", action: "Lead Assigned",         actor: "Nour El-Din",     target: "L-1001 → Ahmed Hassan",     module: "Leads",     timestamp: "2026-05-13 09:23:44", detail: "Lead assigned from manager queue" },
+  { id: "AUD-007", action: "Deal Stage Changed",    actor: "Fatma Ibrahim",   target: "D-502",                      module: "Deals",     timestamp: "2026-05-13 08:50:00", detail: "Hyde Park · Negotiation → Reservation" },
+  { id: "AUD-009", action: "Action Logged · Call",  actor: "Fatma Ibrahim",   target: "L-1002",                      module: "Leads",     timestamp: "2026-05-13 08:32:11", detail: "Call Outcome: Interested — Discussed budget" },
+  { id: "AUD-010", action: "Tour Scheduled",        actor: "Fatma Ibrahim",   target: "L-1004",                      module: "Leads",     timestamp: "2026-05-12 17:14:55", detail: "Site visit Hacienda Bay — Thu 16:00" },
+  { id: "AUD-011", action: "Commission Override",   actor: "Tarek Amin",      target: "D-503",                      module: "Deals",     timestamp: "2026-05-12 16:45:00", detail: "Rate 2.0% → 2.2% — Premium launch (approved)" },
+  { id: "AUD-012", action: "Listing Shared",        actor: "Ahmed Hassan",    target: "L-1001",                      module: "Listing Shares", timestamp: "2026-05-12 15:30:22", detail: "Palm Hills V101 → Mohamed Hassan via WhatsApp" },
+  { id: "AUD-013", action: "Cold Call Assigned",    actor: "Tarek Amin",      target: "CC-004 Lina Sherif",          module: "Cold Calls", timestamp: "2026-05-12 14:50:00", detail: "Assigned to Fatma Ibrahim" },
+  { id: "AUD-014", action: "Cold Call Logged",      actor: "Fatma Ibrahim",   target: "CC-002 Marwa Refaat",         module: "Cold Calls", timestamp: "2026-05-12 13:18:42", detail: "Interested — Sheikh Zayed villa, 8-12M budget" },
+  { id: "AUD-015", action: "Lead → Nurturing",      actor: "Omar Sherif",     target: "L-1006",                      module: "Leads",     timestamp: "2026-05-12 12:05:33", detail: "Buyer postponed until end of Ramadan" },
+  { id: "AUD-016", action: "Deal Created (Reservation)", actor: "Fatma Ibrahim", target: "D-502",                  module: "Deals",     timestamp: "2026-05-12 10:42:18", detail: "Off Plan · Youssef Tarek · Hyde Park" },
+  { id: "AUD-017", action: "Campaign created",      actor: "Ahmed Hassan",    target: "C-105 Mortgage Awareness",    module: "Campaigns", timestamp: "2026-05-12 09:30:00", detail: "Platforms: Google, Budget: $75K" },
+  { id: "AUD-018", action: "Lead Reassigned",       actor: "Omar Sherif",     target: "L-1004",                      module: "Leads",     timestamp: "2026-05-11 16:20:00", detail: "Ahmed Hassan → Hana Mahmoud (territory)" },
+  // ─── Non-CRM (Backoffice / HR / Recruitment / Security) — filtered out of CRM Dashboard ───
+  { id: "AUD-002", action: "Role Created",          actor: "System Admin",    target: "Senior Agent Role",          module: "Backoffice", timestamp: "2026-05-11 14:11:02", detail: "New role with 12 permissions created" },
+  { id: "AUD-004", action: "Document Rejected",     actor: "Backoffice Admin",target: "DOC006 National ID",          module: "Backoffice", timestamp: "2026-05-11 11:30:00", detail: "Image quality insufficient" },
+  { id: "AUD-005", action: "Employee Suspended",    actor: "HR Manager",      target: "A005 Yasmin Adel",            module: "HR",         timestamp: "2026-05-10 10:00:00", detail: "Training compliance overdue" },
+  { id: "AUD-006", action: "Job Published",         actor: "Dina Samir",      target: "JOB-001 Senior Sales Agent",  module: "Recruitment", timestamp: "2026-05-09 08:30:00", detail: "Published to careers page" },
+  { id: "AUD-008", action: "SSO Login",             actor: "Ahmed Hassan",    target: "Agent Session",               module: "Security",   timestamp: "2026-05-13 08:00:00", detail: "SSO authenticated via Microsoft Entra" },
 ];
 
 // ── ROLES & PERMISSIONS ──
@@ -339,26 +392,161 @@ export const LEAD_SOURCES = [
   { id:'LS-009', name:'Marketplace', status:'Active' },
 ];
 
+// ── COMPANY ANNOUNCEMENTS ──
+// Surfaced on the post-onboarding Agent Dashboard + Notifications drawer.
+// kind: 'launch' | 'hr' | 'department' | 'training' | 'system'
+// priority: 'high' | 'normal'
+export const ANNOUNCEMENTS = [
+  { id:'ANN-001', kind:'launch',     priority:'high',   title:'New launch: Mountain View iCity Q2',                                   body:'Pre-launch briefing 10 May, 10:00 AM at HQ. Booking opens for agents from 12 May. Commission boost +0.5% for first 20 reservations.', author:'Tarek Amin', date:'2026-05-04', read:false },
+  { id:'ANN-002', kind:'department', priority:'normal', title:'Ramadan working hours · 10:00 – 16:00',                                body:'Effective from 11 May through end of Ramadan. Branch operations adjusted. Calls / WhatsApp coverage continues per the on-call schedule.', author:'Nour El-Din', date:'2026-05-03', read:false },
+  { id:'ANN-003', kind:'hr',         priority:'normal', title:'Q3 performance reviews scheduled · 15 July',                           body:'Self-assessment forms open in HR portal next week. Targets achievement is part of the review. Talk to your TL if you have questions.', author:'HR — Dina Samir', date:'2026-05-02', read:true },
+  { id:'ANN-004', kind:'training',   priority:'normal', title:'New course in Homes Academy · "Resale Mastery"',                        body:'90-min course on resale negotiation, MOU prep, and offer acceptance flow. Optional for agents, recommended before handling resale leads.', author:'Homes Academy', date:'2026-05-01', read:true },
+  { id:'ANN-005', kind:'department', priority:'normal', title:'Sales kickoff meeting · Sunday 9:00 AM, Main Hall',                    body:'Q2 numbers review, new compound launches, updated commission policies. Mandatory for all agents and TLs.', author:'Nour El-Din', date:'2026-04-30', read:true },
+  { id:'ANN-006', kind:'launch',     priority:'normal', title:'Hyde Park Phase 4 — pricing released',                                  body:'New phase pricing live in Matrix EGMLS. Townhouses from EGP 12.5M, villas from EGP 24M. Updated brochure in CRM Listings.', author:'Tarek Amin', date:'2026-04-28', read:true },
+];
+
+// ── CAMPAIGN → BUYER-PREFERENCE INFERENCE ──
+// 11-May meeting (2:08-2:10): when a lead enters via a campaign with a clear
+// geographic / property-type signal (e.g. "North Coast Summer" → North Coast
+// chalets), the system pre-fills the buyer preferences so the agent opens the
+// conversation already knowing the customer's interest. Inferences are marked
+// `inferred: true` so the agent knows they're confirmed-from-source rather
+// than captured during the call.
+export const CAMPAIGN_INFERENCE = {
+  'New Cairo Launch':       { locations: ['New Cairo'],                   propertyTypes: ['Villa','Townhouse','Apartment'],         budgetMin: 6_000_000, budgetMax: 15_000_000 },
+  'North Coast Summer':     { locations: ['North Coast'],                 propertyTypes: ['Chalet','Villa'],                         budgetMin: 10_000_000, budgetMax: 25_000_000, season:'Summer' },
+  'New Capital Launch':     { locations: ['New Capital'],                 propertyTypes: ['Apartment','Office'],                     budgetMin: 4_000_000, budgetMax: 12_000_000 },
+  'Sheikh Zayed Promo':     { locations: ['Sheikh Zayed','6th October'],  propertyTypes: ['Villa','Twin House','Townhouse'],         budgetMin: 8_000_000, budgetMax: 14_000_000 },
+  'Madinaty Q2':            { locations: ['New Cairo','Madinaty'],        propertyTypes: ['Apartment','Duplex'],                     budgetMin: 3_000_000, budgetMax: 7_000_000 },
+  'Mortgage Awareness Q2':  { locations: ['Any'],                          propertyTypes: ['Apartment','Villa'],                     budgetMin: 3_000_000, budgetMax: 10_000_000, mortgageReady: true },
+  'Broker Referral':        null,  // referrals carry no inference signal
+  'Branch Walk-in':         null,  // walk-ins start blank
+  'Agent Referral':         null,
+};
+
+// Build a BuyerPreferences row from a campaign tag. Returns null if the
+// campaign has no inferable signal.
+export const inferPreferencesFromCampaign = (campaign) => {
+  const map = CAMPAIGN_INFERENCE[campaign];
+  if (!map) return null;
+  return { ...map, inferred: true, inferredFrom: campaign };
+};
+
+// ── MARKETING AGENCIES (outsourced) ──
+// 11-May stakeholder ask (action item 3): each outsourced marketing agency
+// gets a unique tracking URL. Leads coming through that URL auto-tag with the
+// agency name + active campaign so attribution is preserved end-to-end.
+// The token is the URL-safe identifier appended as `?src=<token>`.
+export const MARKETING_AGENCIES = [
+  { id:'MAG-001', name:'Nexus Digital',     token:'nexus_digital',     status:'Active',  contact:'Mariam Hassan',  email:'mariam@nexusdigital.eg',   phone:'+20 100 222 8800', activeCampaign:'New Cairo Summer 2026', focus:'Facebook + Instagram', leadsThisMonth: 38, contractStart:'2026-04-01' },
+  { id:'MAG-002', name:'BlueWave Media',    token:'bluewave_media',    status:'Active',  contact:'Sherif Adel',    email:'sherif@bluewave.media',    phone:'+20 100 333 4400', activeCampaign:'North Coast Drive',     focus:'Google Ads + YouTube', leadsThisMonth: 24, contractStart:'2026-03-15' },
+  { id:'MAG-003', name:'OrangeKite Agency', token:'orange_kite',       status:'Active',  contact:'Yara Hossam',    email:'yara@orangekite.co',       phone:'+20 100 444 9900', activeCampaign:'Sheikh Zayed Promo',    focus:'Multi-platform',       leadsThisMonth: 15, contractStart:'2026-05-01' },
+  { id:'MAG-004', name:'Skyline Creative',  token:'skyline_creative',  status:'Paused',  contact:'Hossam El-Din',  email:'hossam@skylinecreative.eg',phone:'+20 100 555 6600', activeCampaign:'(no active campaign)', focus:'Outdoor + Print',     leadsThisMonth: 0,  contractStart:'2026-01-10' },
+  { id:'MAG-005', name:'PixelHive Studio',  token:'pixel_hive',        status:'Active',  contact:'Layla Mostafa',  email:'layla@pixelhive.studio',   phone:'+20 100 666 1100', activeCampaign:'Mortgage Awareness Q2', focus:'TikTok + Reels',       leadsThisMonth: 19, contractStart:'2026-04-20' },
+];
+
+// Build the public landing-page URL for a given agency. In production this
+// would point at the homes.com.eg marketplace lead form with UTM tags.
+export const buildAgencyTrackingUrl = (agency, campaignSlug) => {
+  const base = 'https://homes.com.eg/lead-form';
+  const params = new URLSearchParams({
+    src: agency.token,
+    utm_source: agency.token,
+    utm_medium: 'agency',
+    utm_campaign: campaignSlug || agency.activeCampaign.toLowerCase().replace(/[^a-z0-9]+/g,'-'),
+  });
+  return `${base}?${params.toString()}`;
+};
+
+// ── SALES TARGETS (per-persona, monthly) ──
+// Demo seed — in production these would be set by the manager via a Targets
+// admin page. Used by the CRM Dashboard Targets card and the post-onboarding
+// Agent Dashboard KPI strip.
+export const TARGETS = {
+  // agent (Sarah) — pre-onboarding so targets won't render until CRM unlocked
+  agent:        { period:'May 2026', leadsTarget: 8,  dealsTarget: 2, pipelineTarget: 15_000_000, closedWonTarget: 1 },
+  agentActive:  { period:'May 2026', leadsTarget: 10, dealsTarget: 4, pipelineTarget: 30_000_000, closedWonTarget: 2 },
+  teamLeader:   { period:'May 2026', leadsTarget: 28, dealsTarget: 12, pipelineTarget: 95_000_000, closedWonTarget: 5, scope: 'team' },
+  salesManager: { period:'May 2026', leadsTarget: 80, dealsTarget: 32, pipelineTarget: 250_000_000, closedWonTarget: 14, scope: 'cross' },
+  salesDirector:{ period:'May 2026', leadsTarget: 160,dealsTarget: 60, pipelineTarget: 500_000_000, closedWonTarget: 28, scope: 'all' },
+};
+
 // ── AGENT NOTIFICATIONS ──
+// Feed categories: 'document' | 'hr' | 'department' | 'feature' | 'training' | 'system'
+// type: 'success' | 'info' | 'warning' | 'danger' (controls badge color)
 export const AGENT_NOTIFICATIONS = [
-  { id:'N-001', text:'Your National ID has been approved', time:'2 hours ago', type:'success' },
-  { id:'N-002', text:'Training module "Anti-Money Laundering" is due in 3 days', time:'5 hours ago', type:'warning' },
-  { id:'N-003', text:'Welcome to Homes! Complete your onboarding checklist to get started.', time:'1 day ago', type:'info' },
-  { id:'N-004', text:'Your MLS ID verification is in progress. Estimated: 2-3 business days.', time:'2 days ago', type:'info' },
-  { id:'N-005', text:'Please upload your Proof of Address document', time:'3 days ago', type:'warning' },
+  // Document updates
+  { id:'N-001', category:'document', text:'Your National ID has been approved', time:'2 hours ago', type:'success' },
+  { id:'N-002', category:'document', text:'Please upload your Proof of Address document', time:'3 days ago', type:'warning' },
+  { id:'N-003', category:'document', text:'RERA License expires in 28 days — please renew', time:'1 day ago', type:'warning' },
+  // HR updates
+  { id:'N-004', category:'hr', text:'Q3 performance review scheduled for 15 July 2026', time:'4 hours ago', type:'info' },
+  { id:'N-005', category:'hr', text:'New leave balance: 18 days available', time:'2 days ago', type:'info' },
+  { id:'N-006', category:'hr', text:'Salary slip for April 2026 is available', time:'5 days ago', type:'success' },
+  // Department updates
+  { id:'N-007', category:'department', text:'Sales kickoff meeting — Sunday 9:00 AM, Main Hall', time:'6 hours ago', type:'info' },
+  { id:'N-008', category:'department', text:'New compound launch: Mountain View iCity Q2 — briefing 10 May', time:'1 day ago', type:'info' },
+  { id:'N-009', category:'department', text:'Ramadan working hours: 10:00 – 16:00 starting next week', time:'3 days ago', type:'info' },
+  // Feature launches
+  { id:'N-010', category:'feature', text:'NEW · Social Campaigns module is now live for Marketing', time:'today', type:'success' },
+  { id:'N-011', category:'feature', text:'NEW · Listing Shares now supports multi-lead selection', time:'2 days ago', type:'success' },
+  { id:'N-012', category:'feature', text:'UPDATE · Mortgage calculator now seeds from listing detail', time:'4 days ago', type:'info' },
+  // Training (legacy — kept for backwards compatibility)
+  { id:'N-013', category:'training', text:'Training module "Anti-Money Laundering" is due in 3 days', time:'5 hours ago', type:'warning' },
 ];
 
 // ── AGENT DOCUMENTS (personal) ──
+// ── COLD CALLS ──
+// Stakeholder ask 08-May (item 10). Flow: Marketing/Director imports contacts
+// → Director assigns to agent → Agent calls + comments → Director reviews
+// and marks Convert to Lead (auto-creates a Lead) or Not Lead.
+// Status values: New | Assigned | Called | Converted | NotLead
+export const COLD_CALL_SOURCES = ['Facebook Lead Magnet','Instagram Ads','Google Ads','Website Form','Property Expo','Referral','Walk-in DB','Outdoor Campaign'];
+export const COLD_CALL_BATCHES = [
+  { id: 'BATCH-2026-05-01-FB', source: 'Facebook Lead Magnet', importedBy: 'Ahmed Hassan',  importedAt: '2026-05-01', count: 6 },
+  { id: 'BATCH-2026-05-02-GO', source: 'Google Ads',           importedBy: 'Ahmed Hassan',  importedAt: '2026-05-02', count: 5 },
+  { id: 'BATCH-2026-05-03-EX', source: 'Property Expo',        importedBy: 'Tarek Amin',    importedAt: '2026-05-03', count: 4 },
+  { id: 'BATCH-2026-05-04-IG', source: 'Instagram Ads',        importedBy: 'Ahmed Hassan',  importedAt: '2026-05-04', count: 5 },
+];
+
+export const COLD_CALLS = [
+  // ─── BATCH-2026-05-01-FB · Facebook ───
+  { id:'CC-001', name:'Hesham Magdy',    phone:'+20 100 555 1111', source:'Facebook Lead Magnet', importBatch:'BATCH-2026-05-01-FB', importedBy:'Ahmed Hassan', importedAt:'2026-05-01', status:'Converted', assignedAgent:'Fatma Ibrahim',  assignedAt:'2026-05-02', callOutcome:'Interested', callDuration:'8m 24s', agentComment:'Looking for 3BR in New Cairo, budget ~9M EGP. Wants to view ZED East next week.', directorDecision:'Convert to Lead', decidedBy:'Tarek Amin', decidedAt:'2026-05-03', convertedLeadId:'L-2001' },
+  { id:'CC-002', name:'Marwa Refaat',    phone:'+20 100 555 2222', source:'Facebook Lead Magnet', importBatch:'BATCH-2026-05-01-FB', importedBy:'Ahmed Hassan', importedAt:'2026-05-01', status:'Called',    assignedAgent:'Fatma Ibrahim',  assignedAt:'2026-05-02', callOutcome:'Interested', callDuration:'5m 12s', agentComment:'Considering Sheikh Zayed. Open to villa or townhouse, 8M-12M.', directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-003', name:'Ramy Saber',      phone:'+20 100 555 3333', source:'Facebook Lead Magnet', importBatch:'BATCH-2026-05-01-FB', importedBy:'Ahmed Hassan', importedAt:'2026-05-01', status:'NotLead',   assignedAgent:'Sarah El-Masry', assignedAt:'2026-05-02', callOutcome:'Wrong Number', callDuration:'0m 30s', agentComment:'Number belongs to someone else, not interested.', directorDecision:'Not Lead', decidedBy:'Tarek Amin', decidedAt:'2026-05-03', convertedLeadId:null },
+  { id:'CC-004', name:'Lina Sherif',     phone:'+20 100 555 4444', source:'Facebook Lead Magnet', importBatch:'BATCH-2026-05-01-FB', importedBy:'Ahmed Hassan', importedAt:'2026-05-01', status:'Assigned',  assignedAgent:'Fatma Ibrahim',  assignedAt:'2026-05-04', callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-005', name:'Omar Wahba',      phone:'+20 100 555 5555', source:'Facebook Lead Magnet', importBatch:'BATCH-2026-05-01-FB', importedBy:'Ahmed Hassan', importedAt:'2026-05-01', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-006', name:'Yara Hosny',      phone:'+20 100 555 6666', source:'Facebook Lead Magnet', importBatch:'BATCH-2026-05-01-FB', importedBy:'Ahmed Hassan', importedAt:'2026-05-01', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  // ─── BATCH-2026-05-02-GO · Google ───
+  { id:'CC-007', name:'Kareem Adel',     phone:'+20 100 555 7777', source:'Google Ads',            importBatch:'BATCH-2026-05-02-GO', importedBy:'Ahmed Hassan', importedAt:'2026-05-02', status:'Converted', assignedAgent:'Hana Mahmoud',  assignedAt:'2026-05-03', callOutcome:'Interested', callDuration:'12m 03s', agentComment:'Cash buyer, ready for 6M budget, prefers North Coast resale.', directorDecision:'Convert to Lead', decidedBy:'Tarek Amin', decidedAt:'2026-05-04', convertedLeadId:'L-2002' },
+  { id:'CC-008', name:'Heba Mostafa',    phone:'+20 100 555 8888', source:'Google Ads',            importBatch:'BATCH-2026-05-02-GO', importedBy:'Ahmed Hassan', importedAt:'2026-05-02', status:'Called',    assignedAgent:'Fatma Ibrahim',  assignedAt:'2026-05-03', callOutcome:'Callback Later', callDuration:'2m 18s', agentComment:'Asked to call back next week, currently traveling.', directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-009', name:'Mostafa Hamed',   phone:'+20 100 555 9999', source:'Google Ads',            importBatch:'BATCH-2026-05-02-GO', importedBy:'Ahmed Hassan', importedAt:'2026-05-02', status:'Assigned',  assignedAgent:'Sarah El-Masry', assignedAt:'2026-05-04', callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-010', name:'Nada Hamdy',      phone:'+20 100 555 0000', source:'Google Ads',            importBatch:'BATCH-2026-05-02-GO', importedBy:'Ahmed Hassan', importedAt:'2026-05-02', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-011', name:'Sherif Lotfy',    phone:'+20 101 555 1010', source:'Google Ads',            importBatch:'BATCH-2026-05-02-GO', importedBy:'Ahmed Hassan', importedAt:'2026-05-02', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  // ─── BATCH-2026-05-03-EX · Property Expo ───
+  { id:'CC-012', name:'Tamer Ramy',      phone:'+20 101 555 1212', source:'Property Expo',         importBatch:'BATCH-2026-05-03-EX', importedBy:'Tarek Amin',   importedAt:'2026-05-03', status:'Called',    assignedAgent:'Fatma Ibrahim',  assignedAt:'2026-05-04', callOutcome:'Not Interested', callDuration:'1m 45s', agentComment:'Already bought elsewhere last month.', directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-013', name:'Reem Magdi',      phone:'+20 101 555 1313', source:'Property Expo',         importBatch:'BATCH-2026-05-03-EX', importedBy:'Tarek Amin',   importedAt:'2026-05-03', status:'Assigned',  assignedAgent:'Hana Mahmoud',  assignedAt:'2026-05-04', callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-014', name:'Hossam Fathy',    phone:'+20 101 555 1414', source:'Property Expo',         importBatch:'BATCH-2026-05-03-EX', importedBy:'Tarek Amin',   importedAt:'2026-05-03', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-015', name:'Mai Yehia',       phone:'+20 101 555 1515', source:'Property Expo',         importBatch:'BATCH-2026-05-03-EX', importedBy:'Tarek Amin',   importedAt:'2026-05-03', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  // ─── BATCH-2026-05-04-IG · Instagram ───
+  { id:'CC-016', name:'Bassel Khaled',   phone:'+20 101 555 1616', source:'Instagram Ads',         importBatch:'BATCH-2026-05-04-IG', importedBy:'Ahmed Hassan', importedAt:'2026-05-04', status:'Called',    assignedAgent:'Fatma Ibrahim',  assignedAt:'2026-05-05', callOutcome:'Interested', callDuration:'6m 30s', agentComment:'First-time buyer, looking at New Capital. Asked for mortgage info.', directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-017', name:'Salma Adly',      phone:'+20 101 555 1717', source:'Instagram Ads',         importBatch:'BATCH-2026-05-04-IG', importedBy:'Ahmed Hassan', importedAt:'2026-05-04', status:'Assigned',  assignedAgent:'Sarah El-Masry', assignedAt:'2026-05-05', callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-018', name:'Adham Saeed',     phone:'+20 101 555 1818', source:'Instagram Ads',         importBatch:'BATCH-2026-05-04-IG', importedBy:'Ahmed Hassan', importedAt:'2026-05-04', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-019', name:'Mariam Tarek',    phone:'+20 101 555 1919', source:'Instagram Ads',         importBatch:'BATCH-2026-05-04-IG', importedBy:'Ahmed Hassan', importedAt:'2026-05-04', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+  { id:'CC-020', name:'Khalil Mahmoud',  phone:'+20 101 555 2020', source:'Instagram Ads',         importBatch:'BATCH-2026-05-04-IG', importedBy:'Ahmed Hassan', importedAt:'2026-05-04', status:'New',       assignedAgent:null,             assignedAt:null,        callOutcome:null, callDuration:null, agentComment:null, directorDecision:null, decidedBy:null, decidedAt:null, convertedLeadId:null },
+];
+
 export const AGENT_DOCS = [
-  { id:'AD-001', doc:'National ID', type:'Identity', status:'Approved', date:'2024-01-14' },
-  { id:'AD-002', doc:'Tax Card', type:'Financial', status:'Approved', date:'2024-01-14' },
-  { id:'AD-003', doc:'RERA License', type:'Regulatory', status:'Approved', date:'2024-01-12' },
-  { id:'AD-004', doc:'Brokerage Agreement', type:'Legal', status:'Approved', date:'2024-01-10' },
-  { id:'AD-005', doc:'Criminal Record', type:'Legal', status:'Approved', date:'2024-01-08' },
-  { id:'AD-006', doc:'Bank Details', type:'Financial', status:'Approved', date:'2024-01-08' },
-  { id:'AD-007', doc:'Profile Photo', type:'Identity', status:'Approved', date:'2024-01-05' },
-  { id:'AD-008', doc:'Proof of Address', type:'Identity', status:'Pending', date:'—' },
-  { id:'AD-009', doc:'Insurance', type:'Financial', status:'Pending', date:'—' },
+  // `expires` — validity end date. null for non-expiring docs.
+  { id:'AD-001', doc:'National ID', type:'Identity', status:'Approved', date:'2024-01-14', expires:'2031-01-14' },
+  { id:'AD-002', doc:'Tax Card', type:'Financial', status:'Approved', date:'2024-01-14', expires:'2026-12-31' },
+  { id:'AD-003', doc:'RERA License', type:'Regulatory', status:'Approved', date:'2024-01-12', expires:'2026-06-30' },
+  { id:'AD-004', doc:'Brokerage Agreement', type:'Legal', status:'Approved', date:'2024-01-10', expires:'2026-01-10' },
+  { id:'AD-005', doc:'Criminal Record', type:'Legal', status:'Approved', date:'2024-01-08', expires:'2025-07-08' },
+  { id:'AD-006', doc:'Bank Details', type:'Financial', status:'Approved', date:'2024-01-08', expires:null },
+  { id:'AD-007', doc:'Profile Photo', type:'Identity', status:'Approved', date:'2024-01-05', expires:null },
+  { id:'AD-008', doc:'Proof of Address', type:'Identity', status:'Pending', date:'—', expires:null },
+  { id:'AD-009', doc:'Insurance', type:'Financial', status:'Pending', date:'—', expires:'2026-09-30' },
 ];
 
 // ── SUPPORT TICKETS (Agent Help) ──
@@ -386,14 +574,14 @@ export const CRM_ACTIVITY = [
 // (`_img` is declared once near the top of this file, above DEVELOPERS, so
 // listings can reuse it without redeclaring.)
 export const LISTINGS = [
-  { id:'LST-001', project:'Palm Hills New Cairo', developer:'Palm Hills', unitType:'Villa', unitCode:'PH-NC-V101', area:320, bedrooms:4, bathrooms:3, floor:'Ground', price:12500000, paymentPlan:'10% down, 7 years', status:'Available', features:['Garden','Pool','Smart Home','Garage'], created:'2024-01-05', image:_img('1613490493576-7fde63acd811') },
-  { id:'LST-002', project:'ZED East', developer:'Ora', unitType:'Apartment', unitCode:'ZED-A205', area:180, bedrooms:3, bathrooms:2, floor:'2nd', price:8200000, paymentPlan:'15% down, 8 years', status:'Available', features:['Club Access','Gym','Landscape View'], created:'2024-01-06', image:_img('1564013799919-ab600027ffc6') },
-  { id:'LST-003', project:'Hacienda Bay', developer:'Palm Hills', unitType:'Chalet', unitCode:'HB-CH-A12', area:140, bedrooms:2, bathrooms:2, floor:'Ground', price:16000000, paymentPlan:'20% down, 5 years', status:'Reserved', features:['Beach Access','Pool','Furnished'], created:'2024-01-07', image:_img('1572120360610-d971b9d7767c') },
-  { id:'LST-004', project:'Hyde Park', developer:'Hyde Park', unitType:'Townhouse', unitCode:'HP-TH-B304', area:260, bedrooms:4, bathrooms:3, floor:'Ground+1', price:11200000, paymentPlan:'10% down, 8 years', status:'Available', features:['Garden','Roof','Corner Unit'], created:'2024-01-08', image:_img('1600566753190-17f0baa2a6c3') },
-  { id:'LST-005', project:'Madinaty', developer:'Talaat Moustafa', unitType:'Apartment', unitCode:'MD-APT-C110', area:150, bedrooms:3, bathrooms:2, floor:'1st', price:5200000, paymentPlan:'25% down, 6 years', status:'Available', features:['Park View','Balcony','Storage'], created:'2024-01-09', image:_img('1600585154340-be6161a56a0c') },
-  { id:'LST-006', project:'Sodic West', developer:'Sodic', unitType:'Twin House', unitCode:'SW-TW-D201', area:280, bedrooms:4, bathrooms:3, floor:'Ground+1', price:9800000, paymentPlan:'15% down, 7 years', status:'Sold', features:['Garden','Smart Home','Club Access'], created:'2024-01-03', image:_img('1600596542815-ffad4c1539a9') },
-  { id:'LST-007', project:'Mountain View', developer:'Mountain View', unitType:'Duplex', unitCode:'MV-DX-E105', area:220, bedrooms:3, bathrooms:3, floor:'3rd+4th', price:7800000, paymentPlan:'10% down, 8 years', status:'Available', features:['Terrace','View','Double Height'], created:'2024-01-10', image:_img('1600585154526-990dced4db0d') },
-  { id:'LST-008', project:'Palm Hills New Cairo', developer:'Palm Hills', unitType:'Penthouse', unitCode:'PH-NC-PH801', area:350, bedrooms:4, bathrooms:4, floor:'8th', price:18500000, paymentPlan:'20% down, 6 years', status:'Available', features:['Roof Terrace','Panoramic View','Private Elevator','Pool'], created:'2024-01-11', image:_img('1600607687939-ce8a6c25118c') },
+  { id:'LST-001', project:'Palm Hills New Cairo', developer:'Palm Hills', unitType:'Villa', unitCode:'PH-NC-V101', area:320, bedrooms:4, bathrooms:3, floor:'Ground', price:12500000, paymentPlan:'10% down, 7 years', status:'Available', features:['Garden','Pool','Smart Home','Garage'], created:'2024-01-05', image:_img('1613490493576-7fde63acd811'), lat:30.029,  lng:31.490, city:'New Cairo' },
+  { id:'LST-002', project:'ZED East', developer:'Ora', unitType:'Apartment', unitCode:'ZED-A205', area:180, bedrooms:3, bathrooms:2, floor:'2nd', price:8200000, paymentPlan:'15% down, 8 years', status:'Available', features:['Club Access','Gym','Landscape View'], created:'2024-01-06', image:_img('1564013799919-ab600027ffc6'), lat:30.043, lng:31.547, city:'New Cairo' },
+  { id:'LST-003', project:'Hacienda Bay', developer:'Palm Hills', unitType:'Chalet', unitCode:'HB-CH-A12', area:140, bedrooms:2, bathrooms:2, floor:'Ground', price:16000000, paymentPlan:'20% down, 5 years', status:'Reserved', features:['Beach Access','Pool','Furnished'], created:'2024-01-07', image:_img('1572120360610-d971b9d7767c'), lat:30.890, lng:28.892, city:'North Coast' },
+  { id:'LST-004', project:'Hyde Park', developer:'Hyde Park', unitType:'Townhouse', unitCode:'HP-TH-B304', area:260, bedrooms:4, bathrooms:3, floor:'Ground+1', price:11200000, paymentPlan:'10% down, 8 years', status:'Available', features:['Garden','Roof','Corner Unit'], created:'2024-01-08', image:_img('1600566753190-17f0baa2a6c3'), lat:30.013, lng:31.473, city:'New Cairo' },
+  { id:'LST-005', project:'Madinaty', developer:'Talaat Moustafa', unitType:'Apartment', unitCode:'MD-APT-C110', area:150, bedrooms:3, bathrooms:2, floor:'1st', price:5200000, paymentPlan:'25% down, 6 years', status:'Available', features:['Park View','Balcony','Storage'], created:'2024-01-09', image:_img('1600585154340-be6161a56a0c'), lat:30.122, lng:31.696, city:'New Cairo' },
+  { id:'LST-006', project:'Sodic West', developer:'Sodic', unitType:'Twin House', unitCode:'SW-TW-D201', area:280, bedrooms:4, bathrooms:3, floor:'Ground+1', price:9800000, paymentPlan:'15% down, 7 years', status:'Sold', features:['Garden','Smart Home','Club Access'], created:'2024-01-03', image:_img('1600596542815-ffad4c1539a9'), lat:30.058, lng:30.971, city:'Sheikh Zayed' },
+  { id:'LST-007', project:'Mountain View', developer:'Mountain View', unitType:'Duplex', unitCode:'MV-DX-E105', area:220, bedrooms:3, bathrooms:3, floor:'3rd+4th', price:7800000, paymentPlan:'10% down, 8 years', status:'Available', features:['Terrace','View','Double Height'], created:'2024-01-10', image:_img('1600585154526-990dced4db0d'), lat:30.011, lng:31.499, city:'New Cairo' },
+  { id:'LST-008', project:'Palm Hills New Cairo', developer:'Palm Hills', unitType:'Penthouse', unitCode:'PH-NC-PH801', area:350, bedrooms:4, bathrooms:4, floor:'8th', price:18500000, paymentPlan:'20% down, 6 years', status:'Available', features:['Roof Terrace','Panoramic View','Private Elevator','Pool'], created:'2024-01-11', image:_img('1600607687939-ce8a6c25118c'), lat:30.025, lng:31.489, city:'New Cairo' },
 ];
 
 // ── TOURS ──
@@ -408,14 +596,11 @@ export const TOURS = [
   { id:'TOUR-008', leadId:'L-1006', leadName:'Tarek Mansour', listingId:'LST-005', property:'Madinaty — MD-APT-C110', date:'2024-01-15', time:'1:00 PM', agent:'Ahmed Hassan', status:'Cancelled', feedback:'Client cancelled — budget exceeded.', rating:null },
 ];
 
-// ── CONTRACTS ──
-export const CONTRACTS = [
-  { id:'CON-001', dealId:'D-502', leadName:'Youssef Tarek', project:'Hyde Park', unitCode:'HP-TH-B304', value:11200000, downPayment:1120000, downPct:10, installments:96, monthlyInstall:105000, stage:'Signed', createdDate:'2024-01-12', signDate:'2024-01-18', lawyer:'Mahmoud Samy', notes:'Standard contract. Client paid down payment via bank transfer.' },
-  { id:'CON-002', dealId:'D-503', leadName:'Nour Ibrahim', project:'Hacienda Bay', unitCode:'HB-CH-A12', value:16000000, downPayment:3200000, downPct:20, installments:60, monthlyInstall:213333, stage:'Under Review', createdDate:'2024-01-14', signDate:null, lawyer:'Mahmoud Samy', notes:'Awaiting legal review. Expected sign within 5 business days.' },
-  { id:'CON-003', dealId:'D-501', leadName:'Sara Ali', project:'ZED East', unitCode:'ZED-A205', value:12200000, downPayment:1830000, downPct:15, installments:96, monthlyInstall:108021, stage:'Draft', createdDate:'2024-01-16', signDate:null, lawyer:null, notes:'Contract being prepared. Unit selection confirmed.' },
-  { id:'CON-004', dealId:'D-504', leadName:'Mohamed Hassan', project:'Palm Hills New Cairo', unitCode:'PH-NC-V101', value:8500000, downPayment:850000, downPct:10, installments:84, monthlyInstall:91071, stage:'Draft', createdDate:'2024-01-17', signDate:null, lawyer:null, notes:'Pending qualification completion.' },
-  { id:'CON-005', dealId:'D-502', leadName:'Youssef Tarek', project:'Hyde Park', unitCode:'HP-TH-B304', value:11200000, downPayment:1120000, downPct:10, installments:96, monthlyInstall:105000, stage:'Registered', createdDate:'2024-01-10', signDate:'2024-01-15', lawyer:'Mahmoud Samy', notes:'Contract registered with Real Estate Publicity dept. Complete.' },
-];
+// Contracts module retired on 08-May. The CONTRACTS seed and CONTRACT_STAGES
+// reference list have been removed. Contract lifecycle now lives on the Deal
+// (see DEAL_STAGES_OFFPLAN and DEAL_STAGES_RESALE above): commission locks at
+// "Contract Signed" / "Contract Signed & Payment"; revenue recognises at
+// "Standard Collection (10%)" (Off Plan) or "Contract Signed & Payment" (Resale).
 
 // ── LISTING SHARES ──
 export const LISTING_SHARES = [
@@ -432,12 +617,17 @@ export const LISTING_SHARES = [
 ];
 
 // ── BUYER PREFERENCES (per lead) ──
+// `inferred: true` rows are pre-filled from the lead's campaign signal
+// (CAMPAIGN_INFERENCE above) — the agent didn't capture them on a call.
+// 11-May meeting (2:08-2:10): so the agent opens the conversation already
+// knowing the customer's interest area.
 export const BUYER_PREFERENCES = [
-  { leadId:'L-1001', propertyTypes:['Villa','Townhouse'], locations:['New Cairo','Sheikh Zayed'], budgetMin:7000000, budgetMax:15000000, bedrooms:'4+', bathrooms:'3+', amenities:['Garden','Pool','Smart Home','Garage'], preferredDevelopers:['Palm Hills','Hyde Park'], timeline:'3 months', notes:'Prefers gated compound with international school nearby' },
+  { leadId:'L-1001', propertyTypes:['Villa','Townhouse','Apartment'], locations:['New Cairo'], budgetMin:6000000, budgetMax:15000000, inferred:true, inferredFrom:'New Cairo Launch', notes:'Auto-filled from campaign signal. Agent to confirm and refine on first call.' },
   { leadId:'L-1002', propertyTypes:['Apartment','Duplex'], locations:['New Cairo'], budgetMin:8000000, budgetMax:14000000, bedrooms:'3', bathrooms:'2', amenities:['Club Access','Gym','Landscape View'], preferredDevelopers:['Ora','Sodic'], timeline:'6 months', notes:'Young couple, first home. Wants modern design.' },
   { leadId:'L-1003', propertyTypes:['Apartment'], locations:['New Cairo','Heliopolis'], budgetMin:3000000, budgetMax:6000000, bedrooms:'3', bathrooms:'2', amenities:['Park View','Balcony'], preferredDevelopers:['Talaat Moustafa'], timeline:'Immediate', notes:'Cash buyer, wants ready-to-move or near delivery.' },
-  { leadId:'L-1004', propertyTypes:['Chalet','Villa'], locations:['North Coast'], budgetMin:12000000, budgetMax:20000000, bedrooms:'2-3', bathrooms:'2', amenities:['Beach Access','Pool','Furnished'], preferredDevelopers:['Palm Hills','Mountain View'], timeline:'6 months', notes:'Summer home, premium finishing required.' },
-  { leadId:'L-1005', propertyTypes:['Twin House','Villa'], locations:['Sheikh Zayed','6th October'], budgetMin:8000000, budgetMax:12000000, bedrooms:'4', bathrooms:'3', amenities:['Garden','Smart Home','Club Access'], preferredDevelopers:['Sodic'], timeline:'1 year', notes:'Relocating from Maadi, needs good schools zone.' },
+  { leadId:'L-1004', propertyTypes:['Chalet','Villa'], locations:['North Coast'], budgetMin:10000000, budgetMax:25000000, inferred:true, inferredFrom:'North Coast Summer', season:'Summer', notes:'Auto-filled from campaign. Confirm bedroom count and timeline on first call.' },
+  { leadId:'L-1005', propertyTypes:['Villa','Twin House','Townhouse'], locations:['Sheikh Zayed','6th October'], budgetMin:8000000, budgetMax:14000000, inferred:true, inferredFrom:'Sheikh Zayed Promo', notes:'Auto-filled from campaign signal.' },
+  { leadId:'L-1006', propertyTypes:['Apartment','Office'], locations:['New Capital'], budgetMin:4000000, budgetMax:12000000, inferred:true, inferredFrom:'New Capital Launch', notes:'Auto-filled from campaign signal.' },
   { leadId:'L-1007', propertyTypes:['Townhouse'], locations:['New Cairo'], budgetMin:9000000, budgetMax:13000000, bedrooms:'4', bathrooms:'3', amenities:['Garden','Roof','Corner Unit'], preferredDevelopers:['Hyde Park'], timeline:'Immediate', notes:'Already visited, ready to reserve.' },
 ];
 
@@ -467,7 +657,9 @@ export const ASSIGNMENT_LOG = [
 ];
 
 // ── REFERENCE LISTS ──
-export const STAGES = ['New', 'Contacted', 'Qualified', 'Tour Scheduled', 'Negotiation', 'Reservation', 'Contracting', 'Closed Won', 'Closed Lost'];
+// 11-May stakeholder ask: add Nurturing stage as an alternative to Closed Lost
+// so leads that aren't ready right now are kept warm for re-engagement.
+export const STAGES = ['New', 'Contacted', 'Qualified', 'Tour Scheduled', 'Negotiation', 'Reservation', 'Contracting', 'Closed Won', 'Nurturing', 'Closed Lost'];
 export const PRIORITIES = ['Hot', 'Warm', 'Cold'];
 export const SOURCES = ['Marketplace', 'Referral', 'Walk-in', 'Campaign', 'Cold Call', 'Property Fair'];
 export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'Finance', 'Follow-up'];
@@ -477,7 +669,7 @@ export const DOC_STATUS = ['Pending Review', 'Approved', 'Rejected', 'Missing'];
 export const CANDIDATE_STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Rejected'];
 export const JOB_STATUS = ['Draft', 'Published', 'Closed'];
 export const TOUR_STATUS = ['Scheduled', 'Completed', 'Cancelled', 'No-Show'];
-export const CONTRACT_STAGES = ['Draft', 'Under Review', 'Signed', 'Registered'];
+// CONTRACT_STAGES retired — see DEAL_STAGES_OFFPLAN / DEAL_STAGES_RESALE above.
 export const SHARE_CHANNELS = ['WhatsApp', 'Email', 'Call', 'SMS'];
 export const SHARE_RESPONSES = ['Interested', 'Viewed', 'No Response'];
 export const PROPERTY_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Duplex', 'Penthouse', 'Chalet', 'Twin House', 'Studio'];

@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Loader2, Globe } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, BarChart3, User, FileText, BellRing, LogOut, Bell, KeyRound, ShieldCheck, Loader2, Globe, Grid3x3 } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
 
 // "AgentLayout" is now the Employee Board layout — the universal SSO landing for all roles.
@@ -8,13 +8,19 @@ export const AgentLayout = ({ children }) => {
   const { persona, personaKey, signOut, openDrawer, state, toast, writeAudit, PERSONAS, setPersonaKey, ssoSplash, triggerSsoLaunch } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
-  const unread = state.agentNotifications.length;
+  // 11-May ask: filter CRM-related categories (task / lead / approval) out
+  // of the Employee Board notifications drawer — those belong in CRM.
+  const CRM_CATS = new Set(['task','lead','approval']);
+  const visibleNotifications = state.agentNotifications.filter(n => !CRM_CATS.has(n.category));
+  const unread = visibleNotifications.length;
 
   const openNotifs = () => openDrawer({
-    title: 'Notifications', subtitle: `${unread} unread`,
+    title: 'Notifications', subtitle: `${unread} item${unread===1?'':'s'} · HR / Documents / Department / Features`,
     content: (
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        {state.agentNotifications.map(n => (
+        {visibleNotifications.length === 0 ? (
+          <div style={{padding:20,color:'var(--text-tertiary)',fontSize:13,textAlign:'center'}}>No notifications.</div>
+        ) : visibleNotifications.map(n => (
           <div key={n.id} style={{padding:'12px 14px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`4px solid ${n.type==='success'?'var(--success)':n.type==='warning'?'var(--warning)':'var(--brand)'}`}}>
             <div style={{fontSize:13,color:'var(--text-primary)'}}>{n.text}</div>
             <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>{n.time}</div>
@@ -65,9 +71,12 @@ export const AgentLayout = ({ children }) => {
           <NavLink to="/board/dashboard" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <LayoutDashboard size={16} />Dashboard
           </NavLink>
+          <NavLink to="/board/services" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Grid3x3 size={16} />Product & Services
+          </NavLink>
           {isAgent && (
             <NavLink to="/board/learning" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <GraduationCap size={16} />Learning (Viva)
+              <GraduationCap size={16} />Homes Academy
             </NavLink>
           )}
           {isAgent && (
@@ -80,7 +89,19 @@ export const AgentLayout = ({ children }) => {
           {/* CRM → intro placeholder. From there the user clicks Simulate SSO to enter the real CRM V2. */}
           <button className="sidebar-link" onClick={()=>navigate('/system/crm-intro')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           {canMarketplaceDash && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
-          {canMatrix && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Matrix EGMLS')}><KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
+          {canMatrix && (
+            <button
+              className="sidebar-link"
+              onClick={() => {
+                writeAudit('External redirect', 'Matrix EGMLS', 'External', 'Opened agents.egymls.com');
+                toast('Redirecting to Matrix EGMLS — external system', 'info');
+                window.open('https://agents.egymls.com/auth/login/', '_blank', 'noopener,noreferrer');
+              }}
+              title="External system (CoreLogic SSO integration pending)"
+            >
+              <KeyRound size={16}/>Matrix EGMLS <span style={{marginLeft:'auto',fontSize:9,color:'#94a3b8',fontWeight:700,letterSpacing:'.06em'}}>EXTERNAL</span>
+            </button>
+          )}
           {canBackoffice && (
             <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Backoffice Admin Portal','#/backoffice/dashboard')}><ShieldCheck size={16}/>Backoffice Admin <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
           )}
