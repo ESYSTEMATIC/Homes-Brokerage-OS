@@ -72,6 +72,7 @@ import {
   MpLogin, MpSignup, MpProfile, MpForgotPassword, MpVerifyOtp, MpResetPassword,
   Compare as PMCompare, Favorites as PMFavorites,
   Developers as PMDevelopers, DeveloperDetail as PMDeveloperDetail,
+  Careers as PMCareers, CareerDetail as PMCareerDetail,
 } from './pages/MarketplaceSite/index.jsx';
 
 // Public marketplace routes — accessible without auth (homes.com.eg consumer surface).
@@ -86,6 +87,8 @@ const PublicMarketplaceRoutes = () => (
       <Route path="/developers" element={<PMDevelopers />} />
       <Route path="/developers/:slug" element={<PMDeveloperDetail />} />
       <Route path="/mortgage" element={<PMMortgage />} />
+      <Route path="/careers" element={<PMCareers />} />
+      <Route path="/careers/:jobId" element={<PMCareerDetail />} />
       <Route path="/compare" element={<PMCompare />} />
       <Route path="/favorites" element={<PMFavorites />} />
       <Route path="/login" element={<MpLogin />} />

@@ -8,3 +8,4 @@ export { MpLogin, MpSignup, MpProfile, MpForgotPassword, MpVerifyOtp, MpResetPas
 export { Compare } from './Compare';
 export { Favorites } from './Favorites';
 export { Developers, DeveloperDetail } from './Developers';
+export { Careers, CareerDetail } from './Careers';

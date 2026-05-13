@@ -110,6 +110,7 @@ export const MarketplaceSiteLayout = ({ children }) => {
             <NavLink to="/marketplace/sell"       className={({isActive}) => `pm-nav-link ${isActive ? 'active' : ''}`}>Sell</NavLink>
             <NavLink to="/marketplace/developers" className={({isActive}) => `pm-nav-link ${isActive ? 'active' : ''}`}>Developers</NavLink>
             <NavLink to="/marketplace/mortgage"   className={({isActive}) => `pm-nav-link ${isActive ? 'active' : ''}`}>Mortgage</NavLink>
+            <NavLink to="/marketplace/careers"    className={({isActive}) => `pm-nav-link ${isActive ? 'active' : ''}`}>Careers</NavLink>
           </nav>
 
           <div className="pm-header-actions" ref={ref}>
@@ -238,6 +239,7 @@ export const MarketplaceSiteLayout = ({ children }) => {
                 ? <a key={label} href={`#${to}`}>{label}</a>
                 : <a key={label} href={to} onClick={(e) => { if (to === '#') { e.preventDefault(); window.alert(`${label} page (demo)`); } }}>{label}</a>
             ))}
+            <a href="#/marketplace/careers">Careers</a>
           </div>
           <div className="pm-footer-col">
             <h4>Tools & Account</h4>
