@@ -94,7 +94,7 @@ export const CrmReports = () => {
 
   return (
     <div>
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Reports</span></div><h1 className="page-title">Reports & Analytics</h1><p className="page-subtitle">Comprehensive performance insights, conversion metrics, and ROI analysis</p></div>
+      <div className="page-header"><h1 className="page-title">Reports & Analytics</h1><p className="page-subtitle">Comprehensive performance insights, conversion metrics, and ROI analysis</p></div>
 
       {/* Report Tabs */}
       <div style={{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}}>

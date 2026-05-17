@@ -68,7 +68,18 @@ export const TrainingCompliance = () => {
             <tbody>
               {filtered.map(s=>(
                 <tr key={s.id}>
-                  <td className="bold">{s.name}</td>
+                  <td>
+                    <div style={{display:'flex', alignItems:'center', gap:10}}>
+                      {s.photoDataUrl ? (
+                        <img src={s.photoDataUrl} alt="" style={{width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:'1px solid var(--border)'}}/>
+                      ) : (
+                        <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg, var(--brand), #b91c1c)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>
+                          {s.name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+                        </div>
+                      )}
+                      <div className="bold">{s.name}</div>
+                    </div>
+                  </td>
                   <td>{s.title}</td>
                   <td>{s.department}</td>
                   <td>5</td>

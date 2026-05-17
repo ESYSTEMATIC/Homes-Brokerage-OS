@@ -100,7 +100,6 @@ export const CrmTasks = () => {
     <div className="crm-page">
       <div className="page-header" style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:14}}>
         <div>
-          <div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tasks</span></div>
           <h1 className="page-title">Tasks & Calendar</h1>
           <p className="page-subtitle">Manage tasks, schedule follow-ups, and track team activities · BRD V1.4 §6.5</p>
         </div>

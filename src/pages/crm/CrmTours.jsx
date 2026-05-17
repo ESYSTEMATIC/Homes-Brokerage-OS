@@ -67,7 +67,7 @@ export const CrmTours = () => {
 
   return (
     <div className="crm-page">
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Tours</span></div><h1 className="page-title">Tour Management</h1><p className="page-subtitle">Schedule property tours, track attendance, and log feedback · BRD V1.4 §6.3</p></div>
+      <div className="page-header"><h1 className="page-title">Tour Management</h1><p className="page-subtitle">Schedule property tours, track attendance, and log feedback · BRD V1.4 §6.3</p></div>
 
       <div className="crm-role-banner">
         <div className="ico"><ShieldCheck size={18}/></div>

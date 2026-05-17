@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { LISTING_STATUS, PROPERTY_TYPES } from '../../data/staticData';
-import { Search, Plus, Edit, Trash2, Eye, X, LayoutGrid, List, Home, Bed, Bath, Maximize, Share2, Building, Upload, MapPin } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, X, LayoutGrid, List, Home, Bed, Bath, Maximize, Share2, Building, Upload, MapPin, Sliders, Filter, ChevronDown } from 'lucide-react';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 const statusColor = s => s==='Available'?'badge-success':s==='Reserved'?'badge-warning':'badge-danger';
@@ -168,10 +169,26 @@ export const CrmListings = () => {
   const { state, addItem, toast, openDrawer, openModal, writeAudit, persona } = useApp();
   const [view, setView] = useState('grid');
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchCursor, setSearchCursor] = useState(0);
+  const searchRef = useRef(null);
   const [fDev, setFDev] = useState('All');
   const [fType, setFType] = useState('All');
   const [fStatus, setFStatus] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
+  // Advanced search state. `advFilters` accumulates criteria from the modal.
+  // The modal lives in `showAdvanced`; chip strip below the search bar lets
+  // the user see / remove active criteria without reopening the modal.
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advFilters, setAdvFilters] = useState({
+    minPrice: '', maxPrice: '', minArea: '', maxArea: '',
+    minBeds: '', minBaths: '', city: '', compound: '', floor: '',
+    statuses: [], // multi-select status
+    paymentPlan: '', features: [],
+  });
+  // Saved searches — persist for the session so HR/Director can recall their
+  // last cuts of the inventory.
+  const [savedSearches, setSavedSearches] = useState([]);
   const defForm = { mlsId: '', propertyType: 'Apartment', status: 'Active', assignToAgent: 'Myself', agentRole: 'Listing Agent', address: '', area: '', city: '', price: '', bedrooms: '3', bathrooms: '2', sqft: '', commissionSide: 'Buy-side', commissionPercent: '3', description: '' };
   const [form, setForm] = useState(defForm);
 
@@ -236,13 +253,106 @@ export const CrmListings = () => {
     });
   };
 
+  // Listings filter — combines quick autocomplete + top toolbar filters +
+  // advanced search criteria (price range, area range, beds/baths minimums,
+  // multi-status, etc).
   const filtered = useMemo(()=>listings.filter(l=>{
-    if(search && !l.project.toLowerCase().includes(search.toLowerCase()) && !l.unitCode.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const needle = search.toLowerCase();
+      const hay = `${l.project} ${l.unitCode} ${l.developer || ''} ${l.city || ''} ${l.unitType || ''} ${l.id || ''}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
     if(fDev!=='All' && l.developer!==fDev) return false;
     if(fType!=='All' && l.unitType!==fType) return false;
     if(fStatus!=='All' && l.status!==fStatus) return false;
+    // Advanced filters
+    const price = Number(l.price) || 0;
+    const area  = Number(l.area)  || 0;
+    if (advFilters.minPrice && price < Number(advFilters.minPrice)) return false;
+    if (advFilters.maxPrice && price > Number(advFilters.maxPrice)) return false;
+    if (advFilters.minArea  && area  < Number(advFilters.minArea))  return false;
+    if (advFilters.maxArea  && area  > Number(advFilters.maxArea))  return false;
+    if (advFilters.minBeds  && Number(l.bedrooms || 0)  < Number(advFilters.minBeds))  return false;
+    if (advFilters.minBaths && Number(l.bathrooms || 0) < Number(advFilters.minBaths)) return false;
+    if (advFilters.city     && (l.city || '').toLowerCase() !== advFilters.city.toLowerCase()) return false;
+    if (advFilters.compound && !(l.project || '').toLowerCase().includes(advFilters.compound.toLowerCase())) return false;
+    if (advFilters.floor    && String(l.floor || '') !== String(advFilters.floor)) return false;
+    if (advFilters.statuses.length > 0 && !advFilters.statuses.includes(l.status)) return false;
+    if (advFilters.paymentPlan && !(l.paymentPlan || '').toLowerCase().includes(advFilters.paymentPlan.toLowerCase())) return false;
+    if (advFilters.features.length > 0) {
+      const has = advFilters.features.every(f => (l.features || []).includes(f));
+      if (!has) return false;
+    }
     return true;
-  }),[listings, search,fDev,fType,fStatus]);
+  }),[listings, search,fDev,fType,fStatus,advFilters]);
+
+  // Count of active advanced criteria — used to drive the chip count badge.
+  const activeAdvCount =
+    (advFilters.minPrice  ? 1 : 0) + (advFilters.maxPrice  ? 1 : 0) +
+    (advFilters.minArea   ? 1 : 0) + (advFilters.maxArea   ? 1 : 0) +
+    (advFilters.minBeds   ? 1 : 0) + (advFilters.minBaths  ? 1 : 0) +
+    (advFilters.city      ? 1 : 0) + (advFilters.compound  ? 1 : 0) +
+    (advFilters.floor     ? 1 : 0) + (advFilters.statuses.length > 0 ? 1 : 0) +
+    (advFilters.paymentPlan ? 1 : 0) + (advFilters.features.length > 0 ? 1 : 0);
+
+  const clearAdvanced = () => setAdvFilters({
+    minPrice:'', maxPrice:'', minArea:'', maxArea:'',
+    minBeds:'', minBaths:'', city:'', compound:'', floor:'',
+    statuses:[], paymentPlan:'', features:[],
+  });
+
+  const saveCurrentSearch = () => {
+    const label = `Search ${savedSearches.length + 1}`;
+    setSavedSearches([...savedSearches, { id: `SS-${Date.now()}`, label, q: search, fDev, fType, fStatus, advFilters: {...advFilters} }]);
+    toast('Search saved');
+  };
+  const applySaved = (s) => {
+    setSearch(s.q || '');
+    setFDev(s.fDev || 'All');
+    setFType(s.fType || 'All');
+    setFStatus(s.fStatus || 'All');
+    setAdvFilters(s.advFilters || advFilters);
+    toast(`Loaded "${s.label}"`);
+  };
+
+  // Autocomplete top matches (used by the inline dropdown).
+  const autocomplete = useMemo(() => {
+    if (!search || search.trim().length < 1) return [];
+    const needle = search.toLowerCase();
+    return listings
+      .filter(l => {
+        const hay = `${l.project} ${l.unitCode} ${l.developer || ''} ${l.city || ''} ${l.unitType || ''} ${l.id || ''}`.toLowerCase();
+        return hay.includes(needle);
+      })
+      .slice(0, 8);
+  }, [search, listings]);
+
+  // Close dropdown when clicking outside.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onDoc = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [searchOpen]);
+
+  // Deep-link via ?openListing=L-xxx — used by the global Smart Search.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkId = searchParams.get('openListing');
+  useEffect(() => {
+    if (!deepLinkId) return;
+    const target = listings.find(l => l.id === deepLinkId);
+    if (target) {
+      // Defer one tick so the drawer mount happens after the route paint.
+      setTimeout(() => viewDetail(target), 80);
+      // Strip the query param so refresh doesn't re-trigger.
+      const next = new URLSearchParams(searchParams);
+      next.delete('openListing');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId, listings]);
 
   const viewDetail = l => openDrawer({title:l.project,subtitle:`${l.unitType} · ${l.unitCode}`,content:(
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
@@ -265,7 +375,7 @@ export const CrmListings = () => {
 
   return (
     <div>
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Listings</span></div><h1 className="page-title">Listings & Inventory</h1><p className="page-subtitle">Manage property inventory, unit availability, and payment plans</p></div>
+      <div className="page-header"><h1 className="page-title">Listings & Inventory</h1><p className="page-subtitle">Manage property inventory, unit availability, and payment plans</p></div>
 
       {/* KPIs */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
@@ -274,22 +384,330 @@ export const CrmListings = () => {
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="data-panel" style={{marginBottom:20}}>
-        <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'center'}}>
-          <div className="search-box" style={{flex:'1 1 200px'}}><Search size={16}/><input type="text" placeholder="Search by project or unit code…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-          <select className="filter-select" value={fDev} onChange={e=>setFDev(e.target.value)}><option value="All">All Developers</option>{developers.map(d=><option key={d}>{d}</option>)}</select>
-          <select className="filter-select" value={fType} onChange={e=>setFType(e.target.value)}><option value="All">All Types</option>{PROPERTY_TYPES.map(t=><option key={t}>{t}</option>)}</select>
-          <select className="filter-select" value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="All">All Status</option>{LISTING_STATUS.map(s=><option key={s}>{s}</option>)}</select>
-          <div style={{display:'flex',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}>
-            <button className={`btn btn-sm ${view==='grid'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('grid')}><LayoutGrid size={14}/></button>
-            <button className={`btn btn-sm ${view==='table'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('table')}><List size={14}/></button>
-            <button className={`btn btn-sm ${view==='map'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('map')}><MapPin size={14}/></button>
+      {/* ─── Search & Filters Hero ───────────────────────────────────
+          Redesigned search box: gradient hero, large pill search input
+          with inline pre-filters, advanced toggle, and view selector. */}
+      <div style={{
+        background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        padding: '20px 22px',
+        marginBottom: 20,
+        boxShadow: '0 2px 8px rgba(15,23,42,0.03)',
+      }}>
+        {/* Top row: large search + advanced + add */}
+        <div style={{display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+          {/* Big search bar with brand-tinted icon block */}
+          <div ref={searchRef} style={{position:'relative', flex:'1 1 320px', minWidth: 240}}>
+            <div style={{
+              display:'flex',
+              alignItems:'center',
+              gap:0,
+              background:'#fff',
+              border:`2px solid ${searchOpen || search ? 'var(--brand)' : 'var(--border)'}`,
+              borderRadius:14,
+              transition:'border-color .15s, box-shadow .15s',
+              boxShadow: searchOpen ? '0 6px 18px rgba(229,9,20,0.10)' : '0 1px 2px rgba(15,23,42,0.04)',
+              overflow:'hidden',
+            }}>
+              {/* Brand-tinted icon block */}
+              <div style={{
+                width:48, height:48, flexShrink:0,
+                background:'linear-gradient(135deg, var(--brand), #b91c1c)',
+                color:'#fff',
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                <Search size={20}/>
+              </div>
+              <input
+                type="text"
+                placeholder="Search project, unit code, developer, city, MLS ID…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setSearchOpen(true); setSearchCursor(0); }}
+                onFocus={() => setSearchOpen(true)}
+                onKeyDown={(e) => {
+                  if (!autocomplete.length) return;
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setSearchCursor(c => Math.min(c + 1, autocomplete.length - 1)); }
+                  else if (e.key === 'ArrowUp') { e.preventDefault(); setSearchCursor(c => Math.max(c - 1, 0)); }
+                  else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const target = autocomplete[searchCursor];
+                    if (target) { viewDetail(target); setSearchOpen(false); }
+                  }
+                  else if (e.key === 'Escape') setSearchOpen(false);
+                }}
+                style={{
+                  flex:1,
+                  border:'none',
+                  outline:'none',
+                  padding:'0 14px',
+                  fontSize:14,
+                  fontWeight:500,
+                  background:'transparent',
+                  color:'var(--text-primary)',
+                  minWidth:0,
+                }}
+              />
+              {/* Keyboard hint when empty */}
+              {!search && (
+                <kbd style={{
+                  marginRight:10,
+                  padding:'3px 8px',
+                  background:'#f8fafc',
+                  border:'1px solid var(--border)',
+                  borderRadius:6,
+                  fontFamily:'monospace',
+                  fontSize:10,
+                  color:'var(--text-tertiary)',
+                  fontWeight:600,
+                  whiteSpace:'nowrap',
+                }}>↑↓ ↵</kbd>
+              )}
+              {search && (
+                <button
+                  onClick={() => { setSearch(''); setSearchOpen(false); searchRef.current?.querySelector('input')?.focus(); }}
+                  style={{
+                    background:'#f1f5f9',
+                    border:'none',
+                    cursor:'pointer',
+                    color:'var(--text-secondary)',
+                    padding:'6px 8px',
+                    display:'inline-flex',
+                    alignItems:'center',
+                    borderRadius:6,
+                    marginRight:10,
+                  }}
+                  aria-label="Clear search"
+                  onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+                ><X size={14}/></button>
+              )}
+            </div>
+
+            {/* Autocomplete dropdown */}
+            {searchOpen && search.trim().length >= 1 && (
+              <div style={{
+                position:'absolute', top:'calc(100% + 4px)', left:0, right:0,
+                background:'#fff', border:'1px solid var(--border)', borderRadius:10,
+                boxShadow:'0 12px 32px rgba(15,23,42,0.12)',
+                maxHeight:380, overflowY:'auto', zIndex:1000,
+              }}>
+                {autocomplete.length === 0 ? (
+                  <div style={{padding:'16px 18px', fontSize:12, color:'var(--text-tertiary)', textAlign:'center'}}>
+                    No listings match <b>"{search}"</b>
+                  </div>
+                ) : (
+                  <>
+                    {autocomplete.map((l, i) => {
+                      const isActive = i === searchCursor;
+                      return (
+                        <div
+                          key={l.id}
+                          onMouseEnter={() => setSearchCursor(i)}
+                          onClick={() => { viewDetail(l); setSearchOpen(false); }}
+                          style={{
+                            display:'flex', alignItems:'center', gap:12,
+                            padding:'10px 14px', cursor:'pointer',
+                            borderBottom:'1px solid #f1f5f9',
+                            background: isActive ? 'var(--brand-tint)' : 'transparent',
+                            borderLeft: isActive ? '3px solid var(--brand)' : '3px solid transparent',
+                          }}>
+                          <div style={{
+                            width:38, height:38, borderRadius:8, flexShrink:0,
+                            background: l.image ? `url(${l.image})` : 'var(--brand-tint)',
+                            backgroundSize:'cover', backgroundPosition:'center',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            color:'var(--brand)',
+                          }}>
+                            {!l.image && <Home size={16}/>}
+                          </div>
+                          <div style={{flex:1, minWidth:0}}>
+                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:2}}>
+                              <span style={{fontSize:9, fontWeight:700, color:'var(--brand)', letterSpacing:'.06em', padding:'2px 6px', background:'var(--brand-tint)', borderRadius:4}}>{l.unitCode}</span>
+                              <span style={{fontSize:10, color:'var(--text-tertiary)', fontFamily:'monospace'}}>{l.id}</span>
+                              <span className={`badge ${statusColor(l.status)}`} style={{fontSize:9, padding:'1px 6px'}}>{l.status}</span>
+                            </div>
+                            <div style={{fontSize:13, fontWeight:700, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                              {l.project}
+                            </div>
+                            <div style={{fontSize:11, color:'var(--text-secondary)', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                              {l.developer} · {l.unitType} · {l.bedrooms}BD · {l.area} m² · {l.city || '—'}
+                            </div>
+                          </div>
+                          <div style={{fontSize:12, fontWeight:700, color:'var(--brand)', whiteSpace:'nowrap'}}>
+                            EGP {fmt(l.price)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{padding:'8px 14px', fontSize:10, color:'var(--text-tertiary)', background:'#fafbfc', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between'}}>
+                      <span>{autocomplete.length} match{autocomplete.length === 1 ? '' : 'es'} · click to open</span>
+                      <span><kbd style={{padding:'1px 5px', background:'#fff', border:'1px solid var(--border)', borderRadius:3, fontFamily:'monospace', fontSize:9}}>↑↓</kbd> <kbd style={{padding:'1px 5px', background:'#fff', border:'1px solid var(--border)', borderRadius:3, fontFamily:'monospace', fontSize:9}}>↵</kbd></span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          <button className="btn btn-brand" onClick={()=>setShowAdd(true)}><Plus size={16}/> Add Listing</button>
+
+          {/* Right-aligned action buttons next to the search bar */}
+          <button
+            onClick={() => setShowAdvanced(true)}
+            style={{
+              display:'inline-flex',
+              alignItems:'center',
+              gap:8,
+              padding:'12px 16px',
+              background: activeAdvCount > 0 ? 'var(--brand-tint)' : '#fff',
+              border: `1.5px solid ${activeAdvCount > 0 ? 'var(--brand)' : 'var(--border)'}`,
+              borderRadius:12,
+              color: activeAdvCount > 0 ? 'var(--brand)' : 'var(--text-primary)',
+              fontSize:13,
+              fontWeight:600,
+              cursor:'pointer',
+              position:'relative',
+              transition:'all .15s',
+              whiteSpace:'nowrap',
+            }}
+            title="Open advanced search"
+            onMouseEnter={e => { if (activeAdvCount === 0) e.currentTarget.style.borderColor = 'var(--brand)'; }}
+            onMouseLeave={e => { if (activeAdvCount === 0) e.currentTarget.style.borderColor = 'var(--border)'; }}
+          >
+            <Sliders size={15}/> Advanced
+            {activeAdvCount > 0 && (
+              <span style={{
+                marginLeft:2, fontSize:10, fontWeight:800,
+                padding:'2px 7px', borderRadius:999,
+                background:'var(--brand)', color:'#fff',
+                minWidth:18, textAlign:'center',
+              }}>{activeAdvCount}</span>
+            )}
+          </button>
+          <button
+            onClick={()=>setShowAdd(true)}
+            style={{
+              display:'inline-flex',
+              alignItems:'center',
+              gap:8,
+              padding:'12px 18px',
+              background:'linear-gradient(135deg, var(--brand), #b91c1c)',
+              border:'none',
+              borderRadius:12,
+              color:'#fff',
+              fontSize:13,
+              fontWeight:700,
+              cursor:'pointer',
+              boxShadow:'0 4px 12px rgba(229,9,20,0.25)',
+              transition:'transform .15s, box-shadow .15s',
+              whiteSpace:'nowrap',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(229,9,20,0.35)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 12px rgba(229,9,20,0.25)'; }}
+          >
+            <Plus size={16}/> Add Listing
+          </button>
         </div>
+
+        {/* Filter divider */}
+        <div style={{
+          display:'flex', alignItems:'center', gap:10,
+          marginTop:16, paddingTop:14,
+          borderTop:'1px dashed var(--border)',
+          flexWrap:'wrap',
+        }}>
+          <span style={{
+            fontSize:10, fontWeight:700, color:'var(--text-tertiary)',
+            textTransform:'uppercase', letterSpacing:'.08em',
+            display:'inline-flex', alignItems:'center', gap:5,
+          }}>
+            <Filter size={11}/> Quick filters
+          </span>
+          <FilterSelect label="Developer" value={fDev} onChange={setFDev} options={developers}/>
+          <FilterSelect label="Type"      value={fType} onChange={setFType} options={PROPERTY_TYPES}/>
+          <FilterSelect label="Status"    value={fStatus} onChange={setFStatus} options={LISTING_STATUS}/>
+
+          {/* Quick clear when any filter is active */}
+          {(fDev !== 'All' || fType !== 'All' || fStatus !== 'All' || search) && (
+            <button
+              onClick={() => { setFDev('All'); setFType('All'); setFStatus('All'); setSearch(''); }}
+              style={{
+                fontSize:11, fontWeight:600,
+                color:'var(--brand)', background:'none',
+                border:'none', cursor:'pointer',
+                textDecoration:'underline', padding:0,
+              }}>
+              Reset filters
+            </button>
+          )}
+
+          {/* View toggle pushed to the right */}
+          <div style={{marginLeft:'auto', display:'flex', gap:4, background:'#f1f5f9', padding:3, borderRadius:10}}>
+            {[
+              { k:'grid',  icon:<LayoutGrid size={14}/>, label:'Grid' },
+              { k:'table', icon:<List size={14}/>,       label:'Table' },
+              { k:'map',   icon:<MapPin size={14}/>,     label:'Map' },
+            ].map(v => (
+              <button
+                key={v.k}
+                onClick={() => setView(v.k)}
+                title={`${v.label} view`}
+                style={{
+                  display:'inline-flex', alignItems:'center', gap:5,
+                  padding:'6px 12px',
+                  background: view === v.k ? '#fff' : 'transparent',
+                  color: view === v.k ? 'var(--brand)' : 'var(--text-secondary)',
+                  border:'none',
+                  borderRadius:7,
+                  fontSize:12,
+                  fontWeight:600,
+                  cursor:'pointer',
+                  boxShadow: view === v.k ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
+                  transition:'all .15s',
+                }}>
+                {v.icon} {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Active advanced-criteria chips strip */}
+        {(activeAdvCount > 0 || savedSearches.length > 0) && (
+          <div style={{marginTop:10, display:'flex', gap:6, flexWrap:'wrap', alignItems:'center'}}>
+            {advFilters.minPrice && <Chip label={`Min EGP ${Number(advFilters.minPrice).toLocaleString()}`} onClear={() => setAdvFilters({...advFilters, minPrice:''})}/>}
+            {advFilters.maxPrice && <Chip label={`Max EGP ${Number(advFilters.maxPrice).toLocaleString()}`} onClear={() => setAdvFilters({...advFilters, maxPrice:''})}/>}
+            {advFilters.minArea  && <Chip label={`Min ${advFilters.minArea} m²`}                            onClear={() => setAdvFilters({...advFilters, minArea:''})}/>}
+            {advFilters.maxArea  && <Chip label={`Max ${advFilters.maxArea} m²`}                            onClear={() => setAdvFilters({...advFilters, maxArea:''})}/>}
+            {advFilters.minBeds  && <Chip label={`${advFilters.minBeds}+ bd`}                              onClear={() => setAdvFilters({...advFilters, minBeds:''})}/>}
+            {advFilters.minBaths && <Chip label={`${advFilters.minBaths}+ ba`}                             onClear={() => setAdvFilters({...advFilters, minBaths:''})}/>}
+            {advFilters.city     && <Chip label={`City: ${advFilters.city}`}                                onClear={() => setAdvFilters({...advFilters, city:''})}/>}
+            {advFilters.compound && <Chip label={`Compound: ${advFilters.compound}`}                       onClear={() => setAdvFilters({...advFilters, compound:''})}/>}
+            {advFilters.floor    && <Chip label={`Floor: ${advFilters.floor}`}                              onClear={() => setAdvFilters({...advFilters, floor:''})}/>}
+            {advFilters.statuses.length > 0 && advFilters.statuses.map(s => <Chip key={s} label={`Status: ${s}`} onClear={() => setAdvFilters({...advFilters, statuses: advFilters.statuses.filter(x => x !== s)})}/>)}
+            {advFilters.paymentPlan && <Chip label={`Plan: ${advFilters.paymentPlan}`}                      onClear={() => setAdvFilters({...advFilters, paymentPlan:''})}/>}
+            {advFilters.features.map(f => <Chip key={f} label={f} onClear={() => setAdvFilters({...advFilters, features: advFilters.features.filter(x => x !== f)})}/>)}
+            {activeAdvCount > 0 && <button onClick={clearAdvanced} style={{fontSize:11, color:'var(--brand)', background:'none', border:'none', cursor:'pointer', fontWeight:600}}>Clear all</button>}
+            {activeAdvCount > 0 && <button onClick={saveCurrentSearch} style={{fontSize:11, color:'var(--text-secondary)', background:'none', border:'none', cursor:'pointer', textDecoration:'underline'}}>Save search</button>}
+            {savedSearches.length > 0 && (
+              <select className="filter-select" style={{fontSize:11, marginLeft:8}} onChange={e => { if (!e.target.value) return; applySaved(savedSearches.find(s => s.id === e.target.value)); e.target.value = ''; }}>
+                <option value="">Recall saved…</option>
+                {savedSearches.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+            )}
+          </div>
+        )}
         <div style={{marginTop:10,fontSize:12,color:'var(--text-tertiary)'}}>Showing {filtered.length} listings</div>
       </div>
+
+      {/* ─── Advanced Search modal ───────────────────────────────── */}
+      {showAdvanced && (
+        <AdvancedSearchModal
+          filters={advFilters}
+          setFilters={setAdvFilters}
+          onClose={() => setShowAdvanced(false)}
+          onClear={clearAdvanced}
+          onSave={saveCurrentSearch}
+          listings={listings}
+        />
+      )}
 
       {view==='map' ? (
         <ListingsMap listings={filtered} onMarkerClick={viewDetail}/>
@@ -421,3 +839,256 @@ export const CrmListings = () => {
     </div>
   );
 };
+
+// ═══════════════════════════════════════════════════════════════
+// FilterSelect — polished native-select wrapper that styles cleanly
+// alongside the new search hero. Renders a small label above the
+// dropdown when a value is selected, and uses a brand-tinted state.
+// ═══════════════════════════════════════════════════════════════
+const FilterSelect = ({ label, value, onChange, options }) => {
+  const isActive = value && value !== 'All';
+  return (
+    <div style={{position:'relative', display:'inline-block'}}>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          appearance:'none',
+          padding:'8px 32px 8px 12px',
+          background: isActive ? 'var(--brand-tint)' : '#fff',
+          border: `1.5px solid ${isActive ? 'var(--brand)' : 'var(--border)'}`,
+          borderRadius:8,
+          fontSize:12,
+          fontWeight: isActive ? 700 : 500,
+          color: isActive ? 'var(--brand)' : 'var(--text-secondary)',
+          cursor:'pointer',
+          minWidth:130,
+          outline:'none',
+          transition:'all .15s',
+        }}>
+        <option value="All">All {label}s</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <ChevronDown size={13} style={{
+        position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+        pointerEvents:'none', color: isActive ? 'var(--brand)' : 'var(--text-tertiary)',
+      }}/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Chip — used in the advanced-criteria strip above the listings.
+// ═══════════════════════════════════════════════════════════════
+const Chip = ({ label, onClear }) => (
+  <span style={{
+    display:'inline-flex', alignItems:'center', gap:5,
+    padding:'4px 10px', borderRadius:999,
+    background:'var(--brand-tint)', color:'var(--brand)',
+    fontSize:11, fontWeight:600,
+    border:'1px solid #fecdd3',
+  }}>
+    {label}
+    <button onClick={onClear} style={{background:'none', border:'none', color:'var(--brand)', cursor:'pointer', padding:0, display:'inline-flex'}}>
+      <X size={11}/>
+    </button>
+  </span>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// AdvancedSearchModal — multi-criteria filter dialog.
+// Price + area ranges, beds/baths minimums, city/compound, multi-status,
+// payment plan match, and feature multi-select. Live preview shows the
+// count of listings that match the current criteria.
+// ═══════════════════════════════════════════════════════════════
+const AdvancedSearchModal = ({ filters, setFilters, onClose, onClear, onSave, listings }) => {
+  const cities = [...new Set(listings.map(l => l.city).filter(Boolean))];
+  const allFeatures = [...new Set(listings.flatMap(l => l.features || []))];
+
+  // Live preview count
+  const previewCount = listings.filter(l => {
+    const price = Number(l.price) || 0;
+    const area  = Number(l.area)  || 0;
+    if (filters.minPrice && price < Number(filters.minPrice)) return false;
+    if (filters.maxPrice && price > Number(filters.maxPrice)) return false;
+    if (filters.minArea  && area  < Number(filters.minArea))  return false;
+    if (filters.maxArea  && area  > Number(filters.maxArea))  return false;
+    if (filters.minBeds  && Number(l.bedrooms || 0)  < Number(filters.minBeds))  return false;
+    if (filters.minBaths && Number(l.bathrooms || 0) < Number(filters.minBaths)) return false;
+    if (filters.city     && (l.city || '').toLowerCase() !== filters.city.toLowerCase()) return false;
+    if (filters.compound && !(l.project || '').toLowerCase().includes(filters.compound.toLowerCase())) return false;
+    if (filters.floor    && String(l.floor || '') !== String(filters.floor)) return false;
+    if (filters.statuses.length > 0 && !filters.statuses.includes(l.status)) return false;
+    if (filters.paymentPlan && !(l.paymentPlan || '').toLowerCase().includes(filters.paymentPlan.toLowerCase())) return false;
+    if (filters.features.length > 0) {
+      const has = filters.features.every(f => (l.features || []).includes(f));
+      if (!has) return false;
+    }
+    return true;
+  }).length;
+
+  const STATUS_OPTIONS = ['Available', 'Reserved', 'Sold', 'Under Construction'];
+
+  const setF = (k, v) => setFilters({ ...filters, [k]: v });
+  const toggleArr = (k, v) => {
+    const arr = filters[k] || [];
+    setF(k, arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]);
+  };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20, zIndex:9999}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'#fff', borderRadius:14, width:'100%', maxWidth:720, maxHeight:'90vh', overflow:'auto', boxShadow:'0 30px 80px rgba(15,23,42,0.35)'}}>
+        {/* Header */}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:'1px solid var(--border)'}}>
+          <div>
+            <div style={{fontSize:11, fontWeight:700, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.06em'}}>Advanced Search</div>
+            <h3 style={{marginTop:3, fontSize:18, fontWeight:800, color:'var(--text-primary)'}}>Refine Inventory</h3>
+            <p style={{marginTop:3, fontSize:11, color:'var(--text-tertiary)'}}>Combine with the quick search and toolbar filters for the sharpest cut.</p>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--text-tertiary)', padding:6}}>
+            <X size={18}/>
+          </button>
+        </div>
+
+        <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:18}}>
+          {/* Price range */}
+          <SectionTitle title="Price (EGP)"/>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            <NumberInput label="Min price" value={filters.minPrice} onChange={v => setF('minPrice', v)} placeholder="e.g. 3000000"/>
+            <NumberInput label="Max price" value={filters.maxPrice} onChange={v => setF('maxPrice', v)} placeholder="e.g. 15000000"/>
+          </div>
+
+          {/* Area range */}
+          <SectionTitle title="Built-up area (m²)"/>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            <NumberInput label="Min area" value={filters.minArea} onChange={v => setF('minArea', v)} placeholder="e.g. 120"/>
+            <NumberInput label="Max area" value={filters.maxArea} onChange={v => setF('maxArea', v)} placeholder="e.g. 350"/>
+          </div>
+
+          {/* Rooms */}
+          <SectionTitle title="Rooms (minimum)"/>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            <PillRow label="Bedrooms" options={['1','2','3','4','5+']} value={filters.minBeds} onChange={v => setF('minBeds', v === filters.minBeds ? '' : v)}/>
+            <PillRow label="Bathrooms" options={['1','2','3','4+']} value={filters.minBaths} onChange={v => setF('minBaths', v === filters.minBaths ? '' : v)}/>
+          </div>
+
+          {/* Location */}
+          <SectionTitle title="Location"/>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            <div>
+              <Label>City</Label>
+              <select value={filters.city} onChange={e => setF('city', e.target.value)} style={inputStyle}>
+                <option value="">Any</option>
+                {cities.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Compound / Project name</Label>
+              <input value={filters.compound} onChange={e => setF('compound', e.target.value)} placeholder="e.g. Hyde Park" style={inputStyle}/>
+            </div>
+          </div>
+
+          {/* Status multi-select */}
+          <SectionTitle title="Status"/>
+          <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+            {STATUS_OPTIONS.map(s => (
+              <button
+                key={s}
+                onClick={() => toggleArr('statuses', s)}
+                style={{
+                  padding:'6px 14px', borderRadius:999, fontSize:11, fontWeight:600, cursor:'pointer',
+                  border: `1px solid ${filters.statuses.includes(s) ? 'var(--brand)' : 'var(--border)'}`,
+                  background: filters.statuses.includes(s) ? 'var(--brand)' : '#fff',
+                  color: filters.statuses.includes(s) ? '#fff' : 'var(--text-secondary)',
+                }}>
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {/* Payment plan + floor */}
+          <SectionTitle title="Payment & floor"/>
+          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10}}>
+            <div>
+              <Label>Payment plan (text match)</Label>
+              <input value={filters.paymentPlan} onChange={e => setF('paymentPlan', e.target.value)} placeholder="e.g. 10% down, 8 years" style={inputStyle}/>
+            </div>
+            <NumberInput label="Floor" value={filters.floor} onChange={v => setF('floor', v)} placeholder="e.g. 5"/>
+          </div>
+
+          {/* Features */}
+          {allFeatures.length > 0 && (
+            <>
+              <SectionTitle title="Required features (all must match)"/>
+              <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+                {allFeatures.map(f => (
+                  <button
+                    key={f}
+                    onClick={() => toggleArr('features', f)}
+                    style={{
+                      padding:'5px 12px', borderRadius:999, fontSize:11, fontWeight:600, cursor:'pointer',
+                      border: `1px solid ${filters.features.includes(f) ? 'var(--brand)' : 'var(--border)'}`,
+                      background: filters.features.includes(f) ? 'var(--brand-tint)' : '#fff',
+                      color: filters.features.includes(f) ? 'var(--brand)' : 'var(--text-secondary)',
+                    }}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{position:'sticky', bottom:0, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px', borderTop:'1px solid var(--border)', background:'#fafbfc'}}>
+          <div style={{fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>
+            <span style={{fontSize:24, color:'var(--brand)'}}>{previewCount}</span> <span style={{fontSize:12, color:'var(--text-secondary)'}}>listing{previewCount === 1 ? '' : 's'} match</span>
+          </div>
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={onClear} style={{background:'#fff', color:'var(--text-secondary)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer'}}>Clear all</button>
+            <button onClick={() => { onSave(); onClose(); }} style={{background:'#fff', color:'var(--brand)', border:'1px solid var(--brand)', padding:'8px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer'}}>Save & close</button>
+            <button onClick={onClose} style={{background:'var(--brand)', color:'#fff', border:'none', padding:'8px 20px', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer'}}>Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Modal helpers ─────────────────────────────────────────────────
+const SectionTitle = ({ title }) => (
+  <div style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:-8}}>{title}</div>
+);
+const Label = ({ children }) => (
+  <div style={{fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:4}}>{children}</div>
+);
+const inputStyle = {
+  width:'100%', padding:'8px 12px', border:'1px solid var(--border)', borderRadius:8,
+  fontSize:13, outline:'none', background:'#fff', boxSizing:'border-box',
+};
+const NumberInput = ({ label, value, onChange, placeholder }) => (
+  <div>
+    <Label>{label}</Label>
+    <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={inputStyle}/>
+  </div>
+);
+const PillRow = ({ label, options, value, onChange }) => (
+  <div>
+    <Label>{label}</Label>
+    <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+      {options.map(o => (
+        <button
+          key={o}
+          onClick={() => onChange(o.replace('+',''))}
+          style={{
+            padding:'5px 12px', borderRadius:6, fontSize:11, fontWeight:600, cursor:'pointer',
+            border: `1px solid ${value === o.replace('+','') ? 'var(--brand)' : 'var(--border)'}`,
+            background: value === o.replace('+','') ? 'var(--brand)' : '#fff',
+            color: value === o.replace('+','') ? '#fff' : 'var(--text-secondary)',
+          }}>
+          {o}
+        </button>
+      ))}
+    </div>
+  </div>
+);

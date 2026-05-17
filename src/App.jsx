@@ -48,6 +48,7 @@ import { CrmMiniSite } from './pages/crm/CrmMiniSite';
 import { CrmReports } from './pages/crm/CrmReports';
 import { CrmCampaigns } from './pages/crm/CrmCampaigns';
 import { CrmColdCalls } from './pages/crm/CrmColdCalls';
+import { CrmTeam } from './pages/crm/CrmTeam';
 
 // Marketplace Dashboard — full federated system with its own layout + nested routes.
 import { MarketplaceLayout } from './components/MarketplaceLayout';
@@ -132,10 +133,26 @@ const AppRoutes = () => {
     );
   }
 
-  // Backoffice access matrix (controls whether direct /backoffice/* URLs render under
-  // the Backoffice layout). Without access, redirect to Employee Board.
-  const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
-  const MARKETPLACE_ROLES = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
+  // Access matrices (canonical — mirrors crmAccess.HIERARCHY).
+  //
+  //   ┌───────────────────┬───────────────┬────────────────────┬─────────────────────┐
+  //   │ Persona           │ Backoffice    │ CRM (Sales/Mktg)   │ Marketplace Dash    │
+  //   ├───────────────────┼───────────────┼────────────────────┼─────────────────────┤
+  //   │ Super Admin       │ ✓             │ ✓ (audit, all)     │ —                   │
+  //   │ Sales Director    │ ✓             │ ✓ (all hierarchy)  │ —                   │
+  //   │ Sales Manager     │ —             │ ✓ (cross-team)     │ —                   │
+  //   │ Team Leader       │ —             │ ✓ (team)           │ —                   │
+  //   │ Sales Agent       │ —             │ ✓ (own only)       │ —                   │
+  //   │ Marketing         │ —             │ ✓ (campaigns only) │ —                   │
+  //   │ HR Recruiter      │ ✓             │ —  (BOUNCE)        │ —                   │
+  //   │ Finance Officer   │ ✓             │ ✓ (audit, deals)   │ —                   │
+  //   │ Executive / CEO   │ ✓             │ ✓ (audit, sales)   │ —                   │
+  //   │ System Admin      │ ✓             │ ✓ (audit, all)     │ —                   │
+  //   │ Marketplace Admin │ —             │ —  (BOUNCE)        │ ✓ (exclusive)        │
+  //   └───────────────────┴───────────────┴────────────────────┴─────────────────────┘
+  const BACKOFFICE_ROLES   = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
+  const MARKETPLACE_ROLES  = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
+  const CRM_BLOCKED_ROLES  = ['hrRecruiter','marketplaceAdmin']; // BRD §11 — no CRM data access
 
   return (
     <Routes>
@@ -161,8 +178,13 @@ const AppRoutes = () => {
 
       {/* ─── Real CRM Module V2 (embedded via SSO, own sidebar/layout) ─── */}
       {/* Marketing persona is scoped to Campaigns only — every CRM URL except
-          /campaigns redirects them, mirroring the sidebar. */}
+          /campaigns redirects them, mirroring the sidebar.
+          HR Recruiter + Marketplace Admin have no CRM access at all — they're
+          bounced back to the Employee Board. */}
       <Route path="/system/crm/*" element={
+        CRM_BLOCKED_ROLES.includes(personaKey) ? (
+          <Navigate to="/board/dashboard" replace />
+        ) : (
         <CrmLayout>
           <Routes>
             {/* Marketing's allowed CRM surfaces are /campaigns and
@@ -196,9 +218,13 @@ const AppRoutes = () => {
                 assignments) and marketing (import-only). Page renders the
                 role-appropriate variant internally. */}
             <Route path="/cold-calls" element={<CrmColdCalls />} />
+            {/* Team — Director/Manager/TL only. The page itself does the
+                role check and bounces if the persona doesn't qualify. */}
+            <Route path="/team" element={<CrmTeam />} />
             <Route path="*" element={<Navigate to="/system/crm" />} />
           </Routes>
         </CrmLayout>
+        )
       } />
 
       {/* ─── Other Federated System intros (placeholders, in Employee Board chrome) ─── */}

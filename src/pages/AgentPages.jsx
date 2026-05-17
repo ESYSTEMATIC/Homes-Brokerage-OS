@@ -279,17 +279,20 @@ export const AgentProfile = () => {
         <div style={{position:'absolute',left:-40,bottom:-60,width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle,rgba(99,102,241,.18),rgba(99,102,241,0))'}}/>
 
         <div style={{display:'flex',alignItems:'center',gap:22,position:'relative',flexWrap:'wrap'}}>
-          {/* Avatar */}
+          {/* Avatar — uses staff photo when available, falls back to initials */}
           <div style={{
             width:84, height:84, borderRadius:22, flexShrink:0,
-            background:'linear-gradient(135deg,#E8672A,#F89357)',
+            background: staff.photoDataUrl ? 'transparent' : 'linear-gradient(135deg,#E8672A,#F89357)',
             display:'flex',alignItems:'center',justifyContent:'center',
             fontWeight:800, fontSize:30, color:'#fff',
             boxShadow:'0 10px 24px rgba(232,103,42,.4)',
             border:'3px solid rgba(255,255,255,.12)',
             position:'relative',
+            overflow:'hidden',
           }}>
-            {initials}
+            {staff.photoDataUrl ? (
+              <img src={staff.photoDataUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+            ) : initials}
             <span style={{position:'absolute',bottom:-2,right:-2,width:20,height:20,borderRadius:'50%',background: hr.employmentStatus === 'Active' ? '#10b981' : '#f59e0b',border:'3px solid #1e293b'}}/>
           </div>
 

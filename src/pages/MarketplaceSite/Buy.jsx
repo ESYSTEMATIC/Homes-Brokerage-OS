@@ -153,6 +153,10 @@ export const Buy = () => {
   const store = useMarketplaceStore();
 
   const [view, setView] = useState(f.view === 'list' || f.view === 'map' ? f.view : 'map');
+  // Smart Search dropdown state — live autocomplete over PM_LISTINGS.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchCursor, setSearchCursor] = useState(0);
+  const searchAnchorRef = useRef(null);
   // Re-sync local view state when the URL changes (e.g., programmatic navigation
   // from a CTA on Home, Find, or a saved-search "Run" button). Without this,
   // the page stays in its initial-mounted view even after the URL switches
@@ -164,6 +168,28 @@ export const Buy = () => {
   const [bounds, setBounds] = useState(null);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortRef = useRef(null);
+
+  // Close smart-search dropdown on outside click + Escape.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onDoc = (e) => { if (searchAnchorRef.current && !searchAnchorRef.current.contains(e.target)) setSearchOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setSearchOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+  }, [searchOpen]);
+
+  // Live autocomplete suggestions — searches compound, city, developer, MLS id.
+  const searchSuggestions = useMemo(() => {
+    if (!f.q || f.q.trim().length < 1) return [];
+    const needle = f.q.toLowerCase();
+    return PM_LISTINGS
+      .filter(l => {
+        const hay = `${l.compound} ${l.city || ''} ${l.developer || ''} ${l.id} ${l.unitType || ''}`.toLowerCase();
+        return hay.includes(needle);
+      })
+      .slice(0, 8);
+  }, [f.q]);
 
   // Close sort menu on outside click + Escape.
   useEffect(() => {
@@ -315,14 +341,89 @@ export const Buy = () => {
         {!specialView && (
           <>
             <div className="pm-buy-search-row">
-              <div className="pm-search-bar" style={{ flex: 1, marginBottom: 0 }}>
-                <Search size={16} color="#9ca3af" />
-                <input
-                  placeholder="Search by compound, city region, or MLS ID…"
-                  value={f.q || ''}
-                  onChange={e => setFilter({ q: e.target.value })}
-                />
-                {f.q && <button type="button" className="pm-clear-input" onClick={() => setFilter({ q: '' })}><X size={12}/></button>}
+              <div ref={searchAnchorRef} style={{ flex: 1, position: 'relative' }}>
+                <div className="pm-search-bar" style={{ marginBottom: 0 }}>
+                  <Search size={16} color="#9ca3af" />
+                  <input
+                    placeholder="Search by compound, city, developer, or MLS ID…"
+                    value={f.q || ''}
+                    onChange={e => { setFilter({ q: e.target.value }); setSearchOpen(true); setSearchCursor(0); }}
+                    onFocus={() => setSearchOpen(true)}
+                    onKeyDown={(e) => {
+                      if (!searchSuggestions.length) return;
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setSearchCursor(c => Math.min(c + 1, searchSuggestions.length - 1)); }
+                      else if (e.key === 'ArrowUp') { e.preventDefault(); setSearchCursor(c => Math.max(c - 1, 0)); }
+                      else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const target = searchSuggestions[searchCursor];
+                        if (target) { navigate(`/marketplace/listings/${target.id}`); setSearchOpen(false); }
+                      }
+                    }}
+                  />
+                  {f.q && <button type="button" className="pm-clear-input" onClick={() => { setFilter({ q: '' }); setSearchOpen(false); }}><X size={12}/></button>}
+                </div>
+
+                {/* Autocomplete dropdown */}
+                {searchOpen && f.q && f.q.trim().length >= 1 && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+                    background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+                    boxShadow: '0 16px 36px rgba(15,23,42,0.14)',
+                    maxHeight: 420, overflowY: 'auto', zIndex: 1200,
+                  }}>
+                    {searchSuggestions.length === 0 ? (
+                      <div style={{ padding: '18px 20px', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
+                        No listings match <b>"{f.q}"</b>
+                      </div>
+                    ) : (
+                      <>
+                        {searchSuggestions.map((l, i) => {
+                          const isActive = i === searchCursor;
+                          return (
+                            <div
+                              key={l.id}
+                              onMouseEnter={() => setSearchCursor(i)}
+                              onClick={() => { navigate(`/marketplace/listings/${l.id}`); setSearchOpen(false); }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '12px 16px', cursor: 'pointer',
+                                borderBottom: '1px solid #f1f5f9',
+                                background: isActive ? '#fef2f2' : 'transparent',
+                                borderLeft: isActive ? '3px solid #e50914' : '3px solid transparent',
+                              }}>
+                              <div style={{
+                                width: 52, height: 52, borderRadius: 9, flexShrink: 0,
+                                background: l.image ? `url(${l.image})` : '#fee2e2',
+                                backgroundSize: 'cover', backgroundPosition: 'center',
+                              }}/>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: '#e50914', letterSpacing: '.06em', padding: '2px 6px', background: '#fef2f2', borderRadius: 4, textTransform: 'uppercase' }}>{l.unitType || 'Unit'}</span>
+                                  <span style={{ fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>{l.id}</span>
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {l.compound}
+                                </div>
+                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {l.developer || '—'} · {l.city || '—'} · {l.beds}BD · {l.baths}BA
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: '#e50914', whiteSpace: 'nowrap' }}>
+                                EGP {l.price}M
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div style={{ padding: '8px 16px', fontSize: 11, color: '#94a3b8', background: '#fafbfc', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{searchSuggestions.length} suggestion{searchSuggestions.length === 1 ? '' : 's'} · ↑↓ to navigate, ↵ to open</span>
+                          <button type="button" onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: '#e50914', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            See all {filtered.length} results →
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="pm-sort-wrap" ref={sortRef}>
                 <button type="button" className={`pm-sort-btn ${showSortMenu ? 'open' : ''} ${f.sort ? 'has-value' : ''}`} onClick={() => setShowSortMenu(s => !s)} aria-label={f.sort ? `Sort: ${SORTS[f.sort]?.label}` : 'Sort'}>

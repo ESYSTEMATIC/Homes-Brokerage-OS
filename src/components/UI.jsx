@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { X, Check, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
+import { X, Check, AlertTriangle, Info, CheckCircle2, HelpCircle, ChevronRight, Home } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 // ───────────── Modal ─────────────
 export const Modal = () => {
@@ -189,6 +190,128 @@ export const exportCSV = (filename, rows) => {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Tooltip — CSS-positioned hover tooltip used to explain KPI labels,
+// stage names, governance rules. Renders a small ? icon when no
+// children are passed, otherwise wraps the children with a hover hint.
+// Usage: <Tooltip text="What this KPI means" />  OR
+//        <Tooltip text="…"> <span>Anchor</span> </Tooltip>
+// ═══════════════════════════════════════════════════════════════
+export const Tooltip = ({ text, children, side = 'top' }) => {
+  const [visible, setVisible] = useState(false);
+  const anchor = children || (
+    <span style={{display:'inline-flex', alignItems:'center', color:'var(--text-tertiary)', cursor:'help', verticalAlign:'middle'}}>
+      <HelpCircle size={13}/>
+    </span>
+  );
+  const sidePos = side === 'bottom'
+    ? { top: '100%', marginTop: 6, transform: 'translateX(-50%)' }
+    : side === 'right'
+    ? { left: '100%', marginLeft: 6, top: '50%', transform: 'translateY(-50%)' }
+    : { bottom: '100%', marginBottom: 6, transform: 'translateX(-50%)' };
+  return (
+    <span
+      style={{position:'relative', display:'inline-flex', alignItems:'center'}}
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
+      tabIndex={0}
+    >
+      {anchor}
+      {visible && (
+        <span
+          role="tooltip"
+          style={{
+            position:'absolute',
+            left: side === 'right' ? undefined : '50%',
+            ...sidePos,
+            background:'#0f172a', color:'#fff',
+            padding:'7px 10px', borderRadius:6,
+            fontSize:11, fontWeight:500, lineHeight:1.45,
+            whiteSpace:'normal', maxWidth:260, minWidth:120,
+            boxShadow:'0 6px 18px rgba(0,0,0,.18)',
+            pointerEvents:'none',
+            zIndex:9999,
+            textAlign:'left',
+          }}>
+          {text}
+        </span>
+      )}
+    </span>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Breadcrumbs — auto-derives from the current pathname or accepts
+// an explicit segments array. Used inside CRM / Backoffice layouts.
+// Usage: <Breadcrumbs />  OR
+//        <Breadcrumbs segments={[{ label:'CRM', to:'/system/crm' }, { label:'Lead L-1001' }]} />
+// ═══════════════════════════════════════════════════════════════
+const TITLE_MAP = {
+  '': 'Home', system: 'Systems', crm: 'CRM', backoffice: 'Backoffice',
+  board: 'Employee Board', dashboard: 'Dashboard', leads: 'Leads', deals: 'Deals',
+  listings: 'Listings', tasks: 'Tasks', campaigns: 'Campaigns', 'cold-calls': 'Cold Calls',
+  reports: 'Reports', minisite: 'Mini-Site', shares: 'Listing Shares',
+  agents: 'Agents', onboarding: 'Onboarding', documents: 'Documents',
+  recruitment: 'Recruitment', jobs: 'Job Vacancies', audit: 'Audit Logs',
+  executive: 'Executive', roles: 'Roles & Permissions', departments: 'Departments',
+  settings: 'Settings', staff: 'Staff', training: 'Training', finance: 'Finance',
+  hr: 'HR', exceptions: 'Exceptions', services: 'Product & Services',
+  learning: 'Homes Academy', performance: 'Performance', profile: 'Profile',
+  notifications: 'Notifications', master: 'Master Data', overview: 'Overview',
+  developers: 'Developers', compounds: 'Compounds', branches: 'Branches',
+  teams: 'Teams', 'emp-categories': 'Employment Categories',
+  'comm-policies': 'Commission Policies', 'lead-sources': 'Lead Sources',
+  'deals-revenue': 'Deals & Revenue', commission: 'Commission Engine',
+  marketplace: 'Marketplace', traffic: 'Traffic', geography: 'Geography',
+  brokerages: 'Brokerages', users: 'Users', 'marketplace-dashboard': 'Marketplace Dashboard',
+  projects: 'Master Projects',
+};
+const labelFor = (seg) => TITLE_MAP[seg] || seg.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+export const Breadcrumbs = ({ segments, root = '/' }) => {
+  const location = useLocation();
+  // Auto-derive if no explicit segments provided.
+  const derived = segments || (() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const items = [];
+    let acc = '';
+    parts.forEach((p, i) => {
+      acc += '/' + p;
+      // Skip IDs that look like UUIDs or :id slugs
+      const isId = /^[A-Z]{1,4}-\d+$/i.test(p) || /^\d+$/.test(p);
+      items.push({
+        label: isId ? p : labelFor(p),
+        to: i === parts.length - 1 ? undefined : acc,
+      });
+    });
+    return items;
+  })();
+
+  return (
+    <nav aria-label="Breadcrumb" style={{
+      display:'flex', alignItems:'center', gap:6,
+      fontSize:12, color:'var(--text-secondary)',
+      marginBottom:8, flexWrap:'wrap',
+    }}>
+      <Link to={root} style={{display:'inline-flex', alignItems:'center', gap:4, color:'var(--text-tertiary)', textDecoration:'none'}}>
+        <Home size={12}/>
+      </Link>
+      {derived.map((seg, i) => (
+        <React.Fragment key={i}>
+          <ChevronRight size={11} color="var(--text-tertiary)"/>
+          {seg.to ? (
+            <Link to={seg.to} style={{color:'var(--text-secondary)', textDecoration:'none', fontWeight:500}}>{seg.label}</Link>
+          ) : (
+            <span style={{color:'var(--text-primary)', fontWeight:600}}>{seg.label}</span>
+          )}
+        </React.Fragment>
+      ))}
+    </nav>
+  );
 };
 
 // ───────────── useTableState (search + filters + sort) ─────────────

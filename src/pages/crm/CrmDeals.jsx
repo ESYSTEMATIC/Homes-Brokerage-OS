@@ -389,7 +389,6 @@ export const CrmDeals = () => {
   return (
     <div className="crm-page">
       <div className="page-header">
-        <div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Deals</span></div>
         <h1 className="page-title">Deals Pipeline</h1>
         <p className="page-subtitle">Off Plan and Resale pipelines from <b>Deal Stages.docx</b>. Total active pipeline: <strong>EGP {fmt(totalPipeline)}</strong> · Revenue recognised this period: <strong>EGP {fmt(revenueRecognised)}</strong>.</p>
       </div>

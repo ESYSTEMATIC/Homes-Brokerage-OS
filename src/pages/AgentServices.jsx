@@ -13,6 +13,14 @@ import { useApp } from '../context/AppContext';
 import { Target, Building2, ShieldCheck, KeyRound, GraduationCap, Globe, ArrowRight, FileText } from 'lucide-react';
 
 const BACKOFFICE_ROLES = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
+// CRM-blocked personas (BRD §11): HR Recruiter + Marketplace Admin have
+// scope:'none' and crmModules:[] in HIERARCHY. They are bounced at the route
+// level in App.jsx, so we hide the tile entirely here too.
+const CRM_BLOCKED = ['hrRecruiter','marketplaceAdmin'];
+// Personas that have any reason to visit Matrix EGMLS — agents need it to
+// search listings, managers/audit roles need oversight. HR / Finance /
+// Marketing / Marketplace Admin don't.
+const MATRIX_ROLES = ['agent','agentActive','teamLeader','salesManager','salesDirector','backofficeAdmin','systemAdmin','executive'];
 
 export const AgentServices = () => {
   const { persona, personaKey, toast, writeAudit, triggerSsoLaunch } = useApp();
@@ -45,7 +53,7 @@ export const AgentServices = () => {
       title: 'CRM',
       desc: 'Lead management, deals pipeline, tasks, calendar.',
       tag: 'Federated · SSO',
-      visible: salesTrack || isMarketing || BACKOFFICE_ROLES.includes(personaKey) || personaKey === 'executive',
+      visible: !CRM_BLOCKED.includes(personaKey) && (salesTrack || isMarketing || BACKOFFICE_ROLES.includes(personaKey) || personaKey === 'executive'),
       enabled: !salesTrack || onboardingComplete,
       onClick: () => launchSSO('CRM', '/system/crm'),
       lockedNote: 'Unlocks after onboarding training is complete.',
@@ -93,7 +101,7 @@ export const AgentServices = () => {
       title: 'Matrix EGMLS',
       desc: 'Egyptian MLS — listings, market data, property search. External provider (CoreLogic SSO pending).',
       tag: 'External · Redirect',
-      visible: salesTrack || BACKOFFICE_ROLES.includes(personaKey),
+      visible: MATRIX_ROLES.includes(personaKey),
       enabled: true,
       onClick: () => launchSSO('Matrix EGMLS', 'https://agents.egymls.com/auth/login/'),
     },

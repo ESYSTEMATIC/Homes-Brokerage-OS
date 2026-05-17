@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { HIERARCHY, canSeeLead, slaForStage, leadAgeDays } from '../../data/crmAccess';
 import { DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
+import { Tooltip } from '../../components/UI';
 
 const fmtN = (n) => new Intl.NumberFormat('en-EG').format(n || 0);
 const fmtM = (n) => n >= 1e6 ? `EGP ${(n/1e6).toFixed(1)}M` : `EGP ${fmtN(n)}`;
@@ -199,21 +200,25 @@ export const CrmDashboard = () => {
     {
       label: 'Open Leads', value: openLeads, sub: `${totalLeads} total`,
       icon: Users, color: '#3b82f6',
+      tip: 'Leads in any active stage (not Closed Won/Lost/Nurturing). Includes New, Contacted, Qualified, Reservation, Negotiation.',
       onClick: () => openLeadDrawer(leads.filter(l => !['Closed Won','Closed Lost','Nurturing'].includes(l.stage)), 'Open Leads'),
     },
     {
       label: 'Active Deals', value: activeDeals, sub: fmtM(pipelineValue) + ' pipeline',
       icon: KanbanSquare, color: '#10b981',
+      tip: 'Deals currently in the pipeline (both Off Plan and Resale). Pipeline value shows total weighted deal value.',
       onClick: () => openDealsDrawer(deals.filter(d => d.status === 'Active' || d.status === undefined), 'Active Deals'),
     },
     {
       label: 'Revenue Recognised', value: fmtM(closedWonRevenue), sub: `${closedWonCount} closed won`,
       icon: DollarSign, color: '#E8672A',
+      tip: 'Recognised at Standard Collection (10%) for Off Plan deals, or at Contract Signed & Payment for Resale.',
       onClick: () => openDealsDrawer(deals.filter(d => d.revenueRecognised), 'Revenue Recognised'),
     },
     {
       label: 'Conversion Rate', value: `${conversionRate}%`, sub: `${closedWonCount}/${totalLeads} → closed`,
       icon: Target, color: '#8b5cf6',
+      tip: 'Percentage of leads that converted to Closed Won deals over the current window. Industry benchmark: 8-12%.',
       onClick: () => navigate('/system/crm/reports'),
     },
   ];
@@ -310,7 +315,10 @@ export const CrmDashboard = () => {
               <k.icon size={20}/>
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>{k.label}</div>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em',display:'flex',alignItems:'center',gap:5}}>
+                {k.label}
+                {k.tip && <span onClick={e => e.stopPropagation()}><Tooltip text={k.tip}/></span>}
+              </div>
               <div style={{fontSize:22,fontWeight:800,marginTop:2}}>{k.value}</div>
               <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:2}}>{k.sub}</div>
             </div>

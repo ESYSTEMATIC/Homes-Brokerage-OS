@@ -30,7 +30,7 @@ export const CrmListingShare = () => {
 
   return (
     <div>
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Listing Shares</span></div><h1 className="page-title">Listing Share Tracking</h1><p className="page-subtitle">Track property shares via WhatsApp, Email, Call, and SMS with response analytics</p></div>
+      <div className="page-header"><h1 className="page-title">Listing Share Tracking</h1><p className="page-subtitle">Track property shares via WhatsApp, Email, Call, and SMS with response analytics</p></div>
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
         {[['Total Shares',totalShares,'var(--info)'],['WhatsApp Share',whatsappPct+'%','#25d366'],['Response Rate',responseRate+'%','var(--brand)'],['Interested',interestedRate+'%','var(--success)']].map(([l,v,c])=>(

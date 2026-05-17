@@ -3,26 +3,16 @@ import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { GraduationCap, ChevronRight, Award, UsersRound, CalendarClock, Mail, TrendingUp, Phone, KanbanSquare, Megaphone, CheckCircle2, Clock, Activity } from 'lucide-react';
 import { personaOwnerName } from '../data/crmAccess';
+import { RoleDashboard } from '../components/RoleDashboard';
 
-// Role → which federated systems are accessible (BRD §6 / §11 entitlements).
-// Note: the public Marketplace (homes.com.eg) is consumer-facing; the Marketplace
-// Dashboard (admin + analytics) is exclusively accessible by the Marketplace
-// Dashboard Admin role — no other persona, including agents and Super Admin,
-// has access to its modules.
-const ROLE_ACCESS = {
-  backofficeAdmin:  ['backoffice','crm','matrix'],
-  salesManager:     ['crm'],
-  salesDirector:    ['crm','backoffice'],
-  hrRecruiter:      ['backoffice'],
-  financeOfficer:   ['backoffice'],
-  marketplaceAdmin: ['marketplaceDash'],   // EXCLUSIVE access to Marketplace Dashboard
-  executive:        ['backoffice'],
-  systemAdmin:      ['backoffice'],
-  agent:            ['crm','matrix'],      // Agents explicitly do NOT see marketplaceDash
-  agentActive:      ['crm','matrix'],      // Same scope as agent — but with onboarding complete (CRM unlocked)
-  teamLeader:       ['crm','matrix'],
-  marketing:        ['crm'],               // CRM-only — sidebar inside CRM is restricted to Campaigns (BRD §8.23)
-};
+// NOTE: persona access is enforced canonically in three places:
+//   1. crmAccess.HIERARCHY            — defines scope + crmModules per persona
+//   2. App.jsx BACKOFFICE_ROLES /
+//      MARKETPLACE_ROLES / CRM_BLOCKED_ROLES  — route guards
+//   3. AgentServices.jsx              — Product & Services discovery surface
+// The old ROLE_ACCESS map that lived here was display-only and out of sync;
+// it was removed on the access-audit pass. See the access matrix comment in
+// App.jsx for the authoritative table.
 
 export const EmployeeBoardDashboard = () => {
   const { persona, personaKey, state, toast, openDrawer } = useApp();
@@ -133,18 +123,25 @@ export const EmployeeBoardDashboard = () => {
           }}>
             {/* Subtle brand-tint highlight */}
             <div style={{position:'absolute',right:-50,top:-50,width:260,height:260,borderRadius:'50%',background:'radial-gradient(circle,rgba(232,103,42,.25),rgba(232,103,42,0))'}}/>
-            {/* Avatar */}
-            <div style={{
-              width:64, height:64, borderRadius:18, flexShrink:0,
-              background:'linear-gradient(135deg,#E8672A,#F89357)',
-              display:'flex',alignItems:'center',justifyContent:'center',
-              fontWeight:800, fontSize:22, color:'#fff',
-              boxShadow:'0 8px 18px rgba(232,103,42,.35)',
-              position:'relative',
-            }}>
-              {initials}
-              <span style={{position:'absolute',bottom:-2,right:-2,width:18,height:18,borderRadius:'50%',background:'#10b981',border:'3px solid #1e293b'}}/>
-            </div>
+            {/* Avatar — pulls from the signed-in user's staff record */}
+            {(() => {
+              const staff = (state.staff || []).find(s => s.name === persona.label) || {};
+              return (
+                <div style={{
+                  width:64, height:64, borderRadius:18, flexShrink:0,
+                  background: staff.photoDataUrl ? 'transparent' : 'linear-gradient(135deg,#E8672A,#F89357)',
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  fontWeight:800, fontSize:22, color:'#fff',
+                  boxShadow:'0 8px 18px rgba(232,103,42,.35)',
+                  position:'relative', overflow:'hidden',
+                }}>
+                  {staff.photoDataUrl ? (
+                    <img src={staff.photoDataUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                  ) : initials}
+                  <span style={{position:'absolute',bottom:-2,right:-2,width:18,height:18,borderRadius:'50%',background:'#10b981',border:'3px solid #1e293b'}}/>
+                </div>
+              );
+            })()}
 
             <div style={{flex:1,minWidth:0,position:'relative'}}>
               <div style={{fontSize:12,color:'rgba(255,255,255,.6)',fontWeight:500,marginBottom:4}}>Welcome back</div>
@@ -464,6 +461,9 @@ export const EmployeeBoardDashboard = () => {
             </div>
           </div>
 
+          {/* The My Team panel for Team Leaders moved to the CRM
+              (/system/crm/team) so it lives alongside leads + deals. */}
+
           {/* Upcoming Training reminder */}
           {nextTraining && (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'14px 20px',marginBottom:24,display:'flex',gap:14,alignItems:'center'}}>
@@ -480,14 +480,14 @@ export const EmployeeBoardDashboard = () => {
         </>
       )}
 
-      {/* Federated Systems · SSO tiles, Internal Workspaces tiles, and the
-          bottom Profile/Notifications/Performance shortcut row have all been
-          removed from the dashboard on 08-May. Everything the user can launch
-          lives in Product & Services (sidebar Grid icon, /board/services) —
-          a single discovery surface that already filters items to what the
-          persona is entitled to. The dashboard is now focused on data:
-          onboarding journey for new agents · CRM operations for active
-          agents · role-context welcome for everyone else. */}
+      {/* ── Non-sales-track role dashboards ────────────────────────────
+          Marketing, Sales Manager, Sales Director, HR Recruiter, Finance
+          Officer, Marketplace Admin, Executive, System Admin, and Super
+          Admin (backofficeAdmin) all get a dedicated cockpit rendered by
+          RoleDashboard (KPIs · Today's Focus · Activity · Quick Actions).
+          isAgent is false for all of them, so this section fills the gap
+          where the page previously rendered only the welcome hero. */}
+      {!isAgent && <RoleDashboard />}
     </div>
   );
 };

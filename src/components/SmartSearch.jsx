@@ -95,17 +95,20 @@ export const SmartSearch = () => {
         l.project?.toLowerCase().includes(needle) ||
         l.unitCode?.toLowerCase().includes(needle) ||
         l.id?.toLowerCase().includes(needle) ||
-        l.developer?.toLowerCase().includes(needle)
+        l.developer?.toLowerCase().includes(needle) ||
+        l.city?.toLowerCase().includes(needle) ||
+        l.unitType?.toLowerCase().includes(needle)
       )
-      .slice(0, 5)
+      .slice(0, 6)
       .map(l => ({
         kind: 'listing',
         id: l.id,
         title: `${l.project} · ${l.unitCode}`,
-        sub: `${l.developer} · ${l.unitType} · ${l.bedrooms}BD · ${l.area}m²`,
+        sub: `${l.developer} · ${l.unitType} · ${l.bedrooms}BD · ${l.area}m² · ${l.city || '—'}`,
         meta: `EGP ${fmt(l.price)}`,
         icon: Home,
-        onClick: () => navigate('/system/crm/listings'),
+        // Deep-link: CrmListings reads ?openListing= and opens the drawer.
+        onClick: () => navigate(`/system/crm/listings?openListing=${l.id}`),
       }));
 
     return [...leadMatches, ...dealMatches, ...listingMatches];

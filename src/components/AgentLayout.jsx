@@ -38,8 +38,16 @@ export const AgentLayout = ({ children }) => {
   // "isAgent" gates sales-track items (Learning, Performance, Matrix EGMLS).
   // Marketing has hub='agent' but salesTrack=false — they don't get any of these.
   const isAgent = persona.hub === 'agent' && persona.salesTrack === true;
-  // Matrix EGMLS — Egyptian MLS for property listings. Marketing doesn't need it.
-  const canMatrix = persona.hub === 'agent' ? persona.salesTrack === true : true;
+  // CRM — blocked for HR Recruiter + Marketplace Admin (BRD §11, no CRM data
+  // access). Mirrors the route guard in App.jsx (CRM_BLOCKED_ROLES). Hide the
+  // launcher entirely instead of rendering it and bouncing on click.
+  const CRM_BLOCKED = ['hrRecruiter','marketplaceAdmin'];
+  const canCrm = !CRM_BLOCKED.includes(personaKey);
+  // Matrix EGMLS — Egyptian MLS for property listings. Only relevant to
+  // sales-track personas + the audit/admin roles that need listing oversight.
+  // HR Recruiter, Finance Officer, Marketplace Admin and Marketing don't need it.
+  const MATRIX_ROLES = ['agent','agentActive','teamLeader','salesManager','salesDirector','backofficeAdmin','systemAdmin','executive'];
+  const canMatrix = MATRIX_ROLES.includes(personaKey);
 
   return (
     <div className="app-shell">
@@ -86,8 +94,9 @@ export const AgentLayout = ({ children }) => {
           )}
 
           <div className="sidebar-section" style={{marginTop:14}}>Federated Systems · SSO</div>
-          {/* CRM → intro placeholder. From there the user clicks Simulate SSO to enter the real CRM V2. */}
-          <button className="sidebar-link" onClick={()=>navigate('/system/crm-intro')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>
+          {/* CRM → intro placeholder. From there the user clicks Simulate SSO to enter the real CRM V2.
+              Hidden entirely from CRM-blocked personas (HR / Marketplace Admin). */}
+          {canCrm && <button className="sidebar-link" onClick={()=>navigate('/system/crm-intro')}><KeyRound size={16}/>CRM <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
           {canMarketplaceDash && <button className="sidebar-link" onClick={()=>triggerSsoLaunch('Marketplace Dashboard','#/system/marketplace-dashboard')}><KeyRound size={16}/>Marketplace Dashboard <span style={{marginLeft:'auto',fontSize:9,color:'var(--brand)',fontWeight:700}}>SSO</span></button>}
           {canMatrix && (
             <button

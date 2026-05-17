@@ -93,7 +93,6 @@ export const CrmLeadDetail = () => {
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
         <button className="btn btn-outline btn-sm" onClick={()=>navigate('/system/crm/leads')}><ArrowLeft size={14}/> Back</button>
-        <div className="page-breadcrumb" style={{marginBottom:0}}><span>CRM</span><span>&gt;</span><span>Leads</span><span>&gt;</span><span className="current">{lead.name}</span></div>
       </div>
 
       {/* Lead Header Card */}
@@ -108,10 +107,26 @@ export const CrmLeadDetail = () => {
               <span className={`badge ${sla.level==='breach'?'badge-danger':sla.level==='warn'?'badge-warning':'badge-gray'}`} title={sla.message}>{age}d · {sla.level==='breach'?'SLA breach':sla.level==='warn'?'near SLA':'on track'}</span>
               {locked && <span className="badge badge-warning" title="Manual lead — 6-month protection"><Lock size={10}/> Locked {180-age}d</span>}
             </div>
-            <div style={{display:'flex',gap:20,marginTop:8,fontSize:13,color:'rgba(255,255,255,.7)'}}>
+            <div style={{display:'flex',gap:20,marginTop:8,fontSize:13,color:'rgba(255,255,255,.7)',flexWrap:'wrap',alignItems:'center'}}>
               <span style={{display:'flex',alignItems:'center',gap:4}}><Phone size={13}/>{lead.phone}</span>
               <span style={{display:'flex',alignItems:'center',gap:4}}><Mail size={13}/>{lead.email}</span>
               <span style={{display:'flex',alignItems:'center',gap:4}}><MapPin size={13}/>{lead.project}</span>
+              {(() => {
+                const ownerStaff = (state.staff || []).find(s => s.name === lead.owner);
+                if (!lead.owner) return null;
+                return (
+                  <span style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',background:'rgba(255,255,255,.1)',borderRadius:999,fontSize:11}}>
+                    {ownerStaff?.photoDataUrl ? (
+                      <img src={ownerStaff.photoDataUrl} alt="" style={{width:20,height:20,borderRadius:'50%',objectFit:'cover'}}/>
+                    ) : (
+                      <div style={{width:20,height:20,borderRadius:'50%',background:'var(--brand)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700}}>
+                        {lead.owner.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+                      </div>
+                    )}
+                    Owner: <b style={{color:'#fff'}}>{lead.owner}</b>
+                  </span>
+                );
+              })()}
             </div>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}}>

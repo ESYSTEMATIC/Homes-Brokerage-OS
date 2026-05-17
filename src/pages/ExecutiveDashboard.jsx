@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { exportCSV } from '../components/UI';
-import { Download, RefreshCw, MapPin } from 'lucide-react';
+import { Download, RefreshCw, MapPin, FileText } from 'lucide-react';
 
 const today = () => new Date().toISOString().split('T')[0];
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
@@ -239,6 +239,124 @@ export const ExecutiveDashboard = () => {
     writeAudit('Snapshot Exported', 'Executive Dashboard', 'Reporting', period);
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Board Pack PDF — opens a print-styled window with full KPIs,
+  // city rankings, top deals and recruitment funnel. The user clicks
+  // "Print / Save PDF" and the browser's PDF writer creates the file.
+  // ─────────────────────────────────────────────────────────────
+  const boardPackPDF = () => {
+    writeAudit('Board Pack Exported', 'Executive Dashboard', 'Reporting', period);
+    toast('Generating board pack…');
+    const w = window.open('', '_blank', 'width=900,height=1100');
+    if (!w) { toast('Pop-up blocked — allow pop-ups and try again', 'warning'); return; }
+
+    const topDeals = [...state.deals]
+      .sort((a, b) => b.value - a.value).slice(0, 8)
+      .map(d => `<tr><td>${d.id}</td><td>${d.client || d.buyer || '—'}</td><td>${d.project || '—'}</td><td style="text-align:right">${fmt(d.value)}</td><td>${d.stage}</td></tr>`).join('');
+
+    const cityRows = ranked.slice(0, 10).map(c =>
+      `<tr><td>${c.city}</td><td style="text-align:right">${c.leads}</td><td style="text-align:right">${c.deals}</td><td style="text-align:right"><b>${c.total}</b></td><td style="text-align:right">${c.share}%</td></tr>`
+    ).join('');
+
+    const recruitmentStats = {
+      applied:    (state.candidates || []).filter(c => c.stage === 'Applied').length,
+      screening:  (state.candidates || []).filter(c => c.stage === 'Screening').length,
+      interview:  (state.candidates || []).filter(c => c.stage === 'Interview').length,
+      offer:      (state.candidates || []).filter(c => c.stage === 'Offer').length,
+      rejected:   (state.candidates || []).filter(c => c.stage === 'Rejected').length,
+    };
+
+    const announcements = (state.announcements || []).slice(0, 4).map(a =>
+      `<li><b>${a.title}</b> — <span style="color:#64748b">${a.body || a.summary || ''}</span></li>`
+    ).join('');
+
+    const today_ = new Date().toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' });
+
+    w.document.write(`<!doctype html><html><head><title>Board Pack — ${period}</title>
+      <style>
+        @page { size: A4; margin: 18mm 16mm; }
+        body{font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; color:#0f172a; line-height:1.55; margin:0;}
+        .pg{max-width:820px; margin:0 auto;}
+        h1{font-size:26px; margin:0 0 4px; color:#e50914; letter-spacing:-0.02em;}
+        .sub{font-size:13px; color:#64748b; margin:0 0 24px;}
+        h2{font-size:16px; margin:28px 0 10px; color:#0f172a; padding-bottom:6px; border-bottom:2px solid #e50914;}
+        h3{font-size:13px; margin:18px 0 6px; color:#475569;}
+        .kpi-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:10px;}
+        .kpi{border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; background:#fff;}
+        .kpi .lbl{font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em;}
+        .kpi .val{font-size:18px; font-weight:800; margin-top:4px;}
+        .kpi.green .val{color:#059669;} .kpi.red .val{color:#dc2626;} .kpi.amber .val{color:#d97706;} .kpi.blue .val{color:#0369a1;}
+        table{width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;}
+        th, td{border-bottom:1px solid #e2e8f0; padding:7px 10px; text-align:left;}
+        th{background:#f8fafc; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:11px;}
+        .row{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+        .funnel{display:flex; flex-direction:column; gap:5px;}
+        .funnel-row{display:flex; align-items:center; gap:8px; font-size:12px;}
+        .funnel-bar{height:18px; background:#e50914; border-radius:3px; min-width:20px;}
+        .funnel-row .lbl{width:80px; color:#475569;}
+        .funnel-row .num{width:30px; text-align:right; font-weight:700;}
+        ul{padding-left:18px; font-size:12px;}
+        .footer{margin-top:36px; padding-top:14px; border-top:1px solid #e2e8f0; font-size:10px; color:#94a3b8; text-align:center;}
+        .print-btn{position:fixed; top:18px; right:18px; background:#e50914; color:#fff; border:none; padding:10px 18px; border-radius:8px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(229,9,20,.3);}
+        @media print { .print-btn{display:none!important;} body{margin:0;} }
+      </style></head><body>
+      <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+      <div class="pg">
+        <h1>Homes Brokerage — Board Pack</h1>
+        <p class="sub">${period} · Generated ${today_} · For board distribution</p>
+
+        <h2>Headline Financials</h2>
+        <div class="kpi-grid">
+          <div class="kpi blue"><div class="lbl">Total Sales</div><div class="val">${fmt(totalSales)}</div></div>
+          <div class="kpi green"><div class="lbl">Company Revenue</div><div class="val">${fmt(revenue)}</div></div>
+          <div class="kpi red"><div class="lbl">Total Expenses</div><div class="val">${fmt(expenses)}</div></div>
+          <div class="kpi green"><div class="lbl">Net Operating Result</div><div class="val">${fmt(net)}</div></div>
+        </div>
+        <div class="kpi-grid" style="margin-top:10px;">
+          <div class="kpi amber"><div class="lbl">Pending Commissions</div><div class="val">${fmt(pendingComm)}</div></div>
+          <div class="kpi green"><div class="lbl">Paid Commissions</div><div class="val">${fmt(paidComm)}</div></div>
+          <div class="kpi blue"><div class="lbl">Active Agents</div><div class="val">${activeAgents} / ${state.staff.length}</div></div>
+          <div class="kpi amber"><div class="lbl">Applications</div><div class="val" style="font-size:14px;">${apprPending}</div></div>
+        </div>
+
+        <h2>City Performance</h2>
+        <table>
+          <thead><tr><th>City</th><th style="text-align:right">Leads</th><th style="text-align:right">Deals</th><th style="text-align:right">Total</th><th style="text-align:right">Share</th></tr></thead>
+          <tbody>${cityRows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8">No data</td></tr>'}</tbody>
+        </table>
+
+        <h2>Top Deals</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Client</th><th>Project</th><th style="text-align:right">Value</th><th>Stage</th></tr></thead>
+          <tbody>${topDeals}</tbody>
+        </table>
+
+        <div class="row" style="margin-top:24px;">
+          <div>
+            <h3>Recruitment Funnel</h3>
+            <div class="funnel">
+              ${[['Applied', recruitmentStats.applied, '#e50914'],
+                 ['Screening', recruitmentStats.screening, '#f59e0b'],
+                 ['Interview', recruitmentStats.interview, '#0369a1'],
+                 ['Offer', recruitmentStats.offer, '#10b981'],
+                 ['Rejected', recruitmentStats.rejected, '#94a3b8']]
+                 .map(([lbl, n, c]) => `<div class="funnel-row"><span class="lbl">${lbl}</span><div class="funnel-bar" style="background:${c}; width:${Math.max(n * 18, 4)}px"></div><span class="num">${n}</span></div>`).join('')}
+            </div>
+          </div>
+          <div>
+            <h3>Strategic Updates</h3>
+            <ul>${announcements || '<li style="color:#94a3b8">No announcements logged.</li>'}</ul>
+          </div>
+        </div>
+
+        <div class="footer">
+          Homes Brokerage Operating System · Generated by Executive Dashboard · ${today_}
+        </div>
+      </div>
+      </body></html>`);
+    w.document.close();
+  };
+
   // City rankings table
   const ranked = useMemo(() => {
     const total = Object.values(cityStats).reduce((s, c) => s + c.leads + c.deals, 0) || 1;
@@ -258,7 +376,8 @@ export const ExecutiveDashboard = () => {
         <div style={{display:'flex',gap:10,alignItems:'center'}}>
           <select className="data-select" value={period} onChange={e => setPeriod(e.target.value)}><option>This Month</option><option>Last Month</option><option>This Quarter</option><option>YTD</option></select>
           <button className="btn btn-outline btn-sm" onClick={refresh}><RefreshCw size={13}/> Refresh</button>
-          <button className="btn btn-primary btn-sm" onClick={exportSnapshot}><Download size={13}/> Export Snapshot</button>
+          <button className="btn btn-outline btn-sm" onClick={exportSnapshot}><Download size={13}/> Snapshot CSV</button>
+          <button className="btn btn-primary btn-sm" onClick={boardPackPDF}><FileText size={13}/> Board Pack PDF</button>
         </div>
       </div>
       <div className="kpi-grid kpi-grid-4">

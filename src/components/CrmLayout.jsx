@@ -1,9 +1,10 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, FileText, Globe, BarChart3, Megaphone, PhoneCall } from 'lucide-react';
+import { LayoutDashboard, Users, KanbanSquare, CalendarCheck2, ArrowLeft, Bell, LogOut, Home, FileText, Globe, BarChart3, Megaphone, PhoneCall, Network } from 'lucide-react';
 import { HomesLogoAgent } from './HomesLogo';
 import { canSeeCampaigns, canSeeCrmModule } from '../data/crmAccess';
 import { SmartSearch } from './SmartSearch';
+import { Breadcrumbs } from './UI';
 
 export const CrmLayout = ({ children }) => {
   const { persona, personaKey, signOut, openDrawer, state, toast, writeAudit } = useApp();
@@ -108,6 +109,12 @@ export const CrmLayout = ({ children }) => {
                   <BarChart3 size={16} />Reports
                 </NavLink>
               )}
+              {/* Team — management roles only (Director, Manager, TL) */}
+              {['salesDirector','salesManager','teamLeader'].includes(personaKey) && (
+                <NavLink to="/system/crm/team" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <Network size={16} />My Team
+                </NavLink>
+              )}
             </>
           )}
         </nav>
@@ -151,7 +158,12 @@ export const CrmLayout = ({ children }) => {
             </div>
           </div>
         </header>
-        <div className="page-content"><div className="page-inner animate-fade-in" key={location.pathname}>{children}</div></div>
+        <div className="page-content">
+          <div className="page-inner animate-fade-in" key={location.pathname}>
+            <Breadcrumbs root="/system/crm" />
+            {children}
+          </div>
+        </div>
       </main>
 
       {/* Global Smart Search — Cmd-K / Ctrl-K toggles (11-May meeting ask). */}

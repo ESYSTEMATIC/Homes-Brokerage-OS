@@ -15,7 +15,7 @@ export const CrmMiniSite = () => {
 
   return (
     <div>
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Mini-Site</span></div><h1 className="page-title">Agent Mini-Site (Microsite)</h1><p className="page-subtitle">Your personal listing page — share with clients via link or QR code</p></div>
+      <div className="page-header"><h1 className="page-title">Agent Mini-Site (Microsite)</h1><p className="page-subtitle">Your personal listing page — share with clients via link or QR code</p></div>
 
       {/* Controls */}
       <div style={{display:'flex',gap:16,marginBottom:24,flexWrap:'wrap'}}>

@@ -1,151 +1,1100 @@
-import React from 'react';
+// ═══════════════════════════════════════════════════════════════════════
+// Onboarding & Applications — full rebuild (Wave J, May 2026)
+// ───────────────────────────────────────────────────────────────────────
+// Replaces the thin original page with:
+//   • Pipeline funnel (clickable stages with counts).
+//   • Enriched KPI strip (active · time-to-approve · stalled · approved · rate).
+//   • View tabs (All / Active / Stalled / Approved recent / Rejected).
+//   • Smart filter chips (missing docs · training incomplete · ready to approve).
+//   • Bulk actions (approve · reject · remind) via row checkboxes.
+//   • Drawer with 3 tabs (Overview / Timeline / Checklist).
+//   • Auto-progression banner when checklist hits 100 %.
+//   • Employee record creation on Approve.
+//   • Candidate→Onboarding linkage banner.
+// ═══════════════════════════════════════════════════════════════════════
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
-import { FileText, Clock, CheckCircle, XCircle, Plus, Download, Eye, ChevronRight } from 'lucide-react';
-import { APPLICATION_STATUS } from '../data/staticData';
+import { Field, FieldRow, exportCSV, Empty } from '../components/UI';
+import {
+  FileText, Clock, CheckCircle, XCircle, Plus, Download, Eye, ChevronRight,
+  ListChecks, Mail, Bell, GraduationCap, ShieldCheck, KeyRound, Briefcase,
+  AlertTriangle, Phone, Calendar, User, Link2, Sparkles, Filter, MessageSquare,
+  Users, BarChart3, RefreshCw,
+} from 'lucide-react';
+import { APPLICATION_STATUS, APPLICATION_STAGE_META } from '../data/staticData';
 
-const badgeFor = s => s.includes('Approved') ? 'badge-success' : s.includes('Rejected') ? 'badge-danger' : s.includes('Review') || s.includes('Submitted') ? 'badge-info' : 'badge-warning';
+// ───────────────── helpers ─────────────────
+const today = () => new Date().toISOString().split('T')[0];
+const nowISO = () => new Date().toISOString();
 
+const daysSince = (iso) => {
+  if (!iso) return 0;
+  return Math.floor((new Date() - new Date(iso)) / 86400000);
+};
+
+const lastStageEntry = (a) => (a.statusHistory && a.statusHistory.length)
+  ? a.statusHistory[a.statusHistory.length - 1]
+  : { at: a.date + 'T00:00:00', stage: a.status, by: 'System', note: '' };
+
+const stageColor  = (stage) => APPLICATION_STAGE_META[stage]?.color || '#94a3b8';
+const stageMeta   = (stage) => APPLICATION_STAGE_META[stage] || { order: 0, slaDays: 0, owner: 'System', help: '' };
+
+const badgeColorForStage = (stage) => {
+  if (stage === 'Approved') return 'badge-success';
+  if (stage === 'Rejected') return 'badge-danger';
+  if (stage === 'Documents Pending') return 'badge-warning';
+  if (stage === 'Final Approval')    return 'badge-info';
+  return 'badge-info';
+};
+
+// Required documents + training (same as before for checklist computation).
+const REQUIRED_DOCS = ['National ID', 'Education Certificate', 'RERA License', 'Contract Agreement'];
+const REQUIRED_TRAINING_IDS = ['CRS-001', 'CRS-002', 'CRS-003', 'CRS-004'];
+
+const computeChecklist = (applicant, documents, training) => {
+  const applicantDocs = (documents || []).filter(d => d.agent === applicant.applicant);
+  const hasAllRequired = REQUIRED_DOCS.every(t => applicantDocs.some(d => d.doc === t && d.status === 'Approved'));
+  const reraDoc = applicantDocs.find(d => d.doc === 'RERA License');
+  const reraOk  = reraDoc?.status === 'Approved';
+
+  const completedTraining = (training || []).filter(c => REQUIRED_TRAINING_IDS.includes(c.id) && c.status === 'Completed');
+  const trainingPct = Math.round((completedTraining.length / REQUIRED_TRAINING_IDS.length) * 100);
+
+  // Stages further down the funnel imply earlier steps are complete.
+  const stageOrder = stageMeta(applicant.status).order;
+  const appReviewed = stageOrder >= 2;            // Past Submitted
+  const m365Done    = applicant.status === 'Approved';
+  const welcomeDone = applicant.status === 'Approved';
+
+  const stateMap = {
+    application: appReviewed,
+    documents:   hasAllRequired,
+    rera:        reraOk,
+    training:    trainingPct === 100 || stageOrder >= 5,
+    m365:        m365Done,
+    welcome:     welcomeDone,
+  };
+  const done = Object.values(stateMap).filter(Boolean).length;
+  return { state: stateMap, done, total: 6, trainingPct };
+};
+
+const CHECKLIST_STEPS = [
+  { key: 'application', label: 'Application reviewed',         icon: FileText,     owner: 'HR' },
+  { key: 'documents',   label: 'Required documents on file',   icon: ShieldCheck,  owner: 'HR' },
+  { key: 'rera',        label: 'RERA license verified',        icon: Briefcase,    owner: 'HR' },
+  { key: 'training',    label: 'Mandatory training complete',  icon: GraduationCap, owner: 'Academy' },
+  { key: 'm365',        label: 'M365 + CRM access provisioned', icon: KeyRound,    owner: 'IT' },
+  { key: 'welcome',     label: 'Welcome kit delivered',        icon: Mail,         owner: 'HR' },
+];
+
+// Bands used by the Source-of-Hire view.
+const SOURCES = ['Careers Page', 'Referral', 'LinkedIn', 'Direct outreach', 'Recruiter', 'Other'];
+
+// ═══════════════════════════════════════════════════════════════════════
+// Main Onboarding page
+// ═══════════════════════════════════════════════════════════════════════
 export const Onboarding = () => {
   const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
+  const applicants = state.onboarding || [];
 
-  const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.onboarding, {
-    searchKeys: ['applicant', 'department', 'branch', 'id'],
-    filters: { status: 'status', type: 'type' },
+  const [tab, setTab] = useState('active'); // all | active | stalled | approved | rejected
+  const [q, setQ] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterDept, setFilterDept] = useState('');
+  const [chip, setChip] = useState(null); // missing-docs | training-incomplete | ready
+  const [selected, setSelected] = useState(new Set());
+
+  // ─── KPI calculations ─────────────────────────────────────────
+  const activeStatuses = ['Submitted','Under Review','Documents Pending','Training In Progress','Final Approval'];
+
+  const approvedAll = applicants.filter(a => a.status === 'Approved');
+  const last30 = new Date(); last30.setDate(last30.getDate() - 30);
+  const approvedRecent = approvedAll.filter(a => {
+    const approvedAt = a.statusHistory?.find(s => s.stage === 'Approved')?.at;
+    return approvedAt && new Date(approvedAt) >= last30;
   });
 
-  const today = () => new Date().toISOString().split('T')[0];
+  const avgTimeToApprove = (() => {
+    const days = approvedAll
+      .map(a => {
+        const submitted = a.statusHistory?.find(s => s.stage === 'Submitted')?.at;
+        const approved  = a.statusHistory?.find(s => s.stage === 'Approved')?.at;
+        if (!submitted || !approved) return null;
+        return Math.round((new Date(approved) - new Date(submitted)) / 86400000);
+      })
+      .filter(d => d !== null);
+    if (!days.length) return null;
+    return Math.round(days.reduce((s,d) => s+d, 0) / days.length);
+  })();
 
-  const counts = {
-    submitted: state.onboarding.filter(a=>a.status==='Submitted').length,
-    review: state.onboarding.filter(a=>a.status==='Under Review').length,
-    approved: state.onboarding.filter(a=>a.status==='Approved').length,
-    rejected: state.onboarding.filter(a=>a.status==='Rejected').length,
+  const stalled = applicants.filter(a => {
+    if (!activeStatuses.includes(a.status)) return false;
+    const last = lastStageEntry(a);
+    const sla  = stageMeta(a.status).slaDays;
+    return daysSince(last.at) > sla;
+  });
+
+  const approvalRate = (() => {
+    const decisioned = approvedAll.length + applicants.filter(a => a.status === 'Rejected').length;
+    if (!decisioned) return 0;
+    return Math.round((approvedAll.length / decisioned) * 100);
+  })();
+
+  // ─── Funnel counts ────────────────────────────────────────────
+  const funnel = Object.keys(APPLICATION_STAGE_META)
+    .filter(s => s !== 'Rejected')
+    .sort((a,b) => APPLICATION_STAGE_META[a].order - APPLICATION_STAGE_META[b].order)
+    .map(s => ({ stage: s, count: applicants.filter(a => a.status === s).length, meta: APPLICATION_STAGE_META[s] }));
+
+  // ─── Filtering pipeline ───────────────────────────────────────
+  const visible = applicants.filter(a => {
+    // Tab filter
+    if (tab === 'active'   && !activeStatuses.includes(a.status)) return false;
+    if (tab === 'stalled'  && !stalled.includes(a)) return false;
+    if (tab === 'approved' && !approvedRecent.includes(a)) return false;
+    if (tab === 'rejected' && a.status !== 'Rejected') return false;
+    // Smart chip
+    if (chip) {
+      const cl = computeChecklist(a, state.documents, state.training);
+      if (chip === 'missing-docs' && cl.state.documents) return false;
+      if (chip === 'training-incomplete' && cl.state.training) return false;
+      if (chip === 'ready' && (cl.done < 5 || a.status === 'Approved')) return false;
+    }
+    // Type/Dept filters
+    if (filterType && a.type !== filterType) return false;
+    if (filterDept && a.department !== filterDept) return false;
+    // Text search
+    if (q) {
+      const hay = `${a.applicant} ${a.id} ${a.department} ${a.branch} ${a.requestedRole || ''} ${a.email || ''} ${a.phone || ''}`.toLowerCase();
+      if (!hay.includes(q.toLowerCase())) return false;
+    }
+    return true;
+  });
+
+  const allChecked = visible.length > 0 && visible.every(a => selected.has(a.id));
+  const toggleAll = () => setSelected(allChecked ? new Set() : new Set(visible.map(a => a.id)));
+  const toggleOne = (id) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
   };
 
+  // ─── Workflow handlers ────────────────────────────────────────
+  const advanceStage = (a, byUser = 'HR Recruiter') => {
+    const next = stageMeta(a.status).next;
+    if (!next) { toast('Already at final stage', 'info'); return; }
+    pushStatus(a, next, byUser, `Advanced from ${a.status}`);
+  };
+
+  const pushStatus = (a, stage, by, note) => {
+    const newEntry = { stage, at: nowISO(), by, note };
+    const history = [...(a.statusHistory || []), newEntry];
+    const patch = { status: stage, statusHistory: history };
+    if (stage === 'Approved' && !a.employeeId) {
+      // Create employee record.
+      const empId = `A${String((state.staff || []).length + 1).padStart(3, '0')}`;
+      addItem('staff', {
+        name: a.applicant,
+        department: a.department,
+        title: a.requestedRole || 'Sales Agent',
+        branch: a.branch,
+        manager: a.hiringManager || 'Sales Manager',
+        status: 'Active',
+        type: 'Employee',
+        email: a.email || `${a.applicant.toLowerCase().replace(/\s+/g,'.')}@homesbrokerage.eg`,
+        phone: a.phone || '',
+        joinDate: today(),
+      }, 'A', {
+        action: 'Employee Created',
+        module: 'Backoffice',
+        target: a.id,
+        detail: `${a.applicant} · from onboarding ${a.id}`,
+      });
+      patch.employeeId = empId;
+    }
+    updateItem('onboarding', a.id, patch, {
+      action: stage === 'Approved' ? 'Application Approved'
+            : stage === 'Rejected' ? 'Application Rejected'
+            : 'Application Advanced',
+      module: 'Backoffice', target: a.id,
+      detail: note,
+    });
+    toast(stage === 'Approved'
+      ? `${a.applicant} approved · Employee record created`
+      : `${a.applicant} → ${stage}`);
+  };
+
+  const approve = (a) => openConfirm({
+    title: `Approve ${a.applicant}?`,
+    message: `An Employee record will be created and the applicant will be moved to Active staff. This action is logged in the audit trail.`,
+    confirmLabel: 'Approve & create employee',
+    onConfirm: () => pushStatus(a, 'Approved', 'HR Recruiter', 'Approved'),
+  });
+
+  const reject = (a) => openModal({
+    title: `Reject ${a.applicant}`,
+    submitLabel: 'Reject',
+    danger: true,
+    body: <Field label="Reason" name="reason" type="textarea" required placeholder="Visible in audit trail" />,
+    onSubmit: ({ reason }) => pushStatus(a, 'Rejected', 'HR Recruiter', reason),
+  });
+
+  const sendReminder = (a) => {
+    const owner = stageMeta(a.status).owner;
+    writeAudit('Reminder Sent', a.id, 'Backoffice', `${a.status} · ${owner}`);
+    toast(`Reminder sent · ${owner}`);
+  };
+
+  // ─── Bulk actions ─────────────────────────────────────────────
+  const bulkApprove = () => openConfirm({
+    title: `Approve ${selected.size} application${selected.size === 1 ? '' : 's'}?`,
+    message: 'Employee records will be created for each approved applicant.',
+    confirmLabel: 'Bulk approve',
+    onConfirm: () => {
+      Array.from(selected).forEach(id => {
+        const a = applicants.find(x => x.id === id);
+        if (a && a.status !== 'Approved' && a.status !== 'Rejected') pushStatus(a, 'Approved', 'HR Recruiter (bulk)', 'Bulk approved');
+      });
+      setSelected(new Set());
+    },
+  });
+  const bulkReject = () => openModal({
+    title: `Reject ${selected.size} application${selected.size === 1 ? '' : 's'}`,
+    submitLabel: 'Bulk reject',
+    danger: true,
+    body: <Field label="Reason" name="reason" type="textarea" required placeholder="Applied to all selected applicants" />,
+    onSubmit: ({ reason }) => {
+      Array.from(selected).forEach(id => {
+        const a = applicants.find(x => x.id === id);
+        if (a && a.status !== 'Approved' && a.status !== 'Rejected') pushStatus(a, 'Rejected', 'HR Recruiter (bulk)', reason);
+      });
+      setSelected(new Set());
+    },
+  });
+  const bulkRemind = () => {
+    Array.from(selected).forEach(id => {
+      const a = applicants.find(x => x.id === id);
+      if (a) sendReminder(a);
+    });
+    setSelected(new Set());
+  };
+
+  // ─── New Application modal (enriched) ─────────────────────────
   const newApplication = () => openModal({
     title: 'New Application', subtitle: 'Onboarding intake',
     submitLabel: 'Submit application',
     body: (
       <>
         <FieldRow>
-          <Field label="Applicant Name" name="applicant" required />
+          <Field label="Full Name" name="applicant" required />
           <Field label="Type" name="type" type="select" required options={['Agent','Employee']} />
         </FieldRow>
         <FieldRow>
-          <Field label="Department" name="department" type="select" required options={state.departments.map(d=>d.name)} />
-          <Field label="Branch" name="branch" type="select" required options={state.branches.map(b=>b.name)} />
+          <Field label="Phone" name="phone" placeholder="+20 100 ..." required />
+          <Field label="Email" name="email" type="email" required />
         </FieldRow>
+        <FieldRow>
+          <Field label="Department" name="department" type="select" required options={state.departments.map(d => d.name)} />
+          <Field label="Branch"     name="branch"     type="select" required options={state.branches.map(b => b.name)} />
+        </FieldRow>
+        <FieldRow>
+          <Field label="Requested Role" name="requestedRole" placeholder="e.g. Senior Sales Agent" required />
+          <Field label="Hiring Manager" name="hiringManager" required defaultValue={state.staff.find(s => s.type === 'Sales Manager')?.name || ''} />
+        </FieldRow>
+        <FieldRow>
+          <Field label="Source"            name="source" type="select" options={SOURCES} required defaultValue="Careers Page" />
+          <Field label="Target Start Date" name="targetStartDate" type="date" />
+        </FieldRow>
+        <Field label="Notes" name="notes" type="textarea" placeholder="Anything HR should know — fast track, referral context, etc." />
       </>
     ),
     onSubmit: (data) => {
-      const c = addItem('onboarding', { ...data, date: today(), status: 'Submitted' }, 'APP', { action: 'Application Submitted', module: 'Backoffice', detail: `${data.applicant} for ${data.department}` });
+      const c = addItem('onboarding', {
+        ...data,
+        date: today(),
+        status: 'Submitted',
+        linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+        statusHistory: [
+          { stage: 'Submitted', at: nowISO(), by: 'HR Recruiter (manual intake)', note: 'Application received' },
+        ],
+      }, 'APP', {
+        action: 'Application Submitted',
+        module: 'Backoffice',
+        detail: `${data.applicant} · ${data.requestedRole}`,
+      });
       toast(`Application ${c.id} created`);
     },
   });
 
-  const approve = (a) => openConfirm({
-    title: 'Approve application?', message: `${a.applicant} (${a.id}) will move to Approved status. An employee record will be initialized.`,
-    onConfirm: () => {
-      updateItem('onboarding', a.id, { status: 'Approved' }, { action: 'Application Approved', module: 'Backoffice', target: a.id });
-      toast(`${a.applicant} approved`);
-    },
-  });
-  const reject = (a) => openModal({
-    title: 'Reject application', subtitle: a.applicant,
-    submitLabel: 'Reject', danger: true,
-    body: <Field label="Rejection Reason" name="reason" type="textarea" required placeholder="Visible in audit trail…" />,
-    onSubmit: ({ reason }) => {
-      updateItem('onboarding', a.id, { status: 'Rejected' }, { action: 'Application Rejected', module: 'Backoffice', target: a.id, detail: reason });
-      toast(`${a.applicant} rejected`, 'warning');
-    },
-  });
-  const setStatus = (a, status) => {
-    updateItem('onboarding', a.id, { status }, { action: 'Application Status Changed', module: 'Backoffice', target: `${a.id} → ${status}` });
-    toast(`${a.applicant} → ${status}`);
-  };
-
-  const view = (a) => openDrawer({
-    title: a.applicant, subtitle: `${a.id} · ${a.type} · ${a.status}`,
-    content: (
-      <>
-        <div className="detail-grid">
-          {[['ID',a.id],['Type',a.type],['Department',a.department],['Branch',a.branch],['Submitted',a.date],['Status',a.status]].map(([k,v])=>(
-            <div key={k}><label>{k}</label><div className="v">{v}</div></div>
-          ))}
-        </div>
-        <div style={{marginTop:18}}>
-          <h4 style={{fontSize:13,fontWeight:700,marginBottom:10}}>Onboarding Stages</h4>
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {APPLICATION_STATUS.filter(s=>s!=='Rejected').map(s => (
-              <button key={s} className="btn btn-outline btn-sm" style={{justifyContent:'space-between'}} onClick={()=>setStatus(a,s)}>
-                <span>{s}</span>{a.status===s ? '✓' : <ChevronRight size={14}/>}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{marginTop:18,display:'flex',gap:8}}>
-          <button className="btn btn-success" onClick={()=>approve(a)}>Approve</button>
-          <button className="btn btn-danger" onClick={()=>reject(a)}>Reject</button>
-        </div>
-      </>
-    ),
+  // ─── Drawer (3 tabs) ──────────────────────────────────────────
+  const viewApplicant = (a) => openDrawer({
+    title: a.applicant,
+    subtitle: `${a.id} · ${a.requestedRole || a.type} · ${a.status}`,
+    content: <ApplicantDrawer
+      applicant={a}
+      documents={state.documents}
+      training={state.training}
+      candidates={state.candidates}
+      offers={state.offers}
+      onApprove={() => approve(a)}
+      onReject={() => reject(a)}
+      onAdvance={() => advanceStage(a)}
+      onReminder={() => sendReminder(a)}
+      onAutoApprove={() => pushStatus(a, 'Approved', 'HR Recruiter (auto · 100% checklist)', 'Auto-approved · checklist complete')}
+    />,
   });
 
   return (
     <div className="animate-fade-in">
       <div className="page-header">
-        <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Onboarding</span></div>
         <h1 className="page-title">Onboarding & Applications</h1>
-        <p className="page-subtitle">Review and process agent onboarding applications</p>
+        <p className="page-subtitle">From application submitted to active employee — one canonical pipeline</p>
       </div>
-      <div className="kpi-grid kpi-grid-4">
-        <div className="kpi-card"><div><div className="kpi-label">Submitted</div><div className="kpi-value">{counts.submitted}</div></div><div className="kpi-icon blue"><FileText size={20}/></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Under Review</div><div className="kpi-value">{counts.review}</div></div><div className="kpi-icon amber"><Clock size={20}/></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Approved</div><div className="kpi-value">{counts.approved}</div></div><div className="kpi-icon green"><CheckCircle size={20}/></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Rejected</div><div className="kpi-value">{counts.rejected}</div></div><div className="kpi-icon red"><XCircle size={20}/></div></div>
+
+      {/* ─── PIPELINE FUNNEL ──────────────────────────────── */}
+      <PipelineFunnel
+        funnel={funnel}
+        applicants={applicants}
+        activeStage={null}
+        onClickStage={(stage) => { setTab('all'); setChip(null); setQ(stage); }}
+      />
+
+      {/* ─── KPI STRIP ────────────────────────────────────── */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18}}>
+        <Kpi
+          label="Active applicants"
+          value={applicants.filter(a => activeStatuses.includes(a.status)).length}
+          icon={Users}
+          color="#3b82f6"
+          footer={`${applicants.length} total in the pipeline`}
+        />
+        <Kpi
+          label="Time to approve"
+          value={avgTimeToApprove !== null ? `${avgTimeToApprove}d` : '—'}
+          icon={Clock}
+          color="#0ea5e9"
+          tip="Average days from Submitted to Approved across all approved applicants."
+          footer={avgTimeToApprove !== null ? `Target: ≤ 14 days` : 'No approvals yet'}
+          delta={avgTimeToApprove !== null && avgTimeToApprove <= 14 ? { dir:'up', value: 'on target' } : avgTimeToApprove !== null ? { dir: 'down', value: 'over target' } : null}
+        />
+        <Kpi
+          label="Stalled"
+          value={stalled.length}
+          icon={AlertTriangle}
+          color="#f59e0b"
+          tip="Applicants whose current status exceeds the SLA for that stage."
+          onClick={() => setTab('stalled')}
+          footer={stalled.length > 0 ? 'Click to view & remind' : 'All on track'}
+        />
+        <Kpi
+          label="Approved (30d)"
+          value={approvedRecent.length}
+          icon={CheckCircle}
+          color="#10b981"
+          onClick={() => setTab('approved')}
+          footer={`Employees added this month`}
+        />
+        <Kpi
+          label="Approval rate"
+          value={`${approvalRate}%`}
+          icon={BarChart3}
+          color="#8b5cf6"
+          tip="Approved / (Approved + Rejected) — across all decisioned applications."
+          footer={`${approvedAll.length} approved · ${applicants.filter(a => a.status === 'Rejected').length} rejected`}
+          delta={approvalRate >= 70 ? { dir: 'up', value: 'healthy' } : approvalRate > 0 ? { dir: 'down', value: 'low' } : null}
+        />
       </div>
+
+      {/* ─── VIEW TABS ────────────────────────────────────── */}
+      <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap'}}>
+        {[
+          ['all',      'All',       applicants.length],
+          ['active',   'Active',    applicants.filter(a => activeStatuses.includes(a.status)).length],
+          ['stalled',  'Stalled',   stalled.length],
+          ['approved', 'Approved (30d)', approvedRecent.length],
+          ['rejected', 'Rejected',  applicants.filter(a => a.status === 'Rejected').length],
+        ].map(([k, lbl, n]) => (
+          <button
+            key={k}
+            onClick={() => { setTab(k); setChip(null); setSelected(new Set()); }}
+            style={{
+              padding:'8px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+              border: `1px solid ${tab === k ? 'var(--brand)' : 'var(--border)'}`,
+              background: tab === k ? 'var(--brand)' : '#fff',
+              color: tab === k ? '#fff' : 'var(--text-secondary)',
+            }}>
+            {lbl} <span style={{opacity:.7, marginLeft:4}}>· {n}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ─── SMART CHIPS ──────────────────────────────────── */}
+      <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap', alignItems:'center'}}>
+        <span style={{fontSize:11, color:'var(--text-tertiary)', fontWeight:600, marginRight:4}}><Filter size={11} style={{verticalAlign:'-2px'}}/> Quick filters:</span>
+        {[
+          ['missing-docs',         'Missing documents'],
+          ['training-incomplete',  'Training incomplete'],
+          ['ready',                'Ready to approve'],
+        ].map(([k, lbl]) => (
+          <button
+            key={k}
+            onClick={() => setChip(chip === k ? null : k)}
+            style={{
+              padding:'5px 12px', borderRadius:999, fontSize:11, fontWeight:600, cursor:'pointer',
+              border: `1px solid ${chip === k ? 'var(--brand)' : 'var(--border)'}`,
+              background: chip === k ? 'var(--brand-tint)' : '#fff',
+              color: chip === k ? 'var(--brand)' : 'var(--text-secondary)',
+            }}>
+            {lbl}
+          </button>
+        ))}
+        {chip && <button onClick={() => setChip(null)} style={{fontSize:11, color:'var(--text-tertiary)', background:'none', border:'none', cursor:'pointer', textDecoration:'underline'}}>Clear</button>}
+      </div>
+
+      {/* ─── DATA PANEL ───────────────────────────────────── */}
       <div className="data-panel">
         <div className="data-toolbar">
           <div className="data-toolbar-left">
-            <input className="data-search" placeholder="Search applicant..." value={q} onChange={e=>setQ(e.target.value)} />
-            <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
-              <option value="">All Statuses</option>{APPLICATION_STATUS.map(s=><option key={s}>{s}</option>)}
+            <input
+              className="data-search"
+              placeholder="Search by name, role, email, phone, ID…"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              style={{minWidth:260}}
+            />
+            <select className="data-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+              <option value="">All types</option><option>Agent</option><option>Employee</option>
             </select>
-            <select className="data-select" value={filterVals.type} onChange={e=>setFilter('type', e.target.value)}>
-              <option value="">All Types</option><option>Agent</option><option>Employee</option>
+            <select className="data-select" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
+              <option value="">All departments</option>
+              {state.departments.map(d => <option key={d.id}>{d.name}</option>)}
             </select>
           </div>
-          <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-outline" onClick={()=>{exportCSV(`onboarding_${today()}`, filtered); toast(`Exported ${filtered.length} rows`); writeAudit('Export','Onboarding CSV','Backoffice',`${filtered.length} rows`);}}><Download size={14}/> Export</button>
+          <div style={{display:'flex', gap:8}}>
+            <button className="btn btn-outline" onClick={() => { exportCSV(`onboarding_${today()}`, visible); toast(`Exported ${visible.length} rows`); writeAudit('Export', 'Onboarding CSV', 'Backoffice', `${visible.length} rows`); }}>
+              <Download size={14}/> Export
+            </button>
             <button className="btn btn-primary" onClick={newApplication}><Plus size={14}/> New Application</button>
           </div>
         </div>
+
+        {/* Bulk action bar — only when rows are selected */}
+        {selected.size > 0 && (
+          <div style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'10px 18px', background:'var(--brand-tint)', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)',
+          }}>
+            <div style={{fontSize:12, fontWeight:600, color:'var(--brand)'}}>
+              {selected.size} selected
+            </div>
+            <div style={{display:'flex', gap:8}}>
+              <button className="btn btn-outline btn-sm" onClick={bulkRemind}><Bell size={13}/> Remind</button>
+              <button className="btn btn-success btn-sm" onClick={bulkApprove}><CheckCircle size={13}/> Approve</button>
+              <button className="btn btn-danger btn-sm" onClick={bulkReject}><XCircle size={13}/> Reject</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
+            </div>
+          </div>
+        )}
+
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>ID</th><th>Applicant</th><th>Type</th><th>Department</th><th>Branch</th><th>Submitted</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
-            <tbody>{filtered.map(a=>(
-              <tr key={a.id}>
-                <td className="muted">{a.id}</td>
-                <td className="bold">{a.applicant}</td>
-                <td>{a.type}</td>
-                <td>{a.department}</td>
-                <td>{a.branch}</td>
-                <td className="muted">{a.date}</td>
-                <td><span className={`badge ${badgeFor(a.status)}`}>{a.status}</span></td>
-                <td style={{textAlign:'right'}}><div className="row-actions">
-                  <button className="btn btn-outline btn-sm" onClick={()=>view(a)}><Eye size={13}/> View</button>
-                  {!['Approved','Rejected'].includes(a.status) && (<>
-                    <button className="btn btn-success btn-sm" onClick={()=>approve(a)}>Approve</button>
-                    <button className="btn btn-danger btn-sm" onClick={()=>reject(a)}>Reject</button>
-                  </>)}
-                </div></td>
+            <thead>
+              <tr>
+                <th style={{width:36}}>
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+                </th>
+                <th>ID</th>
+                <th>Applicant</th>
+                <th>Role</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Time in status</th>
+                <th>Checklist</th>
+                <th style={{textAlign:'right'}}>Actions</th>
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {visible.map(a => {
+                const last     = lastStageEntry(a);
+                const days     = daysSince(last.at);
+                const sla      = stageMeta(a.status).slaDays;
+                const breached = sla > 0 && days > sla;
+                const checklist = computeChecklist(a, state.documents, state.training);
+                const pct = Math.round((checklist.done / checklist.total) * 100);
+                return (
+                  <tr key={a.id}>
+                    <td><input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleOne(a.id)} /></td>
+                    <td className="muted">{a.id}</td>
+                    <td>
+                      <div style={{display:'flex', alignItems:'center', gap:10}}>
+                        {a.photoDataUrl ? (
+                          <img src={a.photoDataUrl} alt="" style={{width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:`2px solid ${stageColor(a.status)}`}}/>
+                        ) : (
+                          <div style={{
+                            width:32, height:32, borderRadius:'50%',
+                            background:`linear-gradient(135deg, ${stageColor(a.status)}, ${stageColor(a.status)}99)`,
+                            color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:11, fontWeight:700, flexShrink:0,
+                          }}>
+                            {a.applicant.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+                          </div>
+                        )}
+                        <div style={{minWidth:0}}>
+                          <div className="bold">{a.applicant}</div>
+                          <div style={{fontSize:10, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6}}>
+                            <span>{a.email || a.phone || '—'}</span>
+                            {a.resumeName && (
+                              <span style={{display:'inline-flex', alignItems:'center', gap:3, color:'var(--brand)', fontWeight:600}}>
+                                <FileText size={10}/> CV
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{a.requestedRole || a.type}</td>
+                    <td className="muted">{a.source || '—'}</td>
+                    <td><span className={`badge ${badgeColorForStage(a.status)}`}>{a.status}</span></td>
+                    <td>
+                      <div style={{display:'flex', alignItems:'center', gap:6}}>
+                        <span style={{fontSize:12, fontWeight:600, color: breached ? '#dc2626' : 'var(--text-primary)'}}>{days}d</span>
+                        {breached && <span title={`SLA ${sla}d breached`} style={{
+                          padding:'2px 6px', borderRadius:4, fontSize:9, fontWeight:700,
+                          background:'#fef2f2', color:'#dc2626', textTransform:'uppercase', letterSpacing:'.05em',
+                        }}>SLA</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{display:'flex', alignItems:'center', gap:8}}>
+                        <div style={{flex:1, height:6, background:'#f1f5f9', borderRadius:3, overflow:'hidden', minWidth:60}}>
+                          <div style={{width:`${pct}%`, height:'100%', background: pct === 100 ? '#10b981' : 'var(--brand)'}}/>
+                        </div>
+                        <span style={{fontSize:11, fontWeight:600, color:'var(--text-secondary)', minWidth:32}}>{pct}%</span>
+                      </div>
+                    </td>
+                    <td style={{textAlign:'right'}}>
+                      <div className="row-actions">
+                        <button className="btn btn-outline btn-sm" onClick={() => viewApplicant(a)}><Eye size={13}/> View</button>
+                        {!['Approved','Rejected'].includes(a.status) && stageMeta(a.status).next && (
+                          <button className="btn btn-primary btn-sm" onClick={() => advanceStage(a)}>Next →</button>
+                        )}
+                        {!['Approved','Rejected'].includes(a.status) && (
+                          <button className="btn btn-success btn-sm" onClick={() => approve(a)} title="Skip directly to Approved">✓</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
-          {filtered.length === 0 && <Empty />}
+          {visible.length === 0 && <Empty message="No applications match this view." />}
         </div>
       </div>
     </div>
   );
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// PipelineFunnel — connected horizontal stage flow with conversion %
+// ───────────────────────────────────────────────────────────────────────
+// True pipeline visualization: each stage is a node, arrows between them,
+// and the inter-stage drop-off rate is computed from statusHistory so HR
+// can see "of those who entered Documents Pending, what % reached Final
+// Approval?" at a glance.
+// ═══════════════════════════════════════════════════════════════════════
+const PipelineFunnel = ({ funnel, applicants, activeStage, onClickStage }) => {
+  // Cumulative applicants that have ever touched each stage (from
+  // statusHistory). Used for the "conversion %" arrow labels.
+  const everReached = useMemo(() => {
+    const counts = {};
+    funnel.forEach(f => { counts[f.stage] = 0; });
+    applicants.forEach(a => {
+      const stages = new Set((a.statusHistory || []).map(h => h.stage));
+      // Current status counts too in case statusHistory is empty.
+      stages.add(a.status);
+      Object.keys(counts).forEach(s => { if (stages.has(s)) counts[s] += 1; });
+    });
+    return counts;
+  }, [funnel, applicants]);
+
+  const totalEver = applicants.length || 1;
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)',
+      border: '1px solid var(--border)', borderRadius: 16,
+      padding: '20px 22px', marginBottom: 18,
+    }}>
+      <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom: 18, flexWrap:'wrap', gap: 12}}>
+        <div style={{display:'flex', alignItems:'center', gap:12}}>
+          <div style={{
+            width:40, height:40, borderRadius:10,
+            background:'linear-gradient(135deg, var(--brand), #b91c1c)',
+            color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:'0 4px 12px rgba(229,9,20,.25)',
+          }}>
+            <Sparkles size={18}/>
+          </div>
+          <div>
+            <h3 style={{fontSize:15, fontWeight:800, color:'var(--text-primary)', letterSpacing:'-0.01em'}}>Application Pipeline</h3>
+            <p style={{fontSize:11, color:'var(--text-tertiary)', marginTop:3}}>
+              {totalEver} total applications · click a stage to filter below · arrows show conversion %
+            </p>
+          </div>
+        </div>
+        <div style={{display:'flex', gap:14, alignItems:'center'}}>
+          <Legend dot="#10b981" label="On track"/>
+          <Legend dot="#f59e0b" label="Bottleneck"/>
+        </div>
+      </div>
+
+      {/* Stage row with connectors */}
+      <div style={{
+        display:'flex', alignItems:'stretch', gap: 0, position:'relative',
+        overflowX:'auto', paddingBottom: 6,
+      }}>
+        {funnel.map((f, i) => {
+          const isActive = activeStage === f.stage;
+          const ever     = everReached[f.stage] || 0;
+          const reachedPct = Math.round((ever / totalEver) * 100);
+          const next = funnel[i + 1];
+          // Conversion to next stage = nextStage.ever / thisStage.ever.
+          const convPct = next && ever > 0
+            ? Math.round(((everReached[next.stage] || 0) / ever) * 100)
+            : null;
+          const isBottleneck = convPct !== null && convPct < 60;
+          return (
+            <React.Fragment key={f.stage}>
+              <button
+                onClick={() => onClickStage(f.stage)}
+                style={{
+                  flex: 1, minWidth: 130,
+                  display:'flex', flexDirection:'column', alignItems:'center',
+                  gap: 8, padding:'14px 10px',
+                  background: isActive
+                    ? `linear-gradient(180deg, ${f.meta.color}1a 0%, ${f.meta.color}05 100%)`
+                    : '#fff',
+                  border: `1px solid ${isActive ? f.meta.color : 'var(--border)'}`,
+                  borderRadius: 12, cursor:'pointer',
+                  boxShadow: isActive ? `0 0 0 1px ${f.meta.color} inset` : 'none',
+                  transition: 'all .15s',
+                  position: 'relative',
+                }}
+                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = ''; } }}
+              >
+                {/* Big number */}
+                <div style={{
+                  width:54, height:54, borderRadius:'50%',
+                  background:`linear-gradient(135deg, ${f.meta.color} 0%, ${f.meta.color}cc 100%)`,
+                  color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:22, fontWeight:800,
+                  boxShadow:`0 4px 12px ${f.meta.color}55`,
+                }}>
+                  {f.count}
+                </div>
+                <div style={{fontSize:12, fontWeight:700, color:'var(--text-primary)', textAlign:'center', lineHeight:1.25}}>
+                  {f.stage}
+                </div>
+                <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:3}}>
+                  <div style={{fontSize:9, color: f.meta.color, fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em'}}>
+                    {f.meta.owner}
+                  </div>
+                  {f.meta.slaDays > 0 && (
+                    <div style={{fontSize:9, color:'var(--text-tertiary)', display:'inline-flex', alignItems:'center', gap:3}}>
+                      <Clock size={9}/>{f.meta.slaDays}d SLA
+                    </div>
+                  )}
+                  {ever > 0 && reachedPct !== 100 && (
+                    <div style={{fontSize:9, color:'var(--text-tertiary)'}}>
+                      {reachedPct}% ever reached
+                    </div>
+                  )}
+                </div>
+              </button>
+
+              {/* Connector arrow + conversion % */}
+              {next && (
+                <div style={{
+                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                  width: 44, flexShrink: 0,
+                }}>
+                  {convPct !== null && (
+                    <div style={{
+                      fontSize: 10, fontWeight: 700,
+                      color: isBottleneck ? '#f59e0b' : '#10b981',
+                      background: isBottleneck ? '#fef3c7' : '#ecfdf5',
+                      border: `1px solid ${isBottleneck ? '#fde68a' : '#a7f3d0'}`,
+                      padding: '2px 6px', borderRadius: 999,
+                      whiteSpace: 'nowrap',
+                      marginBottom: 4,
+                    }}>
+                      {convPct}%
+                    </div>
+                  )}
+                  <ChevronRight size={20} color="var(--text-tertiary)"/>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const Legend = ({ dot, label }) => (
+  <span style={{display:'inline-flex', alignItems:'center', gap:5, fontSize:10, color:'var(--text-secondary)', fontWeight:600}}>
+    <span style={{width:7, height:7, borderRadius:'50%', background: dot}}/>
+    {label}
+  </span>
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// Kpi card — redesigned with stronger hierarchy, sparkle accents,
+// optional delta indicator and footer context line.
+// ═══════════════════════════════════════════════════════════════════════
+const Kpi = ({ label, value, icon: Icon, color, tip, onClick, delta, footer }) => {
+  const deltaPositive = delta && delta.dir === 'up';
+  return (
+    <div
+      onClick={onClick}
+      title={tip}
+      style={{
+        background:'#fff',
+        border:'1px solid var(--border)',
+        borderRadius:14,
+        padding:'16px 18px',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'transform .15s, box-shadow .15s, border-color .15s',
+        position:'relative',
+        overflow:'hidden',
+        display:'flex', flexDirection:'column', gap:10,
+        minHeight: 110,
+      }}
+      onMouseEnter={onClick ? e => {
+        e.currentTarget.style.transform='translateY(-3px)';
+        e.currentTarget.style.boxShadow='0 10px 24px rgba(15,23,42,.08)';
+        e.currentTarget.style.borderColor = color;
+      } : undefined}
+      onMouseLeave={onClick ? e => {
+        e.currentTarget.style.transform='';
+        e.currentTarget.style.boxShadow='';
+        e.currentTarget.style.borderColor = 'var(--border)';
+      } : undefined}
+    >
+      {/* Soft tinted accent stripe at the top */}
+      <div style={{
+        position:'absolute', top:0, left:0, right:0, height: 3,
+        background: `linear-gradient(90deg, ${color}, ${color}66)`,
+      }}/>
+
+      {/* Header row: icon + label + delta pill */}
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10}}>
+        <div style={{display:'flex', alignItems:'center', gap:9}}>
+          <div style={{
+            width:34, height:34, borderRadius:9,
+            background: `linear-gradient(135deg, ${color}1a, ${color}26)`,
+            color, display:'flex', alignItems:'center', justifyContent:'center',
+            flexShrink:0,
+          }}>
+            <Icon size={17}/>
+          </div>
+          <div style={{fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.06em', lineHeight:1.2}}>
+            {label}
+          </div>
+        </div>
+        {delta && (
+          <span style={{
+            display:'inline-flex', alignItems:'center', gap:3,
+            fontSize:10, fontWeight:700,
+            padding:'2px 7px', borderRadius:999,
+            background: deltaPositive ? '#ecfdf5' : '#fef2f2',
+            color: deltaPositive ? '#059669' : '#dc2626',
+            border: `1px solid ${deltaPositive ? '#a7f3d0' : '#fecaca'}`,
+          }}>
+            {deltaPositive ? '▲' : '▼'} {delta.value}
+          </span>
+        )}
+      </div>
+
+      {/* Big value */}
+      <div style={{fontSize:30, fontWeight:800, color:'var(--text-primary)', letterSpacing:'-0.02em', lineHeight:1}}>
+        {value}
+      </div>
+
+      {/* Footer context */}
+      {footer && (
+        <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:'auto'}}>
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// ApplicantDrawer — 3 tabs (Overview / Timeline / Checklist)
+// ═══════════════════════════════════════════════════════════════════════
+const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers, onApprove, onReject, onAdvance, onReminder, onAutoApprove }) => {
+  const [tab, setTab] = useState('overview');
+  const checklist = computeChecklist(a, documents, training);
+  const ready = checklist.done === checklist.total && a.status !== 'Approved';
+  const linkedCand  = candidates?.find(c => c.id === a.linkedCandidateId);
+  const linkedOffer = offers?.find(o => o.id === a.linkedOfferId);
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:16}}>
+      {/* Status banner */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:12,
+        padding:'12px 16px', borderRadius:10,
+        background: `${stageColor(a.status)}10`,
+        border: `1px solid ${stageColor(a.status)}33`,
+      }}>
+        <div style={{width:36, height:36, borderRadius:9, background: stageColor(a.status), color:'#fff', display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <Sparkles size={18}/>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11, fontWeight:700, color: stageColor(a.status), textTransform:'uppercase', letterSpacing:'.05em'}}>
+            {a.status}
+          </div>
+          <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:2}}>{stageMeta(a.status).help}</div>
+        </div>
+      </div>
+
+      {/* Auto-approve banner */}
+      {ready && (
+        <div style={{
+          padding:'12px 16px', borderRadius:10,
+          background:'#ecfdf5', border:'1px solid #6ee7b7',
+          display:'flex', alignItems:'center', gap:10,
+        }}>
+          <CheckCircle size={20} color="#10b981"/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13, fontWeight:700, color:'#065f46'}}>All checklist items complete</div>
+            <div style={{fontSize:11, color:'#065f46', opacity:.85, marginTop:2}}>Ready to approve and create the Employee record.</div>
+          </div>
+          <button className="btn btn-success btn-sm" onClick={onAutoApprove}><CheckCircle size={13}/> Auto-approve</button>
+        </div>
+      )}
+
+      {/* Linkage banner */}
+      {(linkedCand || linkedOffer) && (
+        <div style={{
+          padding:'10px 14px', borderRadius:8, background:'#eff6ff', border:'1px solid #bfdbfe',
+          display:'flex', alignItems:'center', gap:10, fontSize:12,
+        }}>
+          <Link2 size={14} color="#1e40af"/>
+          <div style={{flex:1, color:'#1e40af'}}>
+            Originated from{' '}
+            {linkedCand && <b>Candidate {linkedCand.id} ({linkedCand.name})</b>}
+            {linkedCand && linkedOffer && ' · '}
+            {linkedOffer && <b>Offer {linkedOffer.id} ({linkedOffer.jobTitle}, EGP {linkedOffer.salaryMonthly?.toLocaleString()}/mo)</b>}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div style={{display:'flex', gap:0, borderBottom:'1px solid var(--border)'}}>
+        {[['overview','Overview', User], ['timeline','Timeline', Clock], ['checklist','Checklist', ListChecks]].map(([k, label, Icon]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            style={{
+              padding:'10px 14px', fontSize:12, fontWeight:600, cursor:'pointer',
+              background:'transparent', border:'none',
+              color: tab === k ? 'var(--brand)' : 'var(--text-secondary)',
+              borderBottom: tab === k ? '2px solid var(--brand)' : '2px solid transparent',
+              marginBottom:-1,
+              display:'inline-flex', alignItems:'center', gap:6,
+            }}>
+            <Icon size={13}/> {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {tab === 'overview'  && <OverviewTab a={a}/>}
+      {tab === 'timeline'  && <TimelineTab a={a}/>}
+      {tab === 'checklist' && <ChecklistTab a={a} checklist={checklist} onReminder={onReminder}/>}
+
+      {/* Action bar */}
+      {a.status !== 'Approved' && a.status !== 'Rejected' && (
+        <div style={{display:'flex', gap:8, paddingTop:14, borderTop:'1px solid var(--border)'}}>
+          {stageMeta(a.status).next && (
+            <button className="btn btn-primary" onClick={onAdvance}>
+              Advance → {stageMeta(a.status).next}
+            </button>
+          )}
+          <button className="btn btn-outline" onClick={onReminder}><Bell size={14}/> Remind {stageMeta(a.status).owner}</button>
+          <button className="btn btn-success" onClick={onApprove}><CheckCircle size={14}/> Approve</button>
+          <button className="btn btn-danger" onClick={onReject}><XCircle size={14}/> Reject</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const OverviewTab = ({ a }) => (
+  <div>
+    {/* Photo header card */}
+    <div style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderRadius:12, background:'linear-gradient(135deg, var(--brand-tint), #fff)', marginBottom:16, border:'1px solid var(--border)'}}>
+      {a.photoDataUrl ? (
+        <img src={a.photoDataUrl} alt="" style={{width:64, height:64, borderRadius:'50%', objectFit:'cover', border:'3px solid #fff', boxShadow:'0 4px 12px rgba(0,0,0,.12)', flexShrink:0}}/>
+      ) : (
+        <div style={{width:64, height:64, borderRadius:'50%', background:'linear-gradient(135deg, var(--brand), #b91c1c)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:22, flexShrink:0}}>
+          {a.applicant.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+        </div>
+      )}
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{fontSize:16, fontWeight:800, color:'var(--text-primary)'}}>{a.applicant}</div>
+        <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:3}}>{a.requestedRole || a.type} · {a.department}</div>
+        {a.resumeName && (
+          <a
+            href={a.resumeDataUrl || '#'}
+            download={a.resumeName}
+            onClick={e => { if (!a.resumeDataUrl) { e.preventDefault(); } }}
+            style={{display:'inline-flex', alignItems:'center', gap:5, marginTop:8, fontSize:11, fontWeight:600, color:'var(--brand)', textDecoration:'none', padding:'4px 10px', background:'#fff', borderRadius:6, border:'1px solid var(--brand)'}}>
+            <FileText size={11}/> {a.resumeName}
+          </a>
+        )}
+      </div>
+    </div>
+    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+      <Section title="Contact">
+        <Row icon={<Phone size={12}/>} label="Phone" value={a.phone || '—'}/>
+        <Row icon={<Mail size={12}/>}  label="Email" value={a.email || '—'}/>
+      </Section>
+      <Section title="Role">
+        <Row icon={<Briefcase size={12}/>} label="Requested role" value={a.requestedRole || '—'}/>
+        <Row icon={<Users size={12}/>}     label="Hiring manager" value={a.hiringManager || '—'}/>
+        <Row icon={<User size={12}/>}      label="Type"           value={a.type}/>
+      </Section>
+      <Section title="Where">
+        <Row label="Department" value={a.department}/>
+        <Row label="Branch"     value={a.branch}/>
+      </Section>
+      <Section title="Timing">
+        <Row icon={<Calendar size={12}/>} label="Submitted"    value={a.date}/>
+        <Row icon={<Calendar size={12}/>} label="Target start" value={a.targetStartDate || '—'}/>
+      </Section>
+      <Section title="Source">
+        <Row label="Source" value={a.source || '—'}/>
+        {a.employeeId && <Row label="Employee record" value={a.employeeId} highlight/>}
+      </Section>
+      {a.notes && (
+        <Section title="Notes" span={2}>
+          <div style={{fontSize:13, color:'var(--text-primary)', lineHeight:1.6, padding:'8px 10px', background:'#f8fafc', borderRadius:6}}>
+            {a.notes}
+          </div>
+        </Section>
+      )}
+    </div>
+  </div>
+);
+
+const TimelineTab = ({ a }) => {
+  const events = [...(a.statusHistory || [])].reverse();
+  return (
+    <div>
+      <h4 style={{fontSize:12, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:12}}>
+        Activity timeline · {events.length} event{events.length === 1 ? '' : 's'}
+      </h4>
+      <div style={{position:'relative', paddingLeft:24}}>
+        <div style={{position:'absolute', left:9, top:6, bottom:6, width:1, background:'var(--border)'}}/>
+        {events.map((e, i) => (
+          <div key={i} style={{position:'relative', marginBottom:18}}>
+            <div style={{
+              position:'absolute', left:-22, top:2,
+              width:18, height:18, borderRadius:'50%',
+              background: stageColor(e.stage), color:'#fff',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              border:'2px solid #fff', boxShadow:'0 0 0 1px var(--border)',
+            }}>
+              <Sparkles size={10}/>
+            </div>
+            <div>
+              <div style={{fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>{e.stage}</div>
+              <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>
+                {new Date(e.at).toLocaleString()} · {e.by}
+              </div>
+              {e.note && <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:4, padding:'6px 10px', background:'#f8fafc', borderRadius:6}}>{e.note}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ChecklistTab = ({ a, checklist, onReminder }) => (
+  <div>
+    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
+      <h4 style={{fontSize:12, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em'}}>
+        Cross-functional checklist
+      </h4>
+      <span style={{fontSize:12, fontWeight:700, color: checklist.done === checklist.total ? '#10b981' : 'var(--text-primary)'}}>
+        {checklist.done} / {checklist.total} complete
+      </span>
+    </div>
+    <div style={{height:6, background:'#f1f5f9', borderRadius:3, overflow:'hidden', marginBottom:14}}>
+      <div style={{
+        width:`${(checklist.done / checklist.total) * 100}%`, height:'100%',
+        background: checklist.done === checklist.total ? '#10b981' : 'var(--brand)',
+        transition:'width .3s',
+      }}/>
+    </div>
+    <div style={{display:'flex', flexDirection:'column', gap:8}}>
+      {CHECKLIST_STEPS.map(step => {
+        const done = checklist.state[step.key];
+        const Icon = step.icon;
+        return (
+          <div key={step.key} style={{
+            display:'flex', alignItems:'center', gap:10,
+            padding:'10px 12px', borderRadius:8,
+            background: done ? '#ecfdf5' : '#f8fafc',
+            border: `1px solid ${done ? '#a7f3d0' : 'var(--border)'}`,
+          }}>
+            <div style={{
+              width:30, height:30, borderRadius:8,
+              background: done ? '#10b981' : '#94a3b8',
+              color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+            }}>
+              {done ? <CheckCircle size={14}/> : <Icon size={14}/>}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13, fontWeight:600, color: done ? '#065f46' : 'var(--text-primary)'}}>{step.label}</div>
+              <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:2}}>
+                Owner: {step.owner}{step.key === 'training' && !done && ` · ${checklist.trainingPct}%`}
+              </div>
+            </div>
+            {!done && (
+              <button className="btn btn-outline btn-sm" style={{padding:'4px 10px', fontSize:11}} onClick={onReminder}>
+                <Bell size={11}/> Remind
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const Section = ({ title, children, span }) => (
+  <div style={{gridColumn: span ? `span ${span}` : undefined}}>
+    <div style={{fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8}}>{title}</div>
+    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+      {children}
+    </div>
+  </div>
+);
+
+const Row = ({ icon, label, value, highlight }) => (
+  <div style={{display:'flex', alignItems:'center', gap:8, fontSize:12}}>
+    {icon && <span style={{color:'var(--text-tertiary)'}}>{icon}</span>}
+    <span style={{color:'var(--text-tertiary)', minWidth:90}}>{label}</span>
+    <span style={{fontWeight:600, color: highlight ? 'var(--brand)' : 'var(--text-primary)'}}>{value}</span>
+  </div>
+);

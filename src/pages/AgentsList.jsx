@@ -51,6 +51,29 @@ const AgentProfileDrawer = ({ a, state, onWallet, onToggle, onEdit }) => {
 
   return (
     <>
+      {/* Photo header card */}
+      <div style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderRadius:12, background:'linear-gradient(135deg, var(--brand-tint), #fff)', marginBottom:16, border:'1px solid var(--border)'}}>
+        {a.photoDataUrl ? (
+          <img src={a.photoDataUrl} alt="" style={{width:64, height:64, borderRadius:'50%', objectFit:'cover', border:'3px solid #fff', boxShadow:'0 4px 12px rgba(0,0,0,.12)', flexShrink:0}}/>
+        ) : (
+          <div style={{width:64, height:64, borderRadius:'50%', background:'linear-gradient(135deg, var(--brand), #b91c1c)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:22, flexShrink:0}}>
+            {a.name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+          </div>
+        )}
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontSize:16, fontWeight:800, color:'var(--text-primary)'}}>{a.name}</div>
+          <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:3}}>{a.title} · {a.department} · {a.branch}</div>
+          <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'wrap'}}>
+            <span className={`badge ${a.status === 'Active' ? 'badge-success' : a.status === 'Suspended' ? 'badge-danger' : 'badge-warning'}`}>{a.status}</span>
+            {a.rera && (
+              <span style={{fontSize:10, fontWeight:700, color: a.rera.startsWith('RERA') ? '#10b981' : '#f59e0b', background: a.rera.startsWith('RERA') ? '#ecfdf5' : '#fef3c7', padding:'2px 8px', borderRadius:999}}>
+                {a.rera}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="detail-grid">
         {[['ID',a.id],['Email',a.email||'—'],['Phone',a.phone||'—'],['Title',a.title],['Branch',a.branch],['Team',a.department],['Manager',a.manager],['Status',a.status],['Joined',a.joinDate||'—']].map(([k,v])=>(
           <div key={k}><label>{k}</label><div className="v">{v}</div></div>
@@ -213,7 +236,18 @@ export const AgentsList = () => {
               {filtered.map(a=>(
                 <tr key={a.id} className="clickable" onClick={()=>view(a)}>
                   <td className="muted">{a.id}</td>
-                  <td className="bold">{a.name}</td>
+                  <td>
+                    <div style={{display:'flex', alignItems:'center', gap:10}}>
+                      {a.photoDataUrl ? (
+                        <img src={a.photoDataUrl} alt="" style={{width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:'1px solid var(--border)'}}/>
+                      ) : (
+                        <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg, var(--brand), #b91c1c)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>
+                          {a.name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+                        </div>
+                      )}
+                      <div className="bold">{a.name}</div>
+                    </div>
+                  </td>
                   <td>{a.branch}</td>
                   <td>{a.department}</td>
                   <td>{a.manager}</td>

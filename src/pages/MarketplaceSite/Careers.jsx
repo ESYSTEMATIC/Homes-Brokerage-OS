@@ -41,13 +41,29 @@ const submitApplication = (payload) => {
     applied: new Date().toISOString().slice(0, 10),
     interviewer: null,
     email: payload.email, phone: payload.phone,
-    coverLetter: payload.coverLetter, resumeName: payload.resumeName,
+    coverLetter: payload.coverLetter,
+    // Both attachments are kept as data URLs (base64) so they survive a
+    // page reload during the demo session. HR sees the photo in the row
+    // avatar + can download the CV from the candidate drawer.
+    photoDataUrl: payload.photoDataUrl || null,
+    photoName:    payload.photoName    || null,
+    resumeDataUrl: payload.resumeDataUrl || null,
+    resumeName:    payload.resumeName    || null,
     jobId: payload.jobId,
   };
   _runtimeApplications.push(rec);
   CANDIDATES.unshift(rec); // HR Recruitment Pipeline will see this
   return id;
 };
+
+// Read a File into a data URL (base64) — used for both the photo and CV.
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  if (!file) return resolve(null);
+  const fr = new FileReader();
+  fr.onload  = () => resolve(fr.result);
+  fr.onerror = () => reject(fr.error);
+  fr.readAsDataURL(file);
+});
 
 // ═══════════════════════════════════════════════════════════════
 // Careers — list page
@@ -649,10 +665,35 @@ const ShareBtn = ({ label, onClick }) => (
 // ═══════════════════════════════════════════════════════════════
 const ApplyModal = ({ job, onClose }) => {
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', coverLetter: '', resumeName: '',
+    name: '', email: '', phone: '', coverLetter: '',
+    // Photo + CV attachments — both required now.
+    photoName: '', photoDataUrl: '',
+    resumeName: '', resumeDataUrl: '',
   });
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [uploading, setUploading] = useState({ photo: false, resume: false });
+
+  const handlePhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) { setErrors(prev => ({ ...prev, photoName: 'Image must be under 4 MB' })); return; }
+    setUploading(u => ({ ...u, photo: true }));
+    const dataUrl = await readFileAsDataUrl(file);
+    setForm(f => ({ ...f, photoName: file.name, photoDataUrl: dataUrl }));
+    setErrors(prev => ({ ...prev, photoName: undefined }));
+    setUploading(u => ({ ...u, photo: false }));
+  };
+  const handleResume = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { setErrors(prev => ({ ...prev, resumeName: 'CV must be under 8 MB' })); return; }
+    setUploading(u => ({ ...u, resume: true }));
+    const dataUrl = await readFileAsDataUrl(file);
+    setForm(f => ({ ...f, resumeName: file.name, resumeDataUrl: dataUrl }));
+    setErrors(prev => ({ ...prev, resumeName: undefined }));
+    setUploading(u => ({ ...u, resume: false }));
+  };
 
   const submit = (e) => {
     e.preventDefault();
@@ -660,13 +701,16 @@ const ApplyModal = ({ job, onClose }) => {
     if (!form.name.trim())                    err.name  = 'Required';
     if (!/^\S+@\S+\.\S+$/.test(form.email))   err.email = 'Invalid email';
     if (!/^[\d+\s-]{8,}$/.test(form.phone))   err.phone = 'Enter a valid phone';
+    if (!form.photoName.trim())               err.photoName = 'Attach a profile photo';
     if (!form.resumeName.trim())              err.resumeName = 'Attach your CV';
     setErrors(err);
     if (Object.keys(err).length) return;
     submitApplication({
       jobId: job.id, jobTitle: job.title,
       name: form.name, email: form.email, phone: form.phone,
-      coverLetter: form.coverLetter, resumeName: form.resumeName,
+      coverLetter: form.coverLetter,
+      photoName: form.photoName, photoDataUrl: form.photoDataUrl,
+      resumeName: form.resumeName, resumeDataUrl: form.resumeDataUrl,
     });
     setSubmitted(true);
   };
@@ -720,6 +764,30 @@ const ApplyModal = ({ job, onClose }) => {
             <Field label="Phone *" error={errors.phone}>
               <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="+20 xxx xxx xxxx" style={inp}/>
             </Field>
+            <Field label="Profile photo *" error={errors.photoName}>
+              <label style={{
+                display:'flex', alignItems:'center', gap:12,
+                padding:'10px 14px', border:`1px dashed ${form.photoName ? BRAND : BORDER}`,
+                borderRadius:8, fontSize:13, color: form.photoName ? TEXT_PRIM : TEXT_TERT,
+                cursor:'pointer', background: form.photoName ? BRAND_TINT : '#fff',
+              }}>
+                {form.photoDataUrl ? (
+                  <img src={form.photoDataUrl} alt="" style={{width:42, height:42, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:`2px solid ${BRAND}`}}/>
+                ) : (
+                  <div style={{width:42, height:42, borderRadius:'50%', background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', color: TEXT_TERT, flexShrink:0, fontSize:11, fontWeight:700}}>IMG</div>
+                )}
+                <span style={{flex:1, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                  {uploading.photo ? 'Reading…' : (form.photoName || 'Upload a recent photo (JPG / PNG, ≤ 4MB)')}
+                </span>
+                <span style={{fontSize:11, color: BRAND, fontWeight:600}}>{form.photoName ? 'Replace' : 'Browse'}</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  style={{display:'none'}}
+                  onChange={handlePhoto}
+                />
+              </label>
+            </Field>
             <Field label="Resume / CV *" error={errors.resumeName}>
               <label style={{
                 display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -727,13 +795,13 @@ const ApplyModal = ({ job, onClose }) => {
                 borderRadius:8, fontSize:13, color: form.resumeName ? TEXT_PRIM : TEXT_TERT,
                 cursor:'pointer', background: form.resumeName ? BRAND_TINT : '#fff',
               }}>
-                <span>{form.resumeName || 'Click to upload (PDF / DOCX)'}</span>
+                <span>{uploading.resume ? 'Reading…' : (form.resumeName || 'Click to upload (PDF / DOCX, ≤ 8MB)')}</span>
                 <span style={{fontSize:11, color: BRAND, fontWeight:600}}>{form.resumeName ? 'Replace' : 'Browse'}</span>
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx"
                   style={{display:'none'}}
-                  onChange={e => setForm({...form, resumeName: e.target.files?.[0]?.name || ''})}
+                  onChange={handleResume}
                 />
               </label>
             </Field>

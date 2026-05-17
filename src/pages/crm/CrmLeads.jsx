@@ -138,7 +138,7 @@ export const CrmLeads = () => {
 
   return (
     <div className="crm-page">
-      <div className="page-header"><div className="page-breadcrumb"><span>CRM</span><span>&gt;</span><span className="current">Leads</span></div><h1 className="page-title">Lead Management</h1><p className="page-subtitle">Manage incoming leads, track stage progression, and assign ownership · BRD V1.4 §6 (Lead Lifecycle) + §11 (RBAC)</p></div>
+      <div className="page-header"><h1 className="page-title">Lead Management</h1><p className="page-subtitle">Manage incoming leads, track stage progression, and assign ownership · BRD V1.4 §6 (Lead Lifecycle) + §11 (RBAC)</p></div>
 
       {/* ─── Role context banner — surfaces what THIS user can do ─── */}
       <div className="crm-role-banner">

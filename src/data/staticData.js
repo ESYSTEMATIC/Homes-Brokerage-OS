@@ -24,25 +24,54 @@ export const PERSONAS = {
 
 // ── DEPARTMENTS ──
 export const DEPARTMENTS = [
-  { id: "DEP-001", name: "Sales", head: "Nour El-Din", teams: 3, employees: 12, status: "Active" },
-  { id: "DEP-002", name: "HR / Recruitment", head: "Dina Samir", teams: 1, employees: 4, status: "Active" },
-  { id: "DEP-003", name: "Finance", head: "Amr Khaled", teams: 1, employees: 3, status: "Active" },
-  { id: "DEP-004", name: "Backoffice", head: "Laila Hassan", teams: 1, employees: 5, status: "Active" },
-  { id: "DEP-005", name: "Marketing", head: "Tamer Said", teams: 1, employees: 3, status: "Active" },
-  { id: "DEP-006", name: "Marketplace Operations", head: "Rania Youssef", teams: 1, employees: 2, status: "Active" },
-  { id: "DEP-007", name: "Executive", head: "CEO", teams: 0, employees: 2, status: "Active" },
+  // parentId expresses the org-chart hierarchy. Executive is the root.
+  { id: "DEP-007", name: "Executive", head: "CEO", teams: 0, employees: 2, status: "Active", parentId: null },
+  { id: "DEP-001", name: "Sales", head: "Nour El-Din", teams: 3, employees: 12, status: "Active", parentId: "DEP-007" },
+  { id: "DEP-002", name: "HR / Recruitment", head: "Dina Samir", teams: 1, employees: 4, status: "Active", parentId: "DEP-007" },
+  { id: "DEP-003", name: "Finance", head: "Amr Khaled", teams: 1, employees: 3, status: "Active", parentId: "DEP-007" },
+  { id: "DEP-004", name: "Backoffice", head: "Laila Hassan", teams: 1, employees: 5, status: "Active", parentId: "DEP-007" },
+  { id: "DEP-005", name: "Marketing", head: "Tamer Said", teams: 1, employees: 3, status: "Active", parentId: "DEP-007" },
+  { id: "DEP-006", name: "Marketplace Operations", head: "Rania Youssef", teams: 1, employees: 2, status: "Active", parentId: "DEP-007" },
 ];
 
 // ── STAFF / EMPLOYEES ──
+// Sample photos use Unsplash with stable photo IDs depicting Arab/Middle
+// Eastern people, sized via the `w=200&h=200&fit=crop&crop=faces` parameter
+// set. Resume names are filled but the data URL is null — the drawer
+// surfaces a friendly "older record" toast on download.
 export const STAFF = [
-  { id: "A001", name: "Ahmed Hassan", department: "Sales", title: "Senior Sales Executive", branch: "New Cairo", manager: "Sales Manager", status: "Active", type: "Employee", email: "ahmed@homesbrokerage.eg", phone: "+20 100 111 0001", joinDate: "2023-06-01" },
-  { id: "A002", name: "Fatma Ibrahim", department: "Sales", title: "Sales Agent", branch: "6th October", manager: "Omar Sherif", status: "Active", type: "Employee", email: "fatma@homesbrokerage.eg", phone: "+20 100 111 0002", joinDate: "2023-07-15" },
-  { id: "A003", name: "Mohamed Ali", department: "Sales", title: "Team Leader", branch: "Sheikh Zayed", manager: "Tarek Amin", status: "Active", type: "Team Leader", email: "mali@homesbrokerage.eg", phone: "+20 100 111 0003", joinDate: "2022-03-10" },
-  { id: "A004", name: "Nour El-Din", department: "Sales", title: "Sales Manager", branch: "New Cairo", manager: "CEO", status: "Active", type: "Sales Manager", email: "nour@homesbrokerage.eg", phone: "+20 100 111 0004", joinDate: "2021-09-01" },
-  { id: "A005", name: "Yasmin Adel", department: "Sales", title: "Sales Agent", branch: "Heliopolis", manager: "Sales Manager", status: "Suspended", type: "Employee", email: "yasmin@homesbrokerage.eg", phone: "+20 100 111 0005", joinDate: "2023-11-20" },
-  { id: "A006", name: "Sales Manager", department: "Sales", title: "Sales Manager", branch: "New Cairo", manager: "CEO", status: "Active", type: "Sales Manager", email: "karim@homesbrokerage.eg", phone: "+20 100 111 0006", joinDate: "2021-05-01" },
-  { id: "A007", name: "Hana Mahmoud", department: "Sales", title: "Junior Sales", branch: "6th October", manager: "Omar Sherif", status: "Pending", type: "Employee", email: "hana@homesbrokerage.eg", phone: "+20 100 111 0007", joinDate: "2024-01-10" },
-  { id: "A008", name: "Omar Sherif", department: "Sales", title: "Team Leader", branch: "6th October", manager: "Nour El-Din", status: "Active", type: "Team Leader", email: "omar@homesbrokerage.eg", phone: "+20 100 111 0008", joinDate: "2022-08-15" },
+  { id: "A001", name: "Ahmed Hassan",    department: "Sales", title: "Senior Sales Executive", branch: "New Cairo",   manager: "Karim Mahmoud", team: "Beta",  status: "Active",   type: "Employee",      email: "ahmed@homesbrokerage.eg", phone: "+20 100 111 0001", joinDate: "2023-06-01",
+    photoDataUrl: "https://images.unsplash.com/photo-1542178243-bc20204b769f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "ahmed-hassan.png",  resumeName: "ahmed-hassan-cv.pdf",  resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "29010101******", source: "Careers Page",  rera: "RERA-EG-2024-1101", contractType: "Full-time, indefinite" },
+  { id: "A002", name: "Fatma Ibrahim",   department: "Sales", title: "Sales Agent",            branch: "6th October", manager: "Omar Sherif",    team: "Alpha", status: "Active",   type: "Employee",      email: "fatma@homesbrokerage.eg", phone: "+20 100 111 0002", joinDate: "2023-07-15",
+    photoDataUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "fatma-ibrahim.png", resumeName: "fatma-ibrahim-cv.pdf", resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "29508081******", source: "Referral",       rera: "RERA-EG-2024-1102", contractType: "Full-time, indefinite" },
+  { id: "A003", name: "Mohamed Ali",     department: "Sales", title: "Team Leader",            branch: "Sheikh Zayed", manager: "Karim Mahmoud",    team: "Beta", status: "Active",   type: "Team Leader",   email: "mali@homesbrokerage.eg",  phone: "+20 100 111 0003", joinDate: "2022-03-10",
+    photoDataUrl: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "mohamed-ali.png",   resumeName: "mohamed-ali-cv.pdf",   resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "28804152******", source: "Direct outreach", rera: "RERA-EG-2023-0871", contractType: "Full-time, indefinite" },
+  { id: "A004", name: "Nour El-Din",     department: "Sales", title: "Sales Manager",          branch: "New Cairo",   manager: "Tarek Amin",     team: "Alpha", status: "Active",   type: "Sales Manager", email: "nour@homesbrokerage.eg",  phone: "+20 100 111 0004", joinDate: "2021-09-01",
+    photoDataUrl: "https://images.unsplash.com/photo-1521119989659-a83eee488004?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "nour-eldin.png",    resumeName: "nour-eldin-cv.pdf",    resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "28012061******", source: "LinkedIn",       rera: "RERA-EG-2021-0312", contractType: "Full-time, indefinite" },
+  { id: "A005", name: "Yasmin Adel",     department: "Sales", title: "Sales Agent",            branch: "Heliopolis",  manager: "Mohamed Ali",     team: "Beta",  status: "Suspended",type: "Employee",      email: "yasmin@homesbrokerage.eg", phone: "+20 100 111 0005", joinDate: "2023-11-20",
+    photoDataUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "yasmin-adel.png",   resumeName: "yasmin-adel-cv.pdf",   resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "29612031******", source: "LinkedIn",       rera: "Pending verification", contractType: "Full-time, probation" },
+  { id: "A006", name: "Karim Mahmoud",   department: "Sales", title: "Sales Manager",          branch: "New Cairo",   manager: "Tarek Amin",     team: "Beta",  status: "Active",   type: "Sales Manager", email: "karim@homesbrokerage.eg", phone: "+20 100 111 0006", joinDate: "2021-05-01",
+    photoDataUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "karim-mahmoud.png", resumeName: "karim-mahmoud-cv.pdf", resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "27908111******", source: "Direct outreach", rera: "RERA-EG-2021-0188", contractType: "Full-time, indefinite" },
+  { id: "A007", name: "Hana Mahmoud",    department: "Sales", title: "Junior Sales",           branch: "6th October", manager: "Omar Sherif",    team: "Alpha", status: "Pending",  type: "Employee",      email: "hana@homesbrokerage.eg",  phone: "+20 100 111 0007", joinDate: "2024-01-10",
+    photoDataUrl: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "hana-mahmoud.png",  resumeName: "hana-mahmoud-cv.pdf",  resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "30002171******", source: "Careers Page",   rera: "In progress",         contractType: "Full-time, probation" },
+  { id: "A008", name: "Omar Sherif",     department: "Sales", title: "Team Leader",            branch: "6th October", manager: "Nour El-Din",    team: "Alpha", status: "Active",   type: "Team Leader",   email: "omar@homesbrokerage.eg",  phone: "+20 100 111 0008", joinDate: "2022-08-15",
+    photoDataUrl: "https://images.unsplash.com/photo-1545167622-3a6ac756afa4?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "omar-sherif.png",   resumeName: "omar-sherif-cv.pdf",   resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "28705241******", source: "Referral",       rera: "RERA-EG-2023-0654", contractType: "Full-time, indefinite" },
+  // Sales Director — top of the sales hierarchy. Tarek leads Nour El-Din
+  // (Alpha team) and Karim Mahmoud (Beta team). The full chain becomes:
+  //   Tarek Amin → { Nour El-Din → Omar Sherif → {Fatma, Hana},
+  //                  Karim Mahmoud → Mohamed Ali → {Ahmed, Yasmin} }
+  { id: "A009", name: "Tarek Amin",      department: "Sales", title: "Sales Director",         branch: "New Cairo",   manager: "CEO",            team: null,    status: "Active",   type: "Sales Director", email: "tarek@homesbrokerage.eg", phone: "+20 100 111 0009", joinDate: "2019-04-12",
+    photoDataUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "tarek-amin.png",
+    resumeName: "tarek-amin-cv.pdf", resumeDataUrl: null,
+    nationalityCountry: "Egyptian", nationalId: "27510020******", source: "Direct outreach", rera: "RERA-EG-2019-0042", contractType: "Full-time, indefinite" },
 ];
 
 // ── LEADS ──
@@ -117,15 +146,171 @@ export const TASKS = [
 ];
 
 // ── ONBOARDING APPLICATIONS ──
+// Rich applicant record. statusHistory[] is the immutable timeline used
+// by the drawer Timeline tab. linkedCandidateId / linkedOfferId connect
+// records to the Recruitment pipeline. employeeId is populated when the
+// applicant is approved and a Staff record is created.
 export const ONBOARDING = [
-  { id: "APP001", applicant: "Mona Fawzy", type: "Agent", date: "2024-01-15", status: "Submitted", department: "Sales", branch: "New Cairo" },
-  { id: "APP002", applicant: "Khaled Magdy", type: "Employee", date: "2024-01-10", status: "Under Review", department: "Sales", branch: "6th October" },
-  { id: "APP003", applicant: "Rania Youssef", type: "Agent", date: "2024-01-08", status: "Missing Documents", department: "Sales", branch: "Sheikh Zayed" },
-  { id: "APP004", applicant: "Tamer Said", type: "Employee", date: "2023-12-20", status: "Approved", department: "Marketing", branch: "New Cairo" },
-  { id: "APP005", applicant: "Laila Hassan", type: "Agent", date: "2023-12-15", status: "Training Pending", department: "Sales", branch: "Maadi" },
-  { id: "APP006", applicant: "Youssef Nader", type: "Agent", date: "2024-01-12", status: "Interview Pending", department: "Sales", branch: "Heliopolis" },
-  { id: "APP007", applicant: "Nadia Gamal", type: "Employee", date: "2023-12-01", status: "Rejected", department: "HR", branch: "New Cairo" },
+  {
+    id: "APP001", applicant: "Mona Fawzy", type: "Agent",
+    date: "2026-05-08", status: "Under Review",
+    department: "Sales", branch: "New Cairo",
+    photoDataUrl: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "mona-fawzy.png",
+    resumeName: "mona-fawzy-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5610", email: "mona.fawzy@example.com",
+    requestedRole: "Senior Sales Agent",
+    targetStartDate: "2026-06-15",
+    hiringManager: "Nour El-Din",
+    source: "Careers Page",
+    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    statusHistory: [
+      { stage: "Submitted",    at: "2026-05-08T09:00:00", by: "Self-service · Careers form", note: "Application received" },
+      { stage: "Under Review", at: "2026-05-09T11:20:00", by: "Dina Samir", note: "Initial screening passed — moving to documents" },
+    ],
+    notes: "Strong CV — 4 years at Coldwell Banker. Awaiting RERA + ID upload.",
+  },
+  {
+    id: "APP002", applicant: "Khaled Magdy", type: "Employee",
+    date: "2026-05-04", status: "Documents Pending",
+    department: "Sales", branch: "6th October",
+    photoDataUrl: "https://images.unsplash.com/photo-1573497019418-b400bb3ab074?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "khaled-magdy.png",
+    resumeName: "khaled-magdy-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5611", email: "khaled.magdy@example.com",
+    requestedRole: "Junior Sales Agent",
+    targetStartDate: "2026-06-01",
+    hiringManager: "Omar Sherif",
+    source: "Referral",
+    linkedCandidateId: "CAN-003", linkedOfferId: "OFR-001", employeeId: null,
+    statusHistory: [
+      { stage: "Submitted",         at: "2026-05-04T08:30:00", by: "Auto · Offer accepted (OFR-001)", note: "Spawned from accepted offer" },
+      { stage: "Under Review",      at: "2026-05-04T14:15:00", by: "Dina Samir", note: "Application picked up" },
+      { stage: "Documents Pending", at: "2026-05-06T10:00:00", by: "Dina Samir", note: "Awaiting RERA + Education Certificate" },
+    ],
+    notes: "Referral from Omar Sherif. Onboarding paid by HR.",
+  },
+  {
+    id: "APP003", applicant: "Rania Youssef", type: "Agent",
+    date: "2026-05-02", status: "Training In Progress",
+    department: "Sales", branch: "Sheikh Zayed",
+    photoDataUrl: "https://images.unsplash.com/photo-1554151228-14d9def656e4?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "rania-youssef.png",
+    resumeName: "rania-youssef-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5612", email: "rania.youssef@example.com",
+    requestedRole: "Senior Sales Agent",
+    targetStartDate: "2026-05-30",
+    hiringManager: "Nour El-Din",
+    source: "LinkedIn",
+    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    statusHistory: [
+      { stage: "Submitted",            at: "2026-05-02T09:45:00", by: "Self-service",    note: "Application received" },
+      { stage: "Under Review",         at: "2026-05-03T10:00:00", by: "Dina Samir",      note: "Screening passed" },
+      { stage: "Documents Pending",    at: "2026-05-04T11:30:00", by: "Dina Samir",      note: "Awaiting docs" },
+      { stage: "Training In Progress", at: "2026-05-09T09:00:00", by: "Homes Academy",   note: "All docs received — training enrolled" },
+    ],
+    notes: "Documents complete. Currently on AML + Ethics courses.",
+  },
+  {
+    id: "APP004", applicant: "Tamer Said", type: "Employee",
+    date: "2026-04-15", status: "Approved",
+    department: "Marketing", branch: "New Cairo",
+    photoDataUrl: "https://images.unsplash.com/photo-1542178243-bc20204b769f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80&dpr=1", photoName: "tamer-said.png",
+    resumeName: "tamer-said-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5613", email: "tamer.said@example.com",
+    requestedRole: "Marketing Campaign Lead",
+    targetStartDate: "2026-05-01",
+    hiringManager: "CEO",
+    source: "Direct outreach",
+    linkedCandidateId: null, linkedOfferId: null, employeeId: "A013",
+    statusHistory: [
+      { stage: "Submitted",            at: "2026-04-15T08:00:00", by: "HR",         note: "Application received" },
+      { stage: "Under Review",         at: "2026-04-16T09:00:00", by: "Dina Samir", note: "Fast-track approved" },
+      { stage: "Documents Pending",    at: "2026-04-17T10:00:00", by: "Dina Samir", note: "Awaiting docs" },
+      { stage: "Training In Progress", at: "2026-04-19T09:00:00", by: "Academy",    note: "Onboarding training" },
+      { stage: "Final Approval",       at: "2026-04-28T13:00:00", by: "Dina Samir", note: "Awaiting Director sign-off" },
+      { stage: "Approved",             at: "2026-04-30T16:30:00", by: "Tarek Hassan", note: "Approved · Employee A013 created" },
+    ],
+    notes: "Joined as Marketing persona — owns campaigns surface in CRM.",
+  },
+  {
+    id: "APP005", applicant: "Laila Hassan", type: "Agent",
+    date: "2026-04-30", status: "Final Approval",
+    department: "Sales", branch: "Maadi",
+    photoDataUrl: "https://images.unsplash.com/photo-1488508872907-592763824245?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "laila-hassan.png",
+    resumeName: "laila-hassan-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5614", email: "laila.hassan@example.com",
+    requestedRole: "Senior Sales Agent",
+    targetStartDate: "2026-05-25",
+    hiringManager: "Nour El-Din",
+    source: "Referral",
+    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    statusHistory: [
+      { stage: "Submitted",            at: "2026-04-30T09:00:00", by: "HR", note: "Application received" },
+      { stage: "Under Review",         at: "2026-05-01T10:00:00", by: "Dina Samir", note: "Screening" },
+      { stage: "Documents Pending",    at: "2026-05-02T11:00:00", by: "Dina Samir", note: "All docs received fast" },
+      { stage: "Training In Progress", at: "2026-05-04T09:30:00", by: "Academy", note: "Training kicked off" },
+      { stage: "Final Approval",       at: "2026-05-14T16:00:00", by: "Dina Samir", note: "Awaiting Director sign-off" },
+    ],
+    notes: "All checklist items green — ready for director approval.",
+  },
+  {
+    id: "APP006", applicant: "Youssef Nader", type: "Agent",
+    date: "2026-04-22", status: "Documents Pending",
+    department: "Sales", branch: "Heliopolis",
+    photoDataUrl: "https://images.unsplash.com/photo-1542931287-023b922fa89b?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "youssef-nader.png",
+    resumeName: "youssef-nader-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5615", email: "youssef.nader@example.com",
+    requestedRole: "Junior Sales Agent",
+    targetStartDate: "2026-05-30",
+    hiringManager: "Omar Sherif",
+    source: "Careers Page",
+    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    statusHistory: [
+      { stage: "Submitted",         at: "2026-04-22T11:00:00", by: "Self-service", note: "Application received" },
+      { stage: "Under Review",      at: "2026-04-23T10:30:00", by: "Dina Samir", note: "Screening" },
+      { stage: "Documents Pending", at: "2026-04-24T14:00:00", by: "Dina Samir", note: "Awaiting RERA + ID" },
+    ],
+    notes: "STALLED — RERA not received after 23 days. Two reminders sent.",
+  },
+  {
+    id: "APP007", applicant: "Nadia Gamal", type: "Employee",
+    date: "2026-04-10", status: "Rejected",
+    department: "HR / Recruitment", branch: "New Cairo",
+    photoDataUrl: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80&dpr=2", photoName: "nadia-gamal.png",
+    resumeName: "nadia-gamal-cv.pdf", resumeDataUrl: null,
+    phone: "+20 100 234 5616", email: "nadia.gamal@example.com",
+    requestedRole: "HR Coordinator",
+    targetStartDate: null,
+    hiringManager: "Dina Samir",
+    source: "LinkedIn",
+    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    statusHistory: [
+      { stage: "Submitted",    at: "2026-04-10T09:00:00", by: "HR", note: "Application received" },
+      { stage: "Under Review", at: "2026-04-11T10:00:00", by: "Dina Samir", note: "Screening" },
+      { stage: "Rejected",     at: "2026-04-14T15:30:00", by: "Dina Samir", note: "Rejected — insufficient HR systems experience" },
+    ],
+    notes: "Not a fit for the current opening. Encouraged to reapply for L1 roles.",
+  },
 ];
+
+// Application-stage metadata. Used by the funnel visualization,
+// the progress bar in the drawer, and the SLA breach calculation.
+// slaDays = days an applicant is allowed in this status before HR is warned.
+// owner   = who acts to advance this stage forward.
+export const APPLICATION_STAGE_META = {
+  'Submitted':            { order: 1, color: '#3b82f6', slaDays: 2,  owner: 'HR',      next: 'Under Review',
+                            help: 'Application received. HR triages within 2 business days.' },
+  'Under Review':         { order: 2, color: '#0ea5e9', slaDays: 3,  owner: 'HR',      next: 'Documents Pending',
+                            help: 'Initial screening — CV review, eligibility check.' },
+  'Documents Pending':    { order: 3, color: '#f59e0b', slaDays: 7,  owner: 'Applicant', next: 'Training In Progress',
+                            help: 'Awaiting required documents from applicant (ID, RERA, Education).' },
+  'Training In Progress': { order: 4, color: '#8b5cf6', slaDays: 14, owner: 'Academy', next: 'Final Approval',
+                            help: 'Mandatory training enrolled. Auto-advances when all required courses complete.' },
+  'Final Approval':       { order: 5, color: '#06b6d4', slaDays: 3,  owner: 'Director',next: 'Approved',
+                            help: 'All checklist items complete — Sales Director sign-off required.' },
+  'Approved':             { order: 6, color: '#10b981', slaDays: 0,  owner: 'System',  next: null,
+                            help: 'Approved. Employee record created. Onboarding complete.' },
+  'Rejected':             { order: 99, color: '#dc2626', slaDays: 0, owner: 'System',  next: null,
+                            help: 'Application rejected — terminal.' },
+};
 
 // ── DOCUMENTS ──
 // `expires` is the document's validity end date. Identity / Legal docs that
@@ -147,6 +332,7 @@ export const JOBS = [
     id: "JOB-001", title: "Senior Sales Agent", department: "Sales", location: "New Cairo", type: "Full-time", mode: "On-site",
     headcount: 3, hiringManager: "Sales Manager", status: "Published", applicants: 12, created: "2026-05-01",
     deadline: "2026-06-15", experienceYears: "3-6",
+    salaryBand: { min: 18000, max: 28000, currency: "EGP", period: "monthly", commission: "Uncapped — 0.5-1.2% of deal value" },
     summary: "Drive new business and own end-to-end deals with Egypt's top real-estate developers. You'll work primarily on Off Plan and Resale pipelines, owning the customer journey from first contact to commission release.",
     responsibilities: [
       "Manage a personal pipeline of 30-50 active leads on the Homes CRM",
@@ -177,6 +363,7 @@ export const JOBS = [
     id: "JOB-002", title: "Junior Sales Agent", department: "Sales", location: "6th October", type: "Full-time", mode: "On-site",
     headcount: 5, hiringManager: "Omar Sherif", status: "Published", applicants: 28, created: "2026-05-04",
     deadline: "2026-06-30", experienceYears: "0-2",
+    salaryBand: { min: 10000, max: 15000, currency: "EGP", period: "monthly", commission: "After onboarding — 0.3-0.7% of deal value" },
     summary: "Start your real-estate career with structured onboarding, mentorship from senior agents, and access to live Homes Marketplace leads. We invest in talent — most of our top performers started here.",
     responsibilities: [
       "Complete the 6-week onboarding programme on Homes Academy",
@@ -205,6 +392,7 @@ export const JOBS = [
     id: "JOB-003", title: "HR Coordinator", department: "HR / Recruitment", location: "New Cairo", type: "Full-time", mode: "Hybrid",
     headcount: 1, hiringManager: "Dina Samir", status: "Published", applicants: 0, created: "2026-05-10",
     deadline: "2026-06-20", experienceYears: "2-4",
+    salaryBand: { min: 16000, max: 22000, currency: "EGP", period: "monthly", commission: null },
     summary: "Own end-to-end recruitment for our growing sales team. You'll partner with the Sales Director to forecast headcount and run the candidate pipeline on the Homes Backoffice portal.",
     responsibilities: [
       "Source candidates via job boards, LinkedIn, and referrals",
@@ -233,6 +421,7 @@ export const JOBS = [
     id: "JOB-004", title: "Marketing Campaign Lead", department: "Marketing", location: "New Cairo", type: "Full-time", mode: "Hybrid",
     headcount: 1, hiringManager: "Tamer Said", status: "Published", applicants: 6, created: "2026-05-11",
     deadline: "2026-06-25", experienceYears: "4-7",
+    salaryBand: { min: 28000, max: 42000, currency: "EGP", period: "monthly", commission: "Quarterly performance bonus" },
     summary: "Own paid social and content marketing across Facebook, Instagram, Google, and TikTok. You'll work inside the Homes CRM Campaigns module — tracking every lead back to its campaign source with full attribution.",
     responsibilities: [
       "Plan and launch monthly campaigns across FB, IG, Google, TikTok",
@@ -261,6 +450,7 @@ export const JOBS = [
     id: "JOB-005", title: "CRM Operations Specialist", department: "Operations", location: "New Cairo", type: "Full-time", mode: "On-site",
     headcount: 1, hiringManager: "Sales Director", status: "Published", applicants: 3, created: "2026-05-12",
     deadline: "2026-07-01", experienceYears: "2-5",
+    salaryBand: { min: 20000, max: 30000, currency: "EGP", period: "monthly", commission: null },
     summary: "Be the subject-matter expert on the Homes CRM. You'll keep data clean, master configuration of pipelines/stages/rules, and train new agents on the platform.",
     responsibilities: [
       "Maintain CRM data quality — duplicates, missing fields, stale leads",
@@ -288,6 +478,7 @@ export const JOBS = [
     id: "JOB-006", title: "Finance Analyst (Commissions)", department: "Finance", location: "New Cairo", type: "Full-time", mode: "On-site",
     headcount: 1, hiringManager: "Amr Khaled", status: "Closed", applicants: 8, created: "2026-04-01",
     deadline: "2026-04-30", experienceYears: "3-5",
+    salaryBand: { min: 22000, max: 32000, currency: "EGP", period: "monthly", commission: null },
     summary: "[CLOSED] Run commission calculation and payout cycles for the entire sales team. Liaise with developers on collection triggers and revenue recognition.",
     responsibilities: [
       "Calculate commissions on every Closed Won deal",
@@ -303,13 +494,94 @@ export const JOBS = [
   },
 ];
 
+// Sample candidate photos use Unsplash with curated photo IDs depicting
+// Arab/Middle Eastern people. resumeName is filled in but resumeDataUrl is
+// null — the drawer "Download CV" button surfaces a friendly "older record"
+// toast in that case.
 export const CANDIDATES = [
-  { id: "CAN-001", name: "Amira El-Sayed", job: "Senior Sales Agent", stage: "Interview", score: 85, source: "Careers Page", applied: "2024-01-10", interviewer: "Sales Manager" },
-  { id: "CAN-002", name: "Hassan Nabil", job: "Senior Sales Agent", stage: "Screening", score: null, source: "Referral", applied: "2024-01-12", interviewer: null },
-  { id: "CAN-003", name: "Fatma Youssef", job: "Junior Sales Agent", stage: "Offer", score: 92, source: "Careers Page", applied: "2024-01-06", interviewer: "Omar Sherif" },
-  { id: "CAN-004", name: "Ali Mostafa", job: "Junior Sales Agent", stage: "Rejected", score: 45, source: "LinkedIn", applied: "2024-01-09", interviewer: "Sales Manager" },
-  { id: "CAN-005", name: "Nora Adel", job: "Senior Sales Agent", stage: "Applied", score: null, source: "Careers Page", applied: "2024-01-16", interviewer: null },
-  { id: "CAN-006", name: "Khaled Samir", job: "HR Coordinator", stage: "Applied", score: null, source: "LinkedIn", applied: "2024-01-17", interviewer: null },
+  { id: "CAN-001", name: "Amira El-Sayed",  job: "Senior Sales Agent", stage: "Interview", score: 85,   source: "Careers Page", applied: "2024-01-10", interviewer: "Sales Manager", gender: "Female", ageBand: "25-34",
+    email: "amira.elsayed@example.com",   phone: "+20 100 333 1001",
+    photoDataUrl: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "amira-elsayed.png",
+    resumeName: "amira-elsayed-cv.pdf",   resumeDataUrl: null },
+  { id: "CAN-002", name: "Hassan Nabil",    job: "Senior Sales Agent", stage: "Screening", score: null, source: "Referral",     applied: "2024-01-12", interviewer: null,            gender: "Male",   ageBand: "25-34",
+    email: "hassan.nabil@example.com",    phone: "+20 100 333 1002",
+    photoDataUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "hassan-nabil.png",
+    resumeName: "hassan-nabil-cv.pdf",    resumeDataUrl: null },
+  { id: "CAN-003", name: "Fatma Youssef",   job: "Junior Sales Agent", stage: "Offer",     score: 92,   source: "Careers Page", applied: "2024-01-06", interviewer: "Omar Sherif",   gender: "Female", ageBand: "18-24",
+    email: "fatma.youssef@example.com",   phone: "+20 100 333 1003",
+    photoDataUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "fatma-youssef.png",
+    resumeName: "fatma-youssef-cv.pdf",   resumeDataUrl: null },
+  { id: "CAN-004", name: "Ali Mostafa",     job: "Junior Sales Agent", stage: "Rejected",  score: 45,   source: "LinkedIn",     applied: "2024-01-09", interviewer: "Sales Manager", gender: "Male",   ageBand: "18-24",
+    email: "ali.mostafa@example.com",     phone: "+20 100 333 1004",
+    photoDataUrl: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "ali-mostafa.png",
+    resumeName: "ali-mostafa-cv.pdf",     resumeDataUrl: null },
+  { id: "CAN-005", name: "Nora Adel",       job: "Senior Sales Agent", stage: "Applied",   score: null, source: "Careers Page", applied: "2024-01-16", interviewer: null,            gender: "Female", ageBand: "25-34",
+    email: "nora.adel@example.com",       phone: "+20 100 333 1005",
+    photoDataUrl: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "nora-adel.png",
+    resumeName: "nora-adel-cv.pdf",       resumeDataUrl: null },
+  { id: "CAN-006", name: "Khaled Samir",    job: "HR Coordinator",     stage: "Applied",   score: null, source: "LinkedIn",     applied: "2024-01-17", interviewer: null,            gender: "Male",   ageBand: "25-34",
+    email: "khaled.samir@example.com",    phone: "+20 100 333 1006",
+    photoDataUrl: "https://images.unsplash.com/photo-1556157382-97eda2d62296?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "khaled-samir.png",
+    resumeName: "khaled-samir-cv.pdf",    resumeDataUrl: null },
+];
+
+// ── OFFERS ── HR drafts → Sales Director approves → Sent → Accepted/Rejected
+// Lifecycle: Draft → Pending Approval → Approved → Sent → (Accepted | Declined | Withdrawn)
+export const OFFER_STAGES = ['Draft', 'Pending Approval', 'Approved', 'Sent', 'Accepted', 'Declined', 'Withdrawn'];
+
+export const OFFERS = [
+  {
+    id: "OFR-001", candidateId: "CAN-003", candidateName: "Fatma Youssef",
+    photoDataUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "fatma-youssef.png",
+    jobId: "JOB-002", jobTitle: "Junior Sales Agent",
+    salaryMonthly: 13500, currency: "EGP",
+    commission: "0.5% of deal value after onboarding completion",
+    bonus: "Annual top-performer trip + EGP 5,000 sign-on after probation",
+    benefits: ["Health insurance (probation)", "Microsoft 365", "Homes Academy", "Transport allowance"],
+    startDate: "2026-06-01", probationMonths: 3,
+    workSchedule: "Sun–Thu, 9am–6pm",
+    reportingTo: "Omar Sherif (Team Leader)",
+    contractType: "Full-time, indefinite",
+    stage: "Sent",
+    draftedBy: "Dina Samir (HR Recruiter)",
+    approvedBy: "Tarek Hassan (Sales Director)",
+    approvedAt: "2026-05-14",
+    sentAt: "2026-05-15",
+    expiresAt: "2026-05-22",
+    notes: "Score 92 from Omar's interview — fast-track. Junior band top-end."
+  },
+  {
+    id: "OFR-002", candidateId: "CAN-001", candidateName: "Amira El-Sayed",
+    photoDataUrl: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "amira-elsayed.png",
+    jobId: "JOB-001", jobTitle: "Senior Sales Agent",
+    salaryMonthly: 23000, currency: "EGP",
+    commission: "Uncapped — 0.8% of deal value · Homes Advance at 5% collection trigger",
+    bonus: "EGP 10,000 sign-on after RERA license activated",
+    benefits: ["Health insurance + family", "Microsoft 365", "Homes Academy", "Transport allowance", "Annual top-performer trip"],
+    startDate: "2026-06-15", probationMonths: 3,
+    workSchedule: "Sun–Thu, 9am–6pm",
+    reportingTo: "Nour El-Din (Sales Manager)",
+    contractType: "Full-time, indefinite",
+    stage: "Pending Approval",
+    draftedBy: "Dina Samir (HR Recruiter)",
+    approvedBy: null, approvedAt: null, sentAt: null,
+    expiresAt: null,
+    notes: "Mid-band — strong interview but limited RERA history."
+  }
+];
+
+// Salary band reference matrix (governance — bands by role family + level)
+// HR cannot draft an offer outside these bands without Sales Director justification.
+export const SALARY_BANDS = [
+  { id: "SB-Sales-Junior",  family: "Sales",      level: "Junior",   min: 10000, max: 15000, currency: "EGP" },
+  { id: "SB-Sales-Mid",     family: "Sales",      level: "Mid",      min: 15000, max: 22000, currency: "EGP" },
+  { id: "SB-Sales-Senior",  family: "Sales",      level: "Senior",   min: 18000, max: 28000, currency: "EGP" },
+  { id: "SB-Sales-Lead",    family: "Sales",      level: "Team Lead",min: 25000, max: 38000, currency: "EGP" },
+  { id: "SB-Mktg-Lead",     family: "Marketing",  level: "Lead",     min: 28000, max: 42000, currency: "EGP" },
+  { id: "SB-Ops-Spec",      family: "Operations", level: "Specialist", min: 20000, max: 30000, currency: "EGP" },
+  { id: "SB-HR-Coord",      family: "HR",         level: "Coordinator",min: 16000, max: 22000, currency: "EGP" },
+  { id: "SB-HR-Mgr",        family: "HR",         level: "Manager",  min: 28000, max: 42000, currency: "EGP" },
+  { id: "SB-Fin-Analyst",   family: "Finance",    level: "Analyst",  min: 22000, max: 32000, currency: "EGP" },
 ];
 
 // ── TRAINING COURSES ──
@@ -818,7 +1090,7 @@ export const PRIORITIES = ['Hot', 'Warm', 'Cold'];
 export const SOURCES = ['Marketplace', 'Referral', 'Walk-in', 'Campaign', 'Cold Call', 'Property Fair'];
 export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'Finance', 'Follow-up'];
 export const TASK_STATUS = ['Pending', 'In Progress', 'Completed', 'Overdue'];
-export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Interview Pending', 'Missing Documents', 'Training Pending', 'Approved', 'Rejected'];
+export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Documents Pending', 'Training In Progress', 'Final Approval', 'Approved', 'Rejected'];
 export const DOC_STATUS = ['Pending Review', 'Approved', 'Rejected', 'Missing'];
 export const CANDIDATE_STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Rejected'];
 export const JOB_STATUS = ['Draft', 'Published', 'Closed'];
