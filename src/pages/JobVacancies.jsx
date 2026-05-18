@@ -206,15 +206,31 @@ export const JobVacancies = () => {
         <div className="data-scroll">
           <table className="data-table">
             <thead><tr><th>ID</th><th>Title</th><th>Department</th><th>Location</th><th>Type</th><th>Mode</th><th>Headcount</th><th>Applicants</th><th>Hiring Manager</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
-            <tbody>{filtered.map(j=>(
-              <tr key={j.id}>
+            <tbody>{filtered.map(j=>{
+              /* Audit-finding fix (May 2026): count accepted offers as
+                 "hired" against this vacancy so recruiters see the moment
+                 a headcount band is filled and can stop sourcing. */
+              const acceptedOffers = (state.offers || []).filter(o => o.jobId === j.id && o.stage === 'Accepted').length;
+              const filledRatio = j.headcount > 0 ? acceptedOffers / j.headcount : 0;
+              const isFilled = j.headcount > 0 && acceptedOffers >= j.headcount;
+              return (
+              <tr key={j.id} style={isFilled ? {background:'#f0fdf4'} : undefined}>
                 <td className="muted">{j.id}</td>
                 <td className="bold">{j.title}</td>
                 <td>{j.department}</td>
                 <td>{j.location}</td>
                 <td>{j.type}</td>
                 <td>{j.mode}</td>
-                <td className="bold">{j.headcount}</td>
+                <td>
+                  <div style={{display:'flex', alignItems:'center', gap:6}}>
+                    <span className="bold">{acceptedOffers}/{j.headcount}</span>
+                    {isFilled && <span style={{fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:4, background:'#10b981', color:'#fff', letterSpacing:'.05em'}}>FILLED</span>}
+                    {!isFilled && filledRatio >= 0.7 && <span title="Almost filled" style={{fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:4, background:'#f59e0b', color:'#fff', letterSpacing:'.05em'}}>NEARLY</span>}
+                  </div>
+                  <div style={{height:4, background:'#e2e8f0', borderRadius:2, marginTop:4, overflow:'hidden'}}>
+                    <div style={{width:`${Math.min(100, Math.round(filledRatio * 100))}%`, height:'100%', background: isFilled ? '#10b981' : filledRatio >= 0.7 ? '#f59e0b' : 'var(--brand)'}}/>
+                  </div>
+                </td>
                 <td className="bold">{j.applicants}</td>
                 <td>{j.hiringManager}</td>
                 <td><span className={`badge ${statusColor(j.status)}`}>{j.status}</span></td>
@@ -224,7 +240,7 @@ export const JobVacancies = () => {
                   {j.status==='Draft' && <button className="btn btn-primary btn-sm" onClick={()=>publish(j)}>Publish</button>}
                 </div></td>
               </tr>
-            ))}</tbody>
+            );})}</tbody>
           </table>
           {filtered.length===0 && <Empty />}
         </div>

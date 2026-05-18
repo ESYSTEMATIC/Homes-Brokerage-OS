@@ -5,10 +5,24 @@ import { Globe, QrCode, Eye, Settings, ToggleLeft, ToggleRight, Copy, ExternalLi
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 
+// Generate a URL-safe slug from a persona's display name.
+// Audit-finding fix (May 2026): slug was hard-coded to 'sarah-elmasry' so
+// every agent's mini-site showed Sarah's URL regardless of who was logged in.
+const personaSlug = (label) =>
+  (label || 'agent')
+    .toLowerCase()
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '') // strip accents
+    .replace(/[^a-z0-9]+/g, '-')                       // non-alnum → dash
+    .replace(/^-|-$/g, '')                             // trim dashes
+    .replace(/-+/g, '-');
+
 export const CrmMiniSite = () => {
   const { persona, toast } = useApp();
   const [active, setActive] = useState(true);
-  const [slug, setSlug] = useState('sarah-elmasry');
+  // Slug initial value is derived from the current persona's label, then
+  // becomes user-editable via the input below. Each agent gets their own
+  // unique slug.
+  const [slug, setSlug] = useState(() => personaSlug(persona?.label));
   const featured = LISTINGS.filter(l => l.status === 'Available').slice(0, 4);
 
   const stats = { views: 1243, inquiries: 38, listingsViewed: 87, conversionRate: '3.1%' };

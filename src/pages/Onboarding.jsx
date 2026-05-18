@@ -12,14 +12,31 @@
 //   • Employee record creation on Approve.
 //   • Candidate→Onboarding linkage banner.
 // ═══════════════════════════════════════════════════════════════════════
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Field, FieldRow, exportCSV, Empty } from '../components/UI';
+import { Field, FieldRow, Empty } from '../components/UI';
+import { ExportMenu } from '../components/ExportMenu';
+
+const ONBOARDING_COLUMNS = [
+  { key: 'id',             label: 'ID' },
+  { key: 'applicant',      label: 'Applicant' },
+  { key: 'requestedRole',  label: 'Role', format: (v, r) => v || r.type },
+  { key: 'department',     label: 'Department' },
+  { key: 'branch',         label: 'Branch' },
+  { key: 'status',         label: 'Stage' },
+  { key: 'source',         label: 'Source' },
+  { key: 'date',           label: 'Submitted' },
+  { key: 'targetStartDate',label: 'Target Start' },
+  { key: 'hiringManager',  label: 'Hiring Manager' },
+  { key: 'directHire',     label: 'Direct hire', format: v => v ? 'Yes' : 'No' },
+  { key: 'linkedOfferId',  label: 'Offer ID', format: v => v || '—' },
+];
 import {
   FileText, Clock, CheckCircle, XCircle, Plus, Download, Eye, ChevronRight,
   ListChecks, Mail, Bell, GraduationCap, ShieldCheck, KeyRound, Briefcase,
   AlertTriangle, Phone, Calendar, User, Link2, Sparkles, Filter, MessageSquare,
-  Users, BarChart3, RefreshCw,
+  Users, BarChart3, RefreshCw, CheckSquare,
 } from 'lucide-react';
 import { APPLICATION_STATUS, APPLICATION_STAGE_META } from '../data/staticData';
 
@@ -156,12 +173,31 @@ export const Onboarding = () => {
   const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
   const applicants = state.onboarding || [];
 
-  const [tab, setTab] = useState('active'); // all | active | stalled | approved | rejected
-  const [q, setQ] = useState('');
+  // URL-driven deep-link state: ?tab=stalled · ?stage=Documents Pending · ?chip=ready
+  // Lets the Super Admin / HR cockpit pre-filter the pipeline when navigating.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'active';
+  const initialChip = searchParams.get('chip') || null;
+  const initialQ = searchParams.get('stage') || '';
+
+  const [tab, setTab] = useState(initialTab); // all | active | stalled | approved | rejected
+  const [q, setQ] = useState(initialQ);
   const [filterType, setFilterType] = useState('');
   const [filterDept, setFilterDept] = useState('');
-  const [chip, setChip] = useState(null); // missing-docs | training-incomplete | ready
+  const [chip, setChip] = useState(initialChip); // missing-docs | training-incomplete | ready
   const [selected, setSelected] = useState(new Set());
+
+  // Sync incoming URL changes (e.g. user navigates from one cockpit link to
+  // another) into the state so the pipeline re-filters live.
+  useEffect(() => {
+    const newTab = searchParams.get('tab');
+    if (newTab && newTab !== tab) setTab(newTab);
+    const newChip = searchParams.get('chip');
+    if (newChip !== chip) setChip(newChip || null);
+    const newStage = searchParams.get('stage');
+    if (newStage && newStage !== q) setQ(newStage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // ─── KPI calculations ─────────────────────────────────────────
   const activeStatuses = ['Submitted','Under Review','Documents Pending','Training In Progress','Final Approval'];
@@ -563,9 +599,14 @@ export const Onboarding = () => {
             </select>
           </div>
           <div style={{display:'flex', gap:8}}>
-            <button className="btn btn-outline" onClick={() => { exportCSV(`onboarding_${today()}`, visible); toast(`Exported ${visible.length} rows`); writeAudit('Export', 'Onboarding CSV', 'Backoffice', `${visible.length} rows`); }}>
-              <Download size={14}/> Export
-            </button>
+            <ExportMenu
+              rows={visible}
+              columns={ONBOARDING_COLUMNS}
+              filename="onboarding_pipeline"
+              title="Onboarding Pipeline Export"
+              subtitle={`Tab: ${tab} · ${visible.length} applicant${visible.length === 1 ? '' : 's'}`}
+              size="md"
+            />
             <button
               className="btn btn-outline"
               onClick={newApplication}
@@ -577,14 +618,32 @@ export const Onboarding = () => {
           </div>
         </div>
 
+        {/* Bulk action hint — when nothing selected, give users a clear
+            affordance that multi-select bulk actions exist (audit feedback). */}
+        {selected.size === 0 && (
+          <div style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'8px 18px', background:'#f8fafc', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)',
+            fontSize:11, color:'var(--text-tertiary)',
+          }}>
+            <span style={{display:'inline-flex', alignItems:'center', gap:6}}>
+              <CheckSquare size={12}/> <b>Tip:</b> tick rows to enable bulk Remind · Approve · Reject
+            </span>
+            <span style={{fontSize:10}}>Up to {visible.length} applicants selectable</span>
+          </div>
+        )}
+
         {/* Bulk action bar — only when rows are selected */}
         {selected.size > 0 && (
           <div style={{
             display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'10px 18px', background:'var(--brand-tint)', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)',
+            padding:'10px 18px',
+            background:'linear-gradient(135deg, var(--brand-tint), #fff)',
+            borderTop:'2px solid var(--brand)', borderBottom:'1px solid var(--border)',
+            position:'sticky', top: 0, zIndex: 5,
           }}>
-            <div style={{fontSize:12, fontWeight:600, color:'var(--brand)'}}>
-              {selected.size} selected
+            <div style={{fontSize:12, fontWeight:700, color:'var(--brand)', display:'inline-flex', alignItems:'center', gap:6}}>
+              <CheckSquare size={14}/> {selected.size} applicant{selected.size === 1 ? '' : 's'} selected · choose a bulk action →
             </div>
             <div style={{display:'flex', gap:8}}>
               <button className="btn btn-outline btn-sm" onClick={bulkRemind}><Bell size={13}/> Remind</button>

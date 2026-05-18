@@ -1,12 +1,20 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { useTableState, exportCSV, Empty } from '../components/UI';
-import { Download } from 'lucide-react';
+import { useTableState, Empty } from '../components/UI';
+import { ExportMenu } from '../components/ExportMenu';
 
-const today = () => new Date().toISOString().split('T')[0];
+const AUDIT_COLUMNS = [
+  { key: 'id',        label: 'ID' },
+  { key: 'action',    label: 'Action' },
+  { key: 'actor',     label: 'Actor' },
+  { key: 'target',    label: 'Target' },
+  { key: 'module',    label: 'Module' },
+  { key: 'timestamp', label: 'Timestamp' },
+  { key: 'detail',    label: 'Detail' },
+];
 
 export const AuditLogs = () => {
-  const { state, toast, writeAudit } = useApp();
+  const { state } = useApp();
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.audit, {
     searchKeys:['action','actor','target','detail','id'],
     filters:{ module:'module', action:'action' },
@@ -33,7 +41,13 @@ export const AuditLogs = () => {
               <option value="">All Actions</option>{actions.map(a=><option key={a}>{a}</option>)}
             </select>
           </div>
-          <button className="btn btn-outline" onClick={()=>{exportCSV(`audit_${today()}`,filtered); toast(`Exported ${filtered.length} logs`); writeAudit('Export','Audit CSV','Security');}}><Download size={14}/> Export</button>
+          <ExportMenu
+            rows={filtered}
+            columns={AUDIT_COLUMNS}
+            filename="audit_log"
+            title="Audit Log Export"
+            subtitle="Filtered view of sensitive actions"
+          />
         </div>
         <div className="data-scroll">
           <table className="data-table">

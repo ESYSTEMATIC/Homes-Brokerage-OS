@@ -25,7 +25,41 @@ const isOverdue = (due, status) => {
 };
 
 export const CrmTasks = () => {
-  const { state, addItem, updateItem, removeItem, toast, persona, personaKey, writeAudit } = useApp();
+  const { state, addItem, updateItem, removeItem, toast, openDrawer, persona, personaKey, writeAudit } = useApp();
+
+  // Calendar event drawer — opens when a calendar dot is clicked. Audit fix.
+  const openCalendarDay = (day, dayTasks) => openDrawer({
+    title: `Tasks on ${monthName.split(' ')[0]} ${day}`,
+    subtitle: `${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'} scheduled`,
+    content: (
+      <div style={{display:'flex', flexDirection:'column', gap:10}}>
+        {dayTasks.map(t => (
+          <div key={t.id} style={{padding:'12px 14px', border:'1px solid var(--border)', borderRadius:10, background:'#fff'}}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6, gap:8}}>
+              <span style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color: typeColor[t.type] || '#64748b'}}>
+                {typeIcon[t.type] || <Clock size={13}/>} {t.type}
+              </span>
+              <span className={`badge ${stageOf(t)==='Completed'?'badge-success':stageOf(t)==='Overdue'?'badge-danger':stageOf(t)==='In Progress'?'badge-info':'badge-warning'}`}>{stageOf(t)}</span>
+            </div>
+            <div style={{fontSize:14, fontWeight:600, marginBottom:4, color:'var(--text-primary)'}}>{t.title}</div>
+            <div style={{fontSize:11, color:'var(--text-tertiary)'}}>Owner: <b style={{color:'var(--text-primary)'}}>{t.owner || '—'}</b> · Lead: {t.lead || '—'} · Priority: {t.priority}</div>
+            <div style={{display:'flex', gap:6, marginTop:8}}>
+              {!readOnly && t.status !== 'Completed' && (
+                <button className="btn btn-sm btn-success" onClick={() => toggleComplete(t)}>
+                  <CheckCircle2 size={12}/> Mark complete
+                </button>
+              )}
+              {!readOnly && (
+                <button className="btn btn-sm btn-outline" onClick={() => openEdit(t)}>
+                  <Edit size={12}/> Edit
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  });
   const allTasks = state.tasks || [];
   const readOnly = isReadOnly(personaKey);
   const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
@@ -198,21 +232,30 @@ export const CrmTasks = () => {
           <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{monthName}</h3>
           <div className="crm-calendar">
             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=><div key={d} className="crm-calendar-head">{d}</div>)}
-            {calDays.map((day,i)=>(
-              <div key={i} className={`crm-calendar-day ${day===today.getDate()?'today':''} ${!day?'empty':''}`}>
+            {calDays.map((day,i)=>{
+              const dayTasks = day ? tasksByDate[day] : null;
+              const hasTasks = dayTasks && dayTasks.length > 0;
+              return (
+              <div
+                key={i}
+                className={`crm-calendar-day ${day===today.getDate()?'today':''} ${!day?'empty':''} ${hasTasks ? 'has-tasks' : ''}`}
+                onClick={hasTasks ? () => openCalendarDay(day, dayTasks) : undefined}
+                style={hasTasks ? {cursor:'pointer'} : undefined}
+                title={hasTasks ? `Open ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}` : undefined}
+              >
                 {day&&<>
                   <span className="crm-calendar-date">{day}</span>
-                  {tasksByDate[day]&&<div className="crm-calendar-dots">
-                    {tasksByDate[day].slice(0,3).map((t,j)=>(
+                  {hasTasks&&<div className="crm-calendar-dots">
+                    {dayTasks.slice(0,3).map((t,j)=>(
                       <div key={j} className="crm-calendar-event" style={{background:`${typeColor[t.type]||'#64748b'}18`,color:typeColor[t.type]||'#64748b',borderLeft:`3px solid ${typeColor[t.type]||'#64748b'}`}} title={t.title}>
                         <span style={{fontSize:10,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title}</span>
                       </div>
                     ))}
-                    {tasksByDate[day].length>3&&<span style={{fontSize:10,color:'var(--text-tertiary)'}}>+{tasksByDate[day].length-3} more</span>}
+                    {dayTasks.length>3&&<span style={{fontSize:10,color:'var(--text-tertiary)'}}>+{dayTasks.length-3} more</span>}
                   </div>}
                 </>}
               </div>
-            ))}
+            );})}
           </div>
         </div>
       )}

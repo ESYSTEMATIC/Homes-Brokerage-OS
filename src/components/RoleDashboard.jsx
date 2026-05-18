@@ -270,8 +270,37 @@ const MarketingDashboard = () => {
 
 // ───────────────────────── Sales Manager ─────────────────────────
 const SalesManagerDashboard = () => {
-  const { state, openDrawer } = useApp();
+  const { state, openDrawer, updateItem, addItem, toast, writeAudit, persona } = useApp();
   const navigate = useNavigate();
+  const LEAD_STAGES = ['New','Contacted','Qualified','Tour Scheduled','Negotiation','Reservation','Contracting','Closed Won','Nurturing','Closed Lost'];
+
+  // Audit-finding fix (May 2026): clicking a stalled lead used to hard-nav
+  // to the Lead detail page. Now opens an inline drawer with stage-select
+  // and quick-task actions so the manager can intervene without losing the
+  // dashboard context. Hard-navigation is still available as a button.
+  const openStalledLeadDrawer = (lead) => openDrawer({
+    title: lead.name,
+    subtitle: `${lead.id} · ${lead.stage} · owner ${lead.owner || '—'}`,
+    content: (
+      <StalledLeadActions
+        lead={lead}
+        stages={LEAD_STAGES}
+        onChangeStage={(stage) => {
+          updateItem('leads', lead.id, { stage });
+          writeAudit('Lead Stage Change', `${lead.name}: ${lead.stage} → ${stage}`, 'CRM', `Via SLA drawer by ${persona?.label}`);
+          toast(`Stage updated → ${stage}`, 'success');
+        }}
+        onQuickTask={(title, type) => {
+          const id = `T-${Date.now().toString().slice(-6)}`;
+          const due = new Date(Date.now() + 2*86400000).toISOString().slice(0,10);
+          addItem('tasks', { id, title, type, owner: lead.owner, lead: lead.id, due, priority:'High', status:'Pending', created: new Date().toISOString().slice(0,10) });
+          writeAudit('Task Created', `${title} → ${lead.owner}`, 'CRM', `Quick-task from SLA drawer`);
+          toast('Task added (due in 2 days)', 'success');
+        }}
+        onOpenDetail={() => navigate(`/system/crm/leads/${lead.id}`)}
+      />
+    ),
+  });
 
   // Identify the signed-in Sales Manager in the staff roster. For the demo
   // persona we fall back to 'Nour El-Din' (the canonical Alpha-team manager).
@@ -322,7 +351,7 @@ const SalesManagerDashboard = () => {
         />
         <ListPanel
           title="Stalled leads"
-          subtitle="High-priority leads needing intervention"
+          subtitle="High-priority leads needing intervention · click to act inline"
           icon={AlertTriangle}
           items={leads.filter(l => l.priority === 'High' && !['Closed Won','Closed Lost'].includes(l.stage)).slice(0,5).map(l => ({
             key: l.id, title: l.name,
@@ -331,9 +360,10 @@ const SalesManagerDashboard = () => {
             urgent: true,
             photoDataUrl: photoByName[l.owner],
             initials: (l.owner || l.name).split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase(),
+            _lead: l,
           }))}
           emptyText="All high-priority leads are progressing."
-          onItemClick={(it) => navigate(`/system/crm/leads/${it.key}`)}
+          onItemClick={(it) => openStalledLeadDrawer(it._lead)}
         />
       </div>
 
@@ -729,9 +759,9 @@ const SuperAdminDashboard = () => {
   return (
     <RoleShell title="Super Admin Cockpit" subtitle="Aggregate operational visibility across the platform">
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18}}>
-        <KpiCard label="Active applications"  value={apps}   icon={ListChecks}  color="#3b82f6" footer="In onboarding pipeline"        onClick={() => navigate('/backoffice/onboarding')}/>
-        <KpiCard label="Documents to review"  value={docs}   icon={FileText}    color="#f59e0b" footer="Pending or missing"             onClick={() => navigate('/backoffice/documents')}/>
-        <KpiCard label="Offers pending"       value={offers} icon={ShieldCheck} color="#8b5cf6" footer="Awaiting director approval"    onClick={() => navigate('/backoffice/recruitment')}/>
+        <KpiCard label="Active applications"  value={apps}   icon={ListChecks}  color="#3b82f6" footer="In onboarding pipeline"        onClick={() => navigate('/backoffice/onboarding?tab=active')}/>
+        <KpiCard label="Documents to review"  value={docs}   icon={FileText}    color="#f59e0b" footer="Pending or missing"             onClick={() => navigate('/backoffice/documents?status=pending')}/>
+        <KpiCard label="Offers pending"       value={offers} icon={ShieldCheck} color="#8b5cf6" footer="Awaiting director approval"    onClick={() => navigate('/backoffice/recruitment?stage=offer')}/>
         <KpiCard label="Audit events"         value={audit}  icon={Activity}    color="#10b981" footer="System-wide activity log"     onClick={() => navigate('/backoffice/audit')}/>
       </div>
 
@@ -748,8 +778,10 @@ const SuperAdminDashboard = () => {
             icon: <ListChecks size={14}/>,
           }))}
           emptyText="No stalled applications."
-          onItemClick={() => navigate('/backoffice/onboarding')}
-          onSeeAll={() => navigate('/backoffice/onboarding')}
+          /* Audit-finding fix: clicking the panel or See all now jumps to
+             the Onboarding pipeline pre-filtered on the Stalled tab. */
+          onItemClick={() => navigate('/backoffice/onboarding?tab=stalled')}
+          onSeeAll={() => navigate('/backoffice/onboarding?tab=stalled')}
         />
         <ListPanel
           title="Recent audit"
@@ -767,11 +799,14 @@ const SuperAdminDashboard = () => {
       </div>
 
       <QuickActions actions={[
-        { label:'Onboarding',     icon: ListChecks,  color:'#3b82f6', onClick: () => navigate('/backoffice/onboarding') },
-        { label:'Documents',      icon: FileText,    color:'#f59e0b', onClick: () => navigate('/backoffice/documents') },
-        { label:'Recruitment',    icon: Users,       color:'#8b5cf6', onClick: () => navigate('/backoffice/recruitment') },
-        { label:'Audit logs',     icon: ShieldCheck, color:'#0ea5e9', onClick: () => navigate('/backoffice/audit') },
-        { label:'Executive view', icon: PieChart,    color:'#E8672A', onClick: () => navigate('/backoffice/executive') },
+        /* Audit-finding fix: pass category filter via query string so the
+           target page lands on the right tab / filter, not the default view. */
+        { label:'Stalled applications', icon: AlertTriangle, color:'#dc2626', onClick: () => navigate('/backoffice/onboarding?tab=stalled') },
+        { label:'Onboarding',           icon: ListChecks,    color:'#3b82f6', onClick: () => navigate('/backoffice/onboarding?tab=active') },
+        { label:'Documents to review',  icon: FileText,      color:'#f59e0b', onClick: () => navigate('/backoffice/documents?status=pending') },
+        { label:'Recruitment',          icon: Users,         color:'#8b5cf6', onClick: () => navigate('/backoffice/recruitment?stage=offer') },
+        { label:'Audit logs',           icon: ShieldCheck,   color:'#0ea5e9', onClick: () => navigate('/backoffice/audit') },
+        { label:'Executive view',       icon: PieChart,      color:'#E8672A', onClick: () => navigate('/backoffice/executive') },
       ]}/>
     </RoleShell>
   );
@@ -1145,3 +1180,89 @@ const RoleShell = ({ title, subtitle, children }) => (
     {children}
   </div>
 );
+
+// ═══════════════════════════════════════════════════════════════════════
+// StalledLeadActions — inline lead-stage + quick-task panel rendered inside
+// the SLA breach drawer on the Sales Manager dashboard.
+// Audit-finding fix (May 2026): the manager can act without leaving the
+// dashboard.
+// ═══════════════════════════════════════════════════════════════════════
+const StalledLeadActions = ({ lead, stages, onChangeStage, onQuickTask, onOpenDetail }) => {
+  const [stage, setStage] = React.useState(lead.stage);
+  const [taskTitle, setTaskTitle] = React.useState(`Follow up with ${lead.name}`);
+  const [taskType, setTaskType] = React.useState('Call');
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:18}}>
+      {/* Snapshot */}
+      <div style={{padding:'14px 16px', background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:10}}>
+        <div style={{fontSize:11, fontWeight:700, color:'#9a3412', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6}}>High-priority lead</div>
+        <div style={{fontSize:14, fontWeight:700}}>{lead.name}</div>
+        <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:3, lineHeight:1.5}}>
+          {lead.id} · {lead.project} · EGP {(lead.budget || 0).toLocaleString()}<br/>
+          Owner: <b>{lead.owner || 'Unassigned'}</b> · Source: {lead.source} · Created: {lead.created}
+        </div>
+      </div>
+
+      {/* Inline stage change */}
+      <div>
+        <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Move stage</label>
+        <div style={{display:'flex', gap:8, marginTop:6}}>
+          <select
+            value={stage}
+            onChange={e => setStage(e.target.value)}
+            style={{flex:1, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, background:'#fff'}}
+          >
+            {stages.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button
+            className="btn btn-brand"
+            disabled={stage === lead.stage}
+            onClick={() => { onChangeStage(stage); }}
+          >
+            Apply
+          </button>
+        </div>
+        <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:6}}>
+          Current: <b>{lead.stage}</b>{stage !== lead.stage && <> → <b style={{color:'var(--brand)'}}>{stage}</b></>}
+        </div>
+      </div>
+
+      {/* Quick task */}
+      <div>
+        <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Quick task (due in 2 days)</label>
+        <div style={{display:'flex', flexDirection:'column', gap:8, marginTop:6}}>
+          <input
+            value={taskTitle}
+            onChange={e => setTaskTitle(e.target.value)}
+            placeholder="Task title"
+            style={{padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}
+          />
+          <div style={{display:'flex', gap:8}}>
+            <select
+              value={taskType}
+              onChange={e => setTaskType(e.target.value)}
+              style={{flex:1, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, background:'#fff'}}
+            >
+              {['Call','WhatsApp','Tour','Meeting','Follow-up'].map(t => <option key={t}>{t}</option>)}
+            </select>
+            <button
+              className="btn btn-success"
+              disabled={!taskTitle.trim()}
+              onClick={() => onQuickTask(taskTitle.trim(), taskType)}
+            >
+              Add task
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Open full detail */}
+      <div style={{paddingTop:12, borderTop:'1px solid var(--border)'}}>
+        <button className="btn btn-outline" onClick={onOpenDetail} style={{width:'100%'}}>
+          Open full lead detail →
+        </button>
+      </div>
+    </div>
+  );
+};

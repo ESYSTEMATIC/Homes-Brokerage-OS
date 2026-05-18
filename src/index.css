@@ -184,6 +184,14 @@ body.app-locked, body.app-locked #root { height: 100%; overflow: hidden; }
 .onboarding-row-clickable { transition: background-color .12s; }
 .onboarding-row-clickable:hover { background-color: #f8fafc; }
 
+/* Clickable leaderboard rows — hover affordance. */
+.leaderboard-row { transition: background-color .12s; }
+.leaderboard-row:hover { background-color: rgba(232,103,42,0.04); }
+
+/* Calendar day with tasks — clickable affordance. */
+.crm-calendar-day.has-tasks { transition: background-color .12s, transform .12s, box-shadow .12s; }
+.crm-calendar-day.has-tasks:hover { background-color: rgba(232,103,42,0.06); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(15,23,42,0.06); }
+
 /* Hero action row — keeps the buttons aligned, wrapping cleanly when
    the lead name is long, and prevents a single mega-button from
    stretching past its content. */

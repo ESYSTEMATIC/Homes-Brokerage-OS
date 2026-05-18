@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { STAGES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
 import { BarChart3, TrendingUp, Users, MapPin, Calendar, Share2, Target, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
+import { DateRangeFilter, presetRange, inRange } from '../../components/DateRangeFilter';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 
@@ -10,8 +11,15 @@ export const CrmReports = () => {
   const { state, openDrawer } = useApp();
   const navigate = useNavigate();
   const [activeReport, setActiveReport] = useState('funnel');
+  // Audit-finding fix (May 2026): date-range horizontal across Reports.
+  const [range, setRange] = useState(() => presetRange('30d'));
 
-  const { leads = [], deals = [], tours = [], listingShares = [] } = state;
+  // Apply the range to the relevant date field of each dataset before any
+  // downstream aggregations run.
+  const leads = useMemo(() => (state.leads || []).filter(l => inRange(l.created, range)), [state.leads, range]);
+  const deals = useMemo(() => (state.deals || []).filter(d => inRange(d.created, range)), [state.deals, range]);
+  const tours = useMemo(() => (state.tours || []).filter(t => inRange(t.date, range)), [state.tours, range]);
+  const listingShares = useMemo(() => (state.listingShares || []).filter(s => inRange((s.timestamp || '').slice(0,10), range)), [state.listingShares, range]);
 
   // Funnel data
   const funnelStages = ['New','Contacted','Qualified','Tour Scheduled','Negotiation','Reservation','Contracting','Closed Won'];
@@ -201,7 +209,13 @@ export const CrmReports = () => {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Reports & Analytics</h1><p className="page-subtitle">Comprehensive performance insights, conversion metrics, and ROI analysis</p></div>
+      <div className="page-header" style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:14, flexWrap:'wrap'}}>
+        <div>
+          <h1 className="page-title">Reports & Analytics</h1>
+          <p className="page-subtitle">Comprehensive performance insights, conversion metrics, and ROI analysis</p>
+        </div>
+        <DateRangeFilter value={range} onChange={setRange} label="Filter all reports by date range"/>
+      </div>
 
       {/* Report Tabs */}
       <div style={{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}}>
@@ -325,11 +339,60 @@ export const CrmReports = () => {
           ))}</tbody></table></div></div>
       )}
 
-      {/* Agent Leaderboard */}
+      {/* Agent Leaderboard — rows deep-link into per-agent drill-down */}
       {activeReport==='agents'&&(
-        <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th>#</th><th>Agent</th><th>Leads</th><th>Deals</th><th>Revenue</th><th>Tours</th><th>Shares</th><th>Conversion</th></tr></thead>
-          <tbody>{agentData.map((a,i)=>(
-            <tr key={a.agent}>
+        <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th>#</th><th>Agent</th><th>Leads</th><th>Deals</th><th>Revenue</th><th>Tours</th><th>Shares</th><th>Conversion</th><th></th></tr></thead>
+          <tbody>{agentData.map((a,i)=>{
+            const agentStaff = (state.staff || []).find(s => s.name === a.agent);
+            const openAgentDrawer = () => openDrawer({
+              title: a.agent,
+              subtitle: `Leaderboard rank #${i+1} · ${a.conversion}% conversion`,
+              content: (
+                <div style={{display:'flex', flexDirection:'column', gap:18}}>
+                  <div style={{display:'flex', alignItems:'center', gap:14, padding:'12px 14px', background:'linear-gradient(135deg, var(--brand-tint), #fff)', borderRadius:12, border:'1px solid var(--border)'}}>
+                    {agentStaff?.photoDataUrl ? (
+                      <img src={agentStaff.photoDataUrl} alt="" style={{width:56, height:56, borderRadius:'50%', objectFit:'cover', border:'3px solid #fff', boxShadow:'0 4px 12px rgba(0,0,0,.12)'}}/>
+                    ) : (
+                      <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:18}}>
+                        {a.agent.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+                      </div>
+                    )}
+                    <div style={{flex:1, minWidth:0}}>
+                      <div style={{fontSize:16, fontWeight:800}}>{a.agent}</div>
+                      <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:2}}>{agentStaff?.role || 'Sales Agent'}{agentStaff?.team ? ` · Team ${agentStaff.team}` : ''}</div>
+                    </div>
+                  </div>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
+                    {[
+                      ['Leads',      a.leads,        '#3b82f6'],
+                      ['Active deals', a.deals,      '#8b5cf6'],
+                      ['Revenue',    `EGP ${(a.revenue/1e6).toFixed(1)}M`, '#E8672A'],
+                      ['Tours',      a.tours,        '#10b981'],
+                      ['Shares',     a.shares,       '#0ea5e9'],
+                      ['Conversion', `${a.conversion}%`, '#f59e0b'],
+                    ].map(([k,v,c]) => (
+                      <div key={k} style={{padding:'10px 12px', background:'#fff', borderTop:`3px solid ${c}`, border:`1px solid ${c}22`, borderRadius:8}}>
+                        <div style={{fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>{k}</div>
+                        <div style={{fontSize:18, fontWeight:800, marginTop:2}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:'flex', gap:8, paddingTop:12, borderTop:'1px solid var(--border)'}}>
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/system/crm/leads?owner=${encodeURIComponent(a.agent)}`)}>
+                      <ExternalLink size={13}/> View pipeline
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/system/crm/deals?owner=${encodeURIComponent(a.agent)}`)}>
+                      <ExternalLink size={13}/> View deals
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/system/crm/tasks?owner=${encodeURIComponent(a.agent)}`)}>
+                      <ExternalLink size={13}/> View tasks
+                    </button>
+                  </div>
+                </div>
+              ),
+            });
+            return (
+            <tr key={a.agent} onClick={openAgentDrawer} style={{cursor:'pointer'}} title={`Open ${a.agent} drill-down`} className="leaderboard-row">
               <td><span style={{width:24,height:24,borderRadius:'50%',background:i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7c32':'#e2e8f0',color:'#fff',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>{i+1}</span></td>
               <td className="bold">{a.agent}</td>
               <td>{a.leads}</td>
@@ -338,8 +401,9 @@ export const CrmReports = () => {
               <td>{a.tours}</td>
               <td>{a.shares}</td>
               <td><span className={`badge ${Number(a.conversion)>=50?'badge-success':Number(a.conversion)>=25?'badge-warning':'badge-info'}`}>{a.conversion}%</span></td>
+              <td><ChevronRight size={14} color="var(--text-tertiary)"/></td>
             </tr>
-          ))}</tbody></table></div></div>
+          );})}</tbody></table></div></div>
       )}
 
       {/* Tour Analytics */}

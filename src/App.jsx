@@ -20,6 +20,7 @@ import { HRPayroll } from './pages/HRPayroll';
 import { RecruitmentPipeline } from './pages/RecruitmentPipeline';
 import { JobVacancies } from './pages/JobVacancies';
 import { AuditLogs } from './pages/AuditLogs';
+import { DirectorInbox } from './pages/DirectorInbox';
 import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
 import { RolesPermissions } from './pages/RolesPermissions';
 import { Departments } from './pages/Departments';
@@ -321,6 +322,7 @@ const AppRoutes = () => {
               <Route path="/master/lead-sources" element={<LeadSources />} />
               <Route path="/exceptions" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/audit" element={<AuditLogs />} />
+              <Route path="/inbox" element={<DirectorInbox />} />
               <Route path="/executive" element={<ExecutiveDashboard />} />
               <Route path="/roles" element={<RolesPermissions />} />
               <Route path="/departments" element={<Departments />} />

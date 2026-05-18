@@ -1,7 +1,8 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
-import { Eye, Download, CheckCircle2, DollarSign } from 'lucide-react';
+import { useTableState, Field, FieldRow, Empty } from '../components/UI';
+import { ExportMenu } from '../components/ExportMenu';
+import { Eye, CheckCircle2, DollarSign } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
@@ -125,6 +126,22 @@ export const CommissionEngine = () => {
               <option value="">All Statuses</option>{['Approved','Pending','Paid'].map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
+          <ExportMenu
+            rows={filtered}
+            columns={[
+              { key: 'id',           label: 'ID' },
+              { key: 'deal',         label: 'Deal' },
+              { key: 'agent',        label: 'Agent' },
+              { key: 'pool',         label: 'Pool (EGP)',  format: v => fmt(v) },
+              { key: 'agentShare',   label: 'Agent share', format: v => fmt(v) },
+              { key: 'tlShare',      label: 'TL share',    format: v => fmt(v) },
+              { key: 'companyShare', label: 'Company share', format: v => fmt(v) },
+              { key: 'status',       label: 'Status' },
+            ]}
+            filename="commission_engine"
+            title="Commission Engine Export"
+            subtitle={`Filtered view · ${filtered.length} commission${filtered.length === 1 ? '' : 's'}`}
+          />
         </div>
         <div className="data-scroll">
           <table className="data-table">

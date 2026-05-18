@@ -23,6 +23,24 @@ import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 import { stagesForDealType, DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
+import { ExportMenu } from '../../components/ExportMenu';
+
+const DEALS_EXPORT_COLUMNS = [
+  { key: 'id',         label: 'ID' },
+  { key: 'type',       label: 'Type' },
+  { key: 'leadName',   label: 'Lead', format: (v, r) => v || r.lead || '—' },
+  { key: 'project',    label: 'Project' },
+  { key: 'developer',  label: 'Developer' },
+  { key: 'value',      label: 'Value (EGP)', format: v => (v || 0).toLocaleString('en-EG') },
+  { key: 'commission', label: 'Commission %' },
+  { key: 'stage',      label: 'Stage' },
+  { key: 'owner',      label: 'Owner' },
+  { key: 'team',       label: 'Team' },
+  { key: 'status',     label: 'Status' },
+  { key: 'created',    label: 'Created' },
+  { key: 'commissionLocked',   label: 'Comm. locked',   format: v => v ? 'Yes' : 'No' },
+  { key: 'revenueRecognised',  label: 'Revenue recognised', format: v => v ? 'Yes' : 'No' },
+];
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n || 0);
 
@@ -223,21 +241,107 @@ export const CrmDeals = () => {
     toast(`Override submitted — pending ${approver} approval`,'success');
     setOverrideFor(null);
   };
-  const approveOverride = (d, decision) => {
-    if (!personaCanApprove(personaKey, d.commissionOverride.approver)) { toast(`Only ${d.commissionOverride.approver} can ${decision} this override`,'error'); return; }
-    if (decision === 'approve') {
-      updateItem('deals', d.id, {
-        commission: d.commissionOverride.requestedPct,
-        commissionOverride: { ...d.commissionOverride, status: 'Approved', decidedBy: persona.label, decidedAt: new Date().toISOString() },
-      });
-      writeAudit('Commission Override Approved', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `By ${persona.label}`);
-      toast('Override approved & applied','success');
-    } else {
-      updateItem('deals', d.id, { commissionOverride: { ...d.commissionOverride, status: 'Rejected', decidedBy: persona.label, decidedAt: new Date().toISOString() } });
-      writeAudit('Commission Override Rejected', d.id, 'CRM', `By ${persona.label}`);
-      toast('Override rejected','info');
+  // Open the approve/reject modal that captures the required decision comment
+  // and appends an entry to commissionOverride.history[].
+  // Audit-finding fix (May 2026): approvals used to be binary. Director now
+  // sees full history and must enter a comment when approving or rejecting.
+  const openOverrideDecision = (d, decision) => {
+    if (!personaCanApprove(personaKey, d.commissionOverride.approver)) {
+      toast(`Only ${d.commissionOverride.approver} can ${decision} this override`, 'error');
+      return;
     }
+    let comment = '';
+    openModal({
+      title: `${decision === 'approve' ? 'Approve' : 'Reject'} commission override · ${d.id}`,
+      subtitle: `${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}% (Δ ${d.commissionOverride.delta}%) · requested by ${d.commissionOverride.requestedBy}`,
+      submitLabel: decision === 'approve' ? 'Approve & apply' : 'Reject',
+      body: (
+        <div style={{display:'flex', flexDirection:'column', gap:14}}>
+          {/* Requestor justification (read-only) */}
+          <div>
+            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Requestor justification</label>
+            <div style={{padding:'10px 12px', background:'#f8fafc', borderRadius:8, border:'1px solid var(--border)', fontSize:13, marginTop:6, color:'var(--text-primary)'}}>
+              {d.commissionOverride.reason || '—'}
+            </div>
+          </div>
+
+          {/* Decision history (if any prior decisions) */}
+          {(d.commissionOverride.history || []).length > 0 && (
+            <div>
+              <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Decision history</label>
+              <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:6}}>
+                {d.commissionOverride.history.map((h, i) => (
+                  <div key={i} style={{padding:'8px 10px', background: h.decision === 'approve' ? '#dcfce7' : '#fee2e2', borderRadius:6, fontSize:12, borderLeft:`3px solid ${h.decision === 'approve' ? '#16a34a' : '#dc2626'}`}}>
+                    <div style={{fontWeight:700, color: h.decision === 'approve' ? '#166534' : '#991b1b'}}>
+                      {h.decision === 'approve' ? '✓ Approved' : '✗ Rejected'} by {h.actor}
+                    </div>
+                    <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>{new Date(h.at).toLocaleString()}</div>
+                    {h.comment && <div style={{fontSize:11, color:'var(--text-secondary)', marginTop:4, fontStyle:'italic'}}>"{h.comment}"</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Required decision comment */}
+          <div>
+            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>
+              Your comment <span style={{color:'var(--danger)'}}>*</span>
+            </label>
+            <textarea
+              defaultValue=""
+              placeholder={decision === 'approve'
+                ? 'Why are you approving? (e.g. VIP referral retention, performance-based exception)'
+                : 'Why are you rejecting? (e.g. exceeds policy band, insufficient justification)'}
+              onChange={e => { comment = e.target.value; }}
+              style={{width:'100%', minHeight:90, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit', marginTop:6, resize:'vertical'}}
+            />
+            <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:4}}>Required for audit trail · BRD §9 governance</div>
+          </div>
+        </div>
+      ),
+      onSubmit: () => {
+        if (!comment.trim()) {
+          toast('Comment is required for audit trail', 'error');
+          return false; // prevent close
+        }
+        const at = new Date().toISOString();
+        const historyEntry = { actor: persona.label, decision, comment: comment.trim(), at };
+        const prevHistory = d.commissionOverride.history || [];
+        if (decision === 'approve') {
+          updateItem('deals', d.id, {
+            commission: d.commissionOverride.requestedPct,
+            commissionOverride: {
+              ...d.commissionOverride,
+              status: 'Approved',
+              decidedBy: persona.label,
+              decidedAt: at,
+              decisionComment: comment.trim(),
+              history: [...prevHistory, historyEntry],
+            },
+          });
+          writeAudit('Commission Override Approved', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `By ${persona.label} · "${comment.trim()}"`);
+          toast('Override approved & applied', 'success');
+        } else {
+          updateItem('deals', d.id, {
+            commissionOverride: {
+              ...d.commissionOverride,
+              status: 'Rejected',
+              decidedBy: persona.label,
+              decidedAt: at,
+              decisionComment: comment.trim(),
+              history: [...prevHistory, historyEntry],
+            },
+          });
+          writeAudit('Commission Override Rejected', d.id, 'CRM', `By ${persona.label} · "${comment.trim()}"`);
+          toast('Override rejected', 'info');
+        }
+      },
+    });
   };
+  // Legacy alias — keeps existing call sites working but routes through the
+  // new modal that captures the comment.
+  const approveOverride = (d, decision) => openOverrideDecision(d, decision);
 
   // Lookups
   const listingFor = (id) => listings.find(l => l.id === id);
@@ -360,17 +464,37 @@ export const CrmDeals = () => {
           {/* Commission override panel */}
           {d.commissionOverride && (
             <div style={{padding:14,background:d.commissionOverride.status==='Pending'?'#fef3c7':d.commissionOverride.status==='Approved'?'#dcfce7':'#fee2e2',border:`1px solid ${d.commissionOverride.status==='Pending'?'#fcd34d':d.commissionOverride.status==='Approved'?'#86efac':'#fca5a5'}`,borderRadius:10}}>
-              <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>Commission Override · {d.commissionOverride.status}</div>
+              <div style={{fontSize:12,fontWeight:700,marginBottom:6, display:'flex', justifyContent:'space-between'}}>
+                <span>Commission Override · {d.commissionOverride.status}</span>
+                {(d.commissionOverride.history || []).length > 0 && <span style={{fontSize:10, color:'var(--text-tertiary)', fontWeight:500}}>{d.commissionOverride.history.length} decision{d.commissionOverride.history.length === 1 ? '' : 's'} logged</span>}
+              </div>
               <div style={{fontSize:12,color:'var(--text-secondary)',lineHeight:1.5}}>
                 {d.commissionOverride.currentPct}% → {d.commissionOverride.requestedPct}% (Δ {d.commissionOverride.delta}%)<br/>
                 Requested by <b>{d.commissionOverride.requestedBy}</b> · routed to <b>{d.commissionOverride.approver}</b><br/>
                 <i>{d.commissionOverride.reason}</i>
                 {d.commissionOverride.decidedBy && <><br/>Decided by <b>{d.commissionOverride.decidedBy}</b> at {new Date(d.commissionOverride.decidedAt).toLocaleString()}</>}
+                {d.commissionOverride.decisionComment && <><br/><b>Decision note:</b> <i>"{d.commissionOverride.decisionComment}"</i></>}
               </div>
+
+              {/* Decision history — surfaces every prior decide-action with comment */}
+              {(d.commissionOverride.history || []).length > 0 && (
+                <div style={{marginTop:10, paddingTop:10, borderTop:'1px solid rgba(0,0,0,0.06)'}}>
+                  <div style={{fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6}}>Audit trail</div>
+                  <div style={{display:'flex', flexDirection:'column', gap:5}}>
+                    {d.commissionOverride.history.map((h, i) => (
+                      <div key={i} style={{fontSize:11, padding:'6px 8px', background: 'rgba(255,255,255,0.65)', borderRadius:5, borderLeft:`3px solid ${h.decision === 'approve' ? '#16a34a' : '#dc2626'}`}}>
+                        <b>{h.decision === 'approve' ? '✓ Approved' : '✗ Rejected'}</b> by {h.actor} · {new Date(h.at).toLocaleDateString()}
+                        {h.comment && <div style={{fontStyle:'italic', color:'var(--text-secondary)', marginTop:2}}>"{h.comment}"</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {d.commissionOverride.status === 'Pending' && personaCanApprove(personaKey, d.commissionOverride.approver) && (
                 <div style={{display:'flex',gap:8,marginTop:10}}>
-                  <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}><Check size={13}/> Approve</button>
-                  <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>approveOverride(d, 'reject')}><X size={13}/> Reject</button>
+                  <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}><Check size={13}/> Approve…</button>
+                  <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>approveOverride(d, 'reject')}><X size={13}/> Reject…</button>
                 </div>
               )}
             </div>
@@ -483,6 +607,14 @@ export const CrmDeals = () => {
             </div>
           )})}><Percent size={13}/> Override queue ({pendingOverrides.length})</button>
         )}
+        <ExportMenu
+          rows={deals}
+          columns={DEALS_EXPORT_COLUMNS}
+          filename={`deals_${pipeline.toLowerCase()}`}
+          title={`${pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'} Deal Pipeline Export`}
+          subtitle={`${deals.length} deal${deals.length === 1 ? '' : 's'} · scope ${h.role}`}
+          size="md"
+        />
         {!readOnly && <button className="btn btn-brand" onClick={()=>openAdd(pipeline)}><Plus size={16}/> Add {pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'} Deal</button>}
       </div>
 
