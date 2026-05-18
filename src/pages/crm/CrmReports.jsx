@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { STAGES } from '../../data/staticData';
 import { useApp } from '../../context/AppContext';
-import { BarChart3, TrendingUp, Users, MapPin, Calendar, Share2, Target, AlertTriangle } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, MapPin, Calendar, Share2, Target, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 
 export const CrmReports = () => {
-  const { state } = useApp();
+  const { state, openDrawer } = useApp();
+  const navigate = useNavigate();
   const [activeReport, setActiveReport] = useState('funnel');
 
   const { leads = [], deals = [], tours = [], listingShares = [] } = state;
@@ -83,6 +85,111 @@ export const CrmReports = () => {
 
   const warningCount = teamPerformance.filter(t => t.status !== 'ok').length;
 
+  // ── Team Warnings drill-down ────────────────────────────────────
+  // Audit-finding fix (May 2026): cards were static. Clicking now opens a
+  // drawer showing the team's agents and their open leads + active deals so
+  // a manager can act without leaving the page.
+  const openTeamDrawer = (perf) => {
+    const team = perf.team;
+    const teamAgents = (state.staff || []).filter(s => s.department === 'Sales' && s.team === team);
+    const teamLeads = leads.filter(l => l.team === team);
+    const teamDeals = deals.filter(d => d.team === team && (d.status === 'Active' || d.status === undefined));
+    const openByAgent = teamAgents.map(s => ({
+      agent: s,
+      leads: teamLeads.filter(l => l.owner === s.name),
+      deals: teamDeals.filter(d => d.owner === s.name),
+    }));
+    const tone = perf.status === 'critical' ? { color:'#dc2626', label:'CRITICAL' }
+              : perf.status === 'warning' ? { color:'#b45309', label:'WARNING' }
+              : { color:'#166534', label:'ON TRACK' };
+
+    openDrawer({
+      title: `Team ${team}`,
+      subtitle: `${tone.label} · ${teamAgents.length} agent${teamAgents.length === 1 ? '' : 's'} · ${teamLeads.length} lead${teamLeads.length === 1 ? '' : 's'} · ${teamDeals.length} active deal${teamDeals.length === 1 ? '' : 's'}`,
+      content: (
+        <div style={{display:'flex', flexDirection:'column', gap:18}}>
+          {/* KPI strip */}
+          <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10}}>
+            {[
+              ['Leads',  perf.leadsCount,  '#3b82f6'],
+              ['Deals 60d', perf.dealsInWindow, '#8b5cf6'],
+              ['Closed Won 60d', perf.closedWonInWindow, '#10b981'],
+              ['Active EGP', `${(perf.pipelineActive/1e6).toFixed(1)}M`, '#E8672A'],
+            ].map(([k,v,c]) => (
+              <div key={k} style={{padding:'10px 12px', background:'#fff', border:`1px solid ${c}33`, borderTop:`3px solid ${c}`, borderRadius:8}}>
+                <div style={{fontSize:10, color:'var(--text-tertiary)', fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em'}}>{k}</div>
+                <div style={{fontSize:18, fontWeight:800, color:'var(--text-primary)', marginTop:2}}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Per-agent breakdown */}
+          <div>
+            <div style={{fontSize:12, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:8}}>Agents on this team</div>
+            {openByAgent.length === 0 ? (
+              <div style={{padding:'14px 16px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:8, fontSize:13, color:'#92400e'}}>
+                No agents currently assigned to team {team}. Reassignment recommended.
+              </div>
+            ) : (
+              <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                {openByAgent.map(({agent, leads: aLeads, deals: aDeals}) => (
+                  <div key={agent.id || agent.name} style={{border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', background:'#fff'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:8}}>
+                      {agent.photoDataUrl ? (
+                        <img src={agent.photoDataUrl} alt="" style={{width:36, height:36, borderRadius:'50%', objectFit:'cover'}}/>
+                      ) : (
+                        <div style={{width:36, height:36, borderRadius:'50%', background:'var(--brand)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700}}>
+                          {agent.name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+                        </div>
+                      )}
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:13, fontWeight:700}}>{agent.name}</div>
+                        <div style={{fontSize:11, color:'var(--text-tertiary)'}}>{agent.role || 'Sales Agent'}</div>
+                      </div>
+                      <div style={{display:'flex', gap:12, fontSize:11, color:'var(--text-secondary)'}}>
+                        <span><b style={{color:'var(--text-primary)'}}>{aLeads.length}</b> leads</span>
+                        <span><b style={{color:'var(--text-primary)'}}>{aDeals.length}</b> active deals</span>
+                      </div>
+                    </div>
+                    {(aLeads.length === 0 && aDeals.length === 0) ? (
+                      <div style={{fontSize:11, color:'var(--text-tertiary)', fontStyle:'italic'}}>No open work — flag for sourcing or reassignment.</div>
+                    ) : (
+                      <div style={{display:'flex', flexDirection:'column', gap:4}}>
+                        {aLeads.slice(0,3).map(l => (
+                          <button
+                            key={l.id}
+                            onClick={() => navigate(`/system/crm/leads/${l.id}`)}
+                            style={{display:'flex', alignItems:'center', gap:6, padding:'4px 8px', background:'#f8fafc', border:'1px solid var(--border)', borderRadius:6, fontSize:11, cursor:'pointer', textAlign:'left'}}
+                          >
+                            <span style={{flex:1, color:'var(--text-primary)'}}>{l.name} · {l.stage}</span>
+                            <ChevronRight size={12} color="var(--text-tertiary)"/>
+                          </button>
+                        ))}
+                        {aLeads.length > 3 && (
+                          <div style={{fontSize:10, color:'var(--text-tertiary)', paddingLeft:8}}>+{aLeads.length - 3} more lead{aLeads.length - 3 === 1 ? '' : 's'}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick navigation actions */}
+          <div style={{display:'flex', gap:8, paddingTop:12, borderTop:'1px solid var(--border)'}}>
+            <button className="btn btn-outline btn-sm" onClick={() => navigate(`/system/crm/leads?team=${encodeURIComponent(team)}`)}>
+              <ExternalLink size={13}/> View team leads
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => navigate(`/system/crm/deals?team=${encodeURIComponent(team)}`)}>
+              <ExternalLink size={13}/> View team pipeline
+            </button>
+          </div>
+        </div>
+      ),
+    });
+  };
+
   const reports = [
     {id:'warnings',label:`Team Warnings${warningCount > 0 ? ` (${warningCount})` : ''}`,icon:<AlertTriangle size={16}/>},
     {id:'funnel',label:'Conversion Funnel',icon:<Target size={16}/>},
@@ -130,7 +237,25 @@ export const CrmReports = () => {
                         : t.status === 'warning' ? { bg:'#fef3c7', border:'#fcd34d', color:'#b45309', label:'WARNING', advice:'Team is active but not closing. Review pipeline quality and time-to-respond on assigned leads.' }
                         : { bg:'#f0fdf4', border:'#86efac', color:'#166534', label:'ON TRACK', advice:'No action required. Maintain cadence.' };
             return (
-              <div key={t.team} style={{background:tone.bg,border:`1px solid ${tone.border}`,borderRadius:12,padding:'16px 20px'}}>
+              <button
+                key={t.team}
+                onClick={() => openTeamDrawer(t)}
+                title={`Open ${t.team} drill-down`}
+                style={{
+                  background:tone.bg,
+                  border:`1px solid ${tone.border}`,
+                  borderRadius:12,
+                  padding:'16px 20px',
+                  cursor:'pointer',
+                  textAlign:'left',
+                  font:'inherit',
+                  width:'100%',
+                  display:'block',
+                  transition:'transform .12s, box-shadow .12s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(15,23,42,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
+              >
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12,gap:14}}>
                   <div>
                     <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -138,6 +263,9 @@ export const CrmReports = () => {
                       <span style={{fontSize:10,fontWeight:700,letterSpacing:'.05em',padding:'3px 8px',background:tone.color,color:'#fff',borderRadius:4}}>{tone.label}</span>
                     </div>
                     <p style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,lineHeight:1.5}}>{tone.advice}</p>
+                  </div>
+                  <div style={{display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:tone.color}}>
+                    Drill in <ChevronRight size={14}/>
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
@@ -153,7 +281,7 @@ export const CrmReports = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

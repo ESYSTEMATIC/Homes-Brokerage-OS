@@ -27,6 +27,65 @@ import { APPLICATION_STATUS, APPLICATION_STAGE_META } from '../data/staticData';
 const today = () => new Date().toISOString().split('T')[0];
 const nowISO = () => new Date().toISOString();
 
+// Build a CV preview HTML document for an applicant on the fly. Used when
+// the seed record has resumeName but resumeDataUrl is null (older records)
+// so the recruiter can still preview the candidate's profile inline.
+// Returns an object URL the iframe can src to.
+const buildCvDataUrl = (a) => {
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const role = esc(a.requestedRole || a.type || 'Candidate');
+  const dept = esc(a.department || 'Sales');
+  const branch = esc(a.branch || 'Cairo HQ');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>CV — ${esc(a.applicant)}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 40px; background: #fff; line-height: 1.55; }
+  .hdr { display:flex; gap:18px; align-items:center; padding-bottom: 18px; border-bottom: 3px solid #E8672A; margin-bottom: 22px; }
+  .hdr img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,.1); }
+  .hdr-meat h1 { font-size: 26px; font-weight: 800; margin: 0; color: #0f172a; }
+  .hdr-meat .role { font-size: 14px; color: #475569; margin-top: 4px; }
+  .hdr-meat .contact { font-size: 12px; color: #64748b; margin-top: 6px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #E8672A; margin: 22px 0 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+  .row { font-size: 13px; padding: 4px 0; }
+  .row b { color: #0f172a; font-weight: 600; }
+  .row span { color: #475569; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700; margin-top: 4px; }
+  .stub { background: #fff7ed; border: 1px dashed #fdba74; padding: 10px 14px; border-radius: 8px; color: #9a3412; font-size: 12px; margin-top: 18px; }
+  ul { margin: 4px 0 0 18px; padding: 0; font-size: 13px; color: #334155; }
+  li { padding: 2px 0; }
+</style></head>
+<body>
+  <div class="hdr">
+    ${a.photoDataUrl ? `<img src="${esc(a.photoDataUrl)}" alt=""/>` : ''}
+    <div class="hdr-meat">
+      <h1>${esc(a.applicant)}</h1>
+      <div class="role">${role} · ${dept}</div>
+      <div class="contact">${esc(a.email || '—')} · ${esc(a.phone || '—')} · ${branch}</div>
+      ${a.directHire ? '<div class="pill">DIRECT HIRE</div>' : a.linkedOfferId ? '<div class="pill" style="background:#dcfce7;color:#166534">OFFER ' + esc(a.linkedOfferId) + '</div>' : ''}
+    </div>
+  </div>
+
+  <h2>Professional Summary</h2>
+  <div class="row"><span>Experienced ${role.toLowerCase()} candidate applying for a position in the ${dept} department at Homes EG. Submitted application on ${esc(a.date || '—')} with a target start date of ${esc(a.targetStartDate || '—')}. Sourced via ${esc(a.source || 'direct')}.</span></div>
+
+  <h2>Application Details</h2>
+  <div class="row"><b>Application ID:</b> <span>${esc(a.id)}</span></div>
+  <div class="row"><b>Stage:</b> <span>${esc(a.status)}</span></div>
+  <div class="row"><b>Requested Role:</b> <span>${role}</span></div>
+  <div class="row"><b>Department / Branch:</b> <span>${dept} · ${branch}</span></div>
+  <div class="row"><b>Hiring Manager:</b> <span>${esc(a.hiringManager || '—')}</span></div>
+  <div class="row"><b>Source:</b> <span>${esc(a.source || '—')}</span></div>
+  ${a.linkedCandidateId ? `<div class="row"><b>Candidate ID:</b> <span>${esc(a.linkedCandidateId)}</span></div>` : ''}
+  ${a.linkedOfferId    ? `<div class="row"><b>Offer ID:</b>     <span>${esc(a.linkedOfferId)}</span></div>` : ''}
+
+  <h2>Notes from Recruiter</h2>
+  <div class="row"><span>${esc(a.notes || 'No recruiter notes recorded yet.')}</span></div>
+
+  ${!a.resumeDataUrl ? '<div class="stub"><b>Note:</b> The original CV file for this candidate was not migrated with the application record. This preview is generated from the structured candidate data on file. To view the original document, contact the HR team for the source file.</div>' : ''}
+
+</body></html>`;
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+};
+
 const daysSince = (iso) => {
   if (!iso) return 0;
   return Math.floor((new Date() - new Date(iso)) / 86400000);
@@ -562,8 +621,16 @@ export const Onboarding = () => {
                 const checklist = computeChecklist(a, state.documents, state.training);
                 const pct = Math.round((checklist.done / checklist.total) * 100);
                 return (
-                  <tr key={a.id}>
-                    <td><input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleOne(a.id)} /></td>
+                  <tr
+                    key={a.id}
+                    onClick={() => viewApplicant(a)}
+                    style={{cursor:'pointer'}}
+                    className="onboarding-row-clickable"
+                    title="Open applicant details"
+                  >
+                    <td onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleOne(a.id)} />
+                    </td>
                     <td className="muted">{a.id}</td>
                     <td>
                       <div style={{display:'flex', alignItems:'center', gap:10}}>
@@ -624,7 +691,7 @@ export const Onboarding = () => {
                         <span style={{fontSize:11, fontWeight:600, color:'var(--text-secondary)', minWidth:32}}>{pct}%</span>
                       </div>
                     </td>
-                    <td style={{textAlign:'right'}}>
+                    <td style={{textAlign:'right'}} onClick={e => e.stopPropagation()}>
                       <div className="row-actions">
                         <button className="btn btn-outline btn-sm" onClick={() => viewApplicant(a)}><Eye size={13}/> View</button>
                         {!['Approved','Rejected'].includes(a.status) && stageMeta(a.status).next && (
@@ -938,7 +1005,16 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
   );
 };
 
-const OverviewTab = ({ a }) => (
+const OverviewTab = ({ a }) => {
+  // Audit-finding fix (May 2026): the CV link used to silently no-op when
+  // resumeDataUrl was null (older seed records). Now we always render an
+  // inline CV preview generated from the applicant's structured data, and
+  // surface the original CV if the file is actually present.
+  const [cvOpen, setCvOpen] = useState(false);
+  const cvUrl = a.resumeDataUrl || buildCvDataUrl(a);
+  const cvIsGenerated = !a.resumeDataUrl;
+
+  return (
   <div>
     {/* Photo header card */}
     <div style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderRadius:12, background:'linear-gradient(135deg, var(--brand-tint), #fff)', marginBottom:16, border:'1px solid var(--border)'}}>
@@ -953,16 +1029,52 @@ const OverviewTab = ({ a }) => (
         <div style={{fontSize:16, fontWeight:800, color:'var(--text-primary)'}}>{a.applicant}</div>
         <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:3}}>{a.requestedRole || a.type} · {a.department}</div>
         {a.resumeName && (
-          <a
-            href={a.resumeDataUrl || '#'}
-            download={a.resumeName}
-            onClick={e => { if (!a.resumeDataUrl) { e.preventDefault(); } }}
-            style={{display:'inline-flex', alignItems:'center', gap:5, marginTop:8, fontSize:11, fontWeight:600, color:'var(--brand)', textDecoration:'none', padding:'4px 10px', background:'#fff', borderRadius:6, border:'1px solid var(--brand)'}}>
-            <FileText size={11}/> {a.resumeName}
-          </a>
+          <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'wrap'}}>
+            <button
+              onClick={() => setCvOpen(o => !o)}
+              style={{display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, color: cvOpen ? '#fff' : 'var(--brand)', background: cvOpen ? 'var(--brand)' : '#fff', borderRadius:6, border:'1px solid var(--brand)', padding:'4px 10px', cursor:'pointer'}}
+              title="Toggle inline CV preview"
+            >
+              <Eye size={11}/> {cvOpen ? 'Hide preview' : 'Preview CV'}
+            </button>
+            <a
+              href={cvUrl}
+              download={a.resumeName}
+              style={{display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, color:'var(--text-secondary)', textDecoration:'none', padding:'4px 10px', background:'#f8fafc', borderRadius:6, border:'1px solid var(--border)'}}
+              title={cvIsGenerated ? 'Download generated CV summary (original file not on record)' : 'Download original CV'}
+            >
+              <Download size={11}/> {a.resumeName}
+            </a>
+            {cvIsGenerated && (
+              <span title="Original PDF not migrated with this record" style={{display:'inline-flex', alignItems:'center', gap:4, fontSize:10, fontWeight:600, color:'#92400e', background:'#fef3c7', borderRadius:6, padding:'4px 8px', border:'1px solid #fcd34d'}}>
+                Generated summary
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
+
+    {/* Inline CV preview iframe */}
+    {cvOpen && a.resumeName && (
+      <div style={{marginBottom:16, border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', background:'#f8fafc'}}>
+        <div style={{padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:11, color:'var(--text-secondary)', background:'#fff', borderBottom:'1px solid var(--border)'}}>
+          <span style={{display:'inline-flex', alignItems:'center', gap:6, fontWeight:600}}>
+            <FileText size={12}/> {a.resumeName}
+            {cvIsGenerated && <span style={{fontSize:9, color:'#92400e', background:'#fef3c7', padding:'1px 6px', borderRadius:4}}>SUMMARY</span>}
+          </span>
+          <button
+            onClick={() => setCvOpen(false)}
+            style={{background:'none', border:'none', cursor:'pointer', color:'var(--text-tertiary)', padding:'2px 6px', fontSize:11}}
+          >Close ×</button>
+        </div>
+        <iframe
+          src={cvUrl}
+          title={`CV preview — ${a.applicant}`}
+          style={{width:'100%', height:420, border:'none', background:'#fff'}}
+        />
+      </div>
+    )}
     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
       <Section title="Contact">
         <Row icon={<Phone size={12}/>} label="Phone" value={a.phone || '—'}/>
@@ -994,7 +1106,8 @@ const OverviewTab = ({ a }) => (
       )}
     </div>
   </div>
-);
+  );
+};
 
 const TimelineTab = ({ a }) => {
   const events = [...(a.statusHistory || [])].reverse();

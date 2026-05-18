@@ -179,6 +179,11 @@ body.app-locked, body.app-locked #root { height: 100%; overflow: hidden; }
 .btn-hero-ghost:active { transform: translateY(0); }
 .btn-hero-ghost svg { stroke: currentColor; }
 
+/* Clickable applicant row in Onboarding — subtle hover so users see the
+   row is interactive without making the table look noisy. */
+.onboarding-row-clickable { transition: background-color .12s; }
+.onboarding-row-clickable:hover { background-color: #f8fafc; }
+
 /* Hero action row — keeps the buttons aligned, wrapping cleanly when
    the lead name is long, and prevents a single mega-button from
    stretching past its content. */
