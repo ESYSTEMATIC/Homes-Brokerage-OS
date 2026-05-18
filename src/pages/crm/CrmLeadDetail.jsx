@@ -129,26 +129,43 @@ export const CrmLeadDetail = () => {
               })()}
             </div>
           </div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}}>
-            {!readOnly && <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowEdit(true)}><Edit size={14}/> Edit</button>}
-            {canReassignThis && <button className="btn btn-outline btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>setShowReassign(true)}><UserPlus size={14}/> Reassign</button>}
-            {!readOnly && <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)}><Calendar size={14}/> Schedule Tour</button>}
+          <div className="lead-hero-actions">
+            {!readOnly && (
+              <button className="btn btn-hero-ghost btn-sm" onClick={()=>setShowEdit(true)}>
+                <Edit size={14}/> Edit
+              </button>
+            )}
+            {canReassignThis && (
+              <button className="btn btn-hero-ghost btn-sm" onClick={()=>setShowReassign(true)}>
+                <UserPlus size={14}/> Reassign
+              </button>
+            )}
             {/* 11-May stakeholder ask: agents should park leads in Nurturing
                 instead of closing them as Lost prematurely. Hidden when the
                 lead is already closed or already in Nurturing. */}
             {!readOnly && !['Nurturing','Closed Won','Closed Lost'].includes(lead.stage) && (
               <button
-                className="btn btn-outline btn-sm"
-                style={{color:'#fff',borderColor:'rgba(255,255,255,.3)'}}
+                className="btn btn-hero-ghost btn-sm"
                 onClick={() => {
                   const reason = window.prompt('Why is this lead being moved to Nurturing? (e.g., "budget too low right now", "buying after summer")');
                   if (!reason) return;
                   updateItem('leads', lead.id, { stage: 'Nurturing', notes: (lead.notes || '') + `\n[Nurturing] ${reason}` }, { action: 'Lead → Nurturing', module: 'CRM', target: lead.id, detail: reason });
                   toast(`${lead.name} moved to Nurturing — kept warm for re-engagement`, 'info');
                 }}
-              >Move to Nurturing</button>
+              >
+                <Star size={14}/> Move to Nurturing
+              </button>
             )}
-            {readOnly && <span className="badge badge-warning"><ShieldCheck size={10}/> Audit-only</span>}
+            {!readOnly && (
+              <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)} style={{boxShadow:'0 2px 8px rgba(232,103,42,0.35)'}}>
+                <Calendar size={14}/> Schedule Tour
+              </button>
+            )}
+            {readOnly && (
+              <span className="badge badge-warning" style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                <ShieldCheck size={10}/> Audit-only
+              </span>
+            )}
           </div>
         </div>
 

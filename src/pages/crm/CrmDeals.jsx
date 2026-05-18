@@ -21,7 +21,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
-import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName } from '../../data/crmAccess';
+import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 import { stagesForDealType, DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n || 0);
@@ -92,6 +92,9 @@ export const CrmDeals = () => {
   // Pipeline tab — All / OffPlan / Resale
   const [pipeline, setPipeline] = useState('OffPlan');
   const [view, setView] = useState('kanban');
+  // Owner / team-member filter for management roles — narrows pipeline view
+  // to one team member without leaving the page.
+  const [fOwner, setFOwner] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
   const [editDeal, setEditDeal] = useState(null);
   const [overrideFor, setOverrideFor] = useState(null);
@@ -108,8 +111,18 @@ export const CrmDeals = () => {
   });
   const [form, setForm] = useState(defForm('OffPlan'));
 
-  const deals = useMemo(() => dealsAll.filter(d => d.type === pipeline), [dealsAll, pipeline]);
+  const deals = useMemo(() => dealsAll.filter(d => {
+    if (d.type !== pipeline) return false;
+    if (fOwner !== 'All') {
+      if (fOwner === '__UNASSIGNED__') { if (d.owner) return false; }
+      else if (d.owner !== fOwner) return false;
+    }
+    return true;
+  }), [dealsAll, pipeline, fOwner]);
   const stages = pipeline === 'Resale' ? DEAL_STAGES_RESALE : DEAL_STAGES_OFFPLAN;
+
+  // Team-member list available to this persona — drives the Owner filter.
+  const assignable = useMemo(() => assignableStaff(personaKey, state.staff || []), [personaKey, state.staff]);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -428,7 +441,26 @@ export const CrmDeals = () => {
             {p === 'OffPlan' ? 'Off Plan' : 'Resale'} <span style={{marginLeft:6,fontSize:11,opacity:.8}}>({dealsAll.filter(d=>d.type===p).length})</span>
           </button>
         ))}
-        <div style={{display:'flex',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden',marginLeft:'auto'}}>
+        {/* Owner filter — visible only to roles that can see more than self.
+            Sits on the same row as the pipeline tabs / view toggle. */}
+        {h.scope !== 'self' && h.scope !== 'none' && (
+          <select
+            className="filter-select"
+            value={fOwner}
+            onChange={e=>setFOwner(e.target.value)}
+            title="Filter pipeline by deal owner (team member)"
+            style={{marginLeft:'auto'}}
+          >
+            <option value="All">All Owners ({assignable.length})</option>
+            <option value="__UNASSIGNED__">— Unassigned —</option>
+            {assignable.map(s => (
+              <option key={s.id || s.name} value={s.name}>
+                {s.name}{s.team ? ` · ${s.team}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+        <div style={{display:'flex',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden', ...(h.scope === 'self' || h.scope === 'none' ? {marginLeft:'auto'} : {})}}>
           <button className={`btn btn-sm ${view==='kanban'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('kanban')}><LayoutGrid size={14}/> Board</button>
           <button className={`btn btn-sm ${view==='table'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('table')}><List size={14}/> Table</button>
         </div>

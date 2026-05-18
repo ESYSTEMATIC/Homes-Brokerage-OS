@@ -31,6 +31,10 @@ export const CrmLeads = () => {
   const [fStage, setFStage] = useState('All');
   const [fPrio, setFPrio] = useState('All');
   const [fSrc, setFSrc] = useState('All');
+  // Owner filter for management roles (Team Leader / Manager / Director).
+  // Lets them narrow the list to a single team member without losing their
+  // overall scope — the underlying `visible` set is still hierarchy-bounded.
+  const [fOwner, setFOwner] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
   const [editLead, setEditLead] = useState(null);
   const [reassignLead, setReassignLead] = useState(null);
@@ -51,8 +55,12 @@ export const CrmLeads = () => {
     if(fStage!=='All' && l.stage!==fStage) return false;
     if(fPrio!=='All' && l.priority!==fPrio) return false;
     if(fSrc!=='All' && l.source!==fSrc) return false;
+    if(fOwner!=='All'){
+      if(fOwner==='__UNASSIGNED__'){ if(l.owner) return false; }
+      else if(l.owner !== fOwner) return false;
+    }
     return true;
-  }),[visible,search,fStage,fPrio,fSrc]);
+  }),[visible,search,fStage,fPrio,fSrc,fOwner]);
 
   const openAdd2 = ()=>{setForm({...def, owner: personaOwnerName(personaKey) || def.owner});setEditLead(null);setShowAdd(true);};
   const openEdit = l=>{setForm({name:l.name,phone:l.phone||'',email:l.email||'',source:l.source||'Walk-in',project:l.project||'',developer:l.developer||'',budget:l.budget||'',stage:l.stage||'New',priority:l.priority||'Warm',owner:l.owner||'',notes:l.notes||'',createdManually:!!l.createdManually});setEditLead(l);setShowAdd(true);};
@@ -164,6 +172,25 @@ export const CrmLeads = () => {
           <select className="filter-select" value={fStage} onChange={e=>setFStage(e.target.value)}><option value="All">All Stages</option>{STAGES.map(s=><option key={s}>{s}</option>)}</select>
           <select className="filter-select" value={fPrio} onChange={e=>setFPrio(e.target.value)}><option value="All">All Priorities</option>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select>
           <select className="filter-select" value={fSrc} onChange={e=>setFSrc(e.target.value)}><option value="All">All Sources</option>{SOURCES.map(s=><option key={s}>{s}</option>)}</select>
+          {/* Owner / team-member filter — surfaces only for management roles
+              that can see more than just their own records. Lets them zero in
+              on one team member without leaving the page. */}
+          {h.scope !== 'self' && h.scope !== 'none' && (
+            <select
+              className="filter-select"
+              value={fOwner}
+              onChange={e=>setFOwner(e.target.value)}
+              title="Filter by lead owner (team member)"
+            >
+              <option value="All">All Owners ({assignable.length})</option>
+              <option value="__UNASSIGNED__">— Unassigned —</option>
+              {assignable.map(s => (
+                <option key={s.id || s.name} value={s.name}>
+                  {s.name}{s.team ? ` · ${s.team}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
           {/* Export Leads removed for individual-contributor agents per 08-May
               stakeholder review. TL / Manager / Director / audit roles keep it. */}
           {h.scope !== 'self' && (

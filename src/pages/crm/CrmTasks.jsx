@@ -36,6 +36,8 @@ export const CrmTasks = () => {
   const [view, setView] = useState('list');
   const [fStatus, setFStatus] = useState('All');
   const [fType, setFType] = useState('All');
+  // Owner filter for managers — narrows visible tasks to a single team member.
+  const [fOwner, setFOwner] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const def = {title:'',type:'Call',lead:'',owner: personaOwnerName(personaKey) || 'Fatma Ibrahim',due:'',priority:'Medium',status:'Pending',notes:''};
@@ -44,8 +46,15 @@ export const CrmTasks = () => {
   const filtered = useMemo(()=>tasks.filter(t=>{
     if(fStatus!=='All'&&t.status!==fStatus)return false;
     if(fType!=='All'&&t.type!==fType)return false;
+    if(fOwner!=='All'){
+      if(fOwner==='__UNASSIGNED__'){ if(t.owner) return false; }
+      else if(t.owner !== fOwner) return false;
+    }
     return true;
-  }),[tasks,fStatus,fType]);
+  }),[tasks,fStatus,fType,fOwner]);
+
+  // Team-member list available to this persona — used by the Owner filter.
+  const assignable = useMemo(() => assignableStaff(personaKey, state.staff || []), [personaKey, state.staff]);
 
   const openAdd2=()=>{setForm({...def, owner: personaOwnerName(personaKey) || def.owner});setEditTask(null);setShowAdd(true);};
   const openEdit=t=>{setForm({title:t.title,type:t.type||'Call',lead:t.lead||'',owner:t.owner||'',due:t.due||'',priority:t.priority||'Medium',status:t.status||'Pending',notes:t.notes||''});setEditTask(t);setShowAdd(true);};
@@ -140,7 +149,25 @@ export const CrmTasks = () => {
           <button className={`btn btn-sm ${view==='calendar'?'btn-brand':'btn-outline'}`} style={{borderRadius:0,border:0}} onClick={()=>setView('calendar')}><CalendarDays size={14}/> Calendar</button>
         </div>
         {view==='list'&&<><select className="filter-select" value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="All">All Status</option>{TASK_STATUS.map(s=><option key={s}>{s}</option>)}</select>
-        <select className="filter-select" value={fType} onChange={e=>setFType(e.target.value)}><option value="All">All Types</option>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select></>}
+        <select className="filter-select" value={fType} onChange={e=>setFType(e.target.value)}><option value="All">All Types</option>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select>
+        {/* Team-member Owner filter — only shown to roles that can see other
+            people's tasks (TL / Manager / Director / audit). */}
+        {h.scope !== 'self' && h.scope !== 'none' && (
+          <select
+            className="filter-select"
+            value={fOwner}
+            onChange={e=>setFOwner(e.target.value)}
+            title="Filter by task owner (team member)"
+          >
+            <option value="All">All Owners ({assignable.length})</option>
+            <option value="__UNASSIGNED__">— Unassigned —</option>
+            {assignable.map(s => (
+              <option key={s.id || s.name} value={s.name}>
+                {s.name}{s.team ? ` · ${s.team}` : ''}
+              </option>
+            ))}
+          </select>
+        )}</>}
         <div style={{flex:1}}/>
         {!readOnly && <button className="btn btn-brand" onClick={openAdd2}><Plus size={16}/> Add Task</button>}
         {readOnly && <span className="badge badge-warning">Read-only · audit role</span>}

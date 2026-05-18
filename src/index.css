@@ -158,6 +158,41 @@ body.app-locked, body.app-locked #root { height: 100%; overflow: hidden; }
 .btn-outline { background: #fff; color: var(--text-primary); border-color: var(--border); }
 .btn-outline:hover { background: #f9fafb; }
 .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+/* Hero ghost — secondary action button used on dark hero cards (Lead
+   Detail, Deal Detail, Profile hero). Transparent background, white text,
+   subtle white border that brightens on hover. Replaces the previous
+   inline-style overrides on .btn-outline that left a white background
+   bleeding through (text turned invisible). */
+.btn-hero-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(2px);
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.btn-hero-ghost:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.42);
+  transform: translateY(-1px);
+}
+.btn-hero-ghost:active { transform: translateY(0); }
+.btn-hero-ghost svg { stroke: currentColor; }
+
+/* Hero action row — keeps the buttons aligned, wrapping cleanly when
+   the lead name is long, and prevents a single mega-button from
+   stretching past its content. */
+.lead-hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.lead-hero-actions .btn { white-space: nowrap; }
+
 .btn-danger { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
 .btn-danger:hover { background: #fee2e2; }
 .btn-success { background: var(--success-bg); color: var(--success); border-color: #a7f3d0; }
@@ -321,8 +356,21 @@ body.app-locked, body.app-locked #root { height: 100%; overflow: hidden; }
 .ui-overlay {
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
   display: flex; align-items: center; justify-content: center;
-  z-index: 200; animation: fadeIn .15s ease-out;
+  /* Leaflet maps push their controls up to z-index 1000 and their popup
+     pane to 700, so the overlay (which hosts drawers and modals opened on
+     top of map views) must sit above that to avoid the map "punching
+     through" side drawers on the Listings map view. */
+  z-index: 1100; animation: fadeIn .15s ease-out;
   backdrop-filter: blur(2px);
+}
+/* Trap Leaflet's internal stacking context inside the map container so
+   its controls (z-index 1000) and panes (up to 700) never paint over
+   side drawers or modals opened on top of the map. Used by the CRM
+   Listings map view. */
+.leaflet-container {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
 }
 .ui-modal {
   background: #fff; border-radius: 14px; width: 92%; max-width: 560px;
