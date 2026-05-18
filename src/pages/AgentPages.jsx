@@ -214,6 +214,11 @@ export const AgentProfile = () => {
     phone: '+20 100 888 ' + (personaKey === 'agentActive' ? '4422' : personaKey === 'teamLeader' ? '5533' : '6644'),
   };
 
+  // Onboarding score + training metrics are sales-track only. Non-sales
+  // personas (HR, Finance, Marketing, Marketplace Admin, Executive, System
+  // Admin, Super Admin) don't get a training average or agent score on
+  // their profile.
+  const isSalesTrack = persona.salesTrack === true;
   // Onboarding score — moved here from Performance per 11-May stakeholder ask.
   const onboardingComplete = persona.onboardingComplete === true;
   const trainingCompleted = state.training.filter(c=>c.required && c.status==='Completed').length;
@@ -302,9 +307,9 @@ export const AgentProfile = () => {
             <h1 style={{fontSize:28,fontWeight:800,color:'#fff',margin:0,marginTop:4,lineHeight:1.15}}>{personal.name}</h1>
             <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10,alignItems:'center'}}>
               <span style={{padding:'4px 10px',background:'rgba(255,255,255,.12)',borderRadius:999,fontSize:11,fontWeight:600}}>{hr.title}</span>
-              <span style={{padding:'4px 10px',background:'rgba(232,103,42,.18)',borderRadius:999,fontSize:11,fontWeight:600,color:'#FBBF24'}}>{hr.department} · {team.team}</span>
+              <span style={{padding:'4px 10px',background:'rgba(232,103,42,.18)',borderRadius:999,fontSize:11,fontWeight:600,color:'#FBBF24'}}>{hr.department}{isSalesTrack ? ` · ${team.team}` : ''}</span>
               <span style={{padding:'4px 10px',background:'rgba(255,255,255,.08)',borderRadius:999,fontSize:11,fontWeight:600,color:'rgba(255,255,255,.85)'}}>📍 {personal.branch}</span>
-              {persona.mls && persona.mls !== 'Pending' && (
+              {isSalesTrack && persona.mls && persona.mls !== 'Pending' && (
                 <span style={{padding:'4px 10px',background:'rgba(255,255,255,.08)',borderRadius:999,fontSize:11,fontWeight:600,fontFamily:'monospace',color:'rgba(255,255,255,.85)'}}>MLS {persona.mls}</span>
               )}
               <span style={{padding:'4px 10px',background: hr.employmentStatus === 'Active' ? 'rgba(16,185,129,.2)' : 'rgba(245,158,11,.2)',color: hr.employmentStatus === 'Active' ? '#86efac' : '#fbbf24',borderRadius:999,fontSize:11,fontWeight:700}}>● {hr.employmentStatus}</span>
@@ -317,36 +322,40 @@ export const AgentProfile = () => {
             </div>
           </div>
 
-          {/* Score chip */}
-          <div style={{textAlign:'center',padding:'14px 22px',background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:14,minWidth:130,position:'relative'}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>Onboarding Score</div>
-            <div style={{fontSize:32,fontWeight:800,marginTop:4,color: scoreColor === '#16a34a' ? '#86efac' : scoreColor === '#E8672A' ? '#FBBF24' : '#fde68a'}}>{agentScore}<span style={{fontSize:14,fontWeight:600,opacity:.6}}>/100</span></div>
-            <div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:2}}>Training {trainingAvg}% · Interview {interviewScore}%</div>
-          </div>
+          {/* Score chip — sales-track only */}
+          {isSalesTrack && (
+            <div style={{textAlign:'center',padding:'14px 22px',background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:14,minWidth:130,position:'relative'}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>Onboarding Score</div>
+              <div style={{fontSize:32,fontWeight:800,marginTop:4,color: scoreColor === '#16a34a' ? '#86efac' : scoreColor === '#E8672A' ? '#FBBF24' : '#fde68a'}}>{agentScore}<span style={{fontSize:14,fontWeight:600,opacity:.6}}>/100</span></div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:2}}>Training {trainingAvg}% · Interview {interviewScore}%</div>
+            </div>
+          )}
 
           <button onClick={editProfile} style={{padding:'9px 18px',background:'#fff',color:'#0f172a',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>Edit Profile</button>
         </div>
       </div>
 
-      {/* ── Onboarding & Performance Score card ── */}
-      <Section title="Onboarding & HR Score" icon={<Award size={14}/>} accent="#8b5cf6">
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
-          {[
-            { label:'Total Score',     value:`${agentScore}/100`, sub:'Used for team allocation', color: scoreColor },
-            { label:'Training Avg',    value:`${trainingAvg}%`,   sub:`${trainingCompleted}/${trainingTotal} required courses`, color:'#3b82f6' },
-            { label:'Interview Score', value:`${interviewScore}%`,sub:'HR-recorded',            color:'#16a34a' },
-            { label:'Weight',          value:'60% / 40%',          sub:'Training / Interview',   color:'#94a3b8' },
-          ].map(s => (
-            <div key={s.label} style={{padding:'14px 16px',background:'#fafbfc',borderRadius:10,border:'1px solid var(--border)'}}>
-              <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{s.label}</div>
-              <div style={{fontSize:22,fontWeight:800,color:s.color,marginTop:4}}>{s.value}</div>
-              <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{s.sub}</div>
-            </div>
-          ))}
-        </div>
-      </Section>
+      {/* ── Onboarding & Performance Score card — sales-track only ── */}
+      {isSalesTrack && (
+        <Section title="Onboarding & HR Score" icon={<Award size={14}/>} accent="#8b5cf6">
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+            {[
+              { label:'Total Score',     value:`${agentScore}/100`, sub:'Used for team allocation', color: scoreColor },
+              { label:'Training Avg',    value:`${trainingAvg}%`,   sub:`${trainingCompleted}/${trainingTotal} required courses`, color:'#3b82f6' },
+              { label:'Interview Score', value:`${interviewScore}%`,sub:'HR-recorded',            color:'#16a34a' },
+              { label:'Weight',          value:'60% / 40%',          sub:'Training / Interview',   color:'#94a3b8' },
+            ].map(s => (
+              <div key={s.label} style={{padding:'14px 16px',background:'#fafbfc',borderRadius:10,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{s.label}</div>
+                <div style={{fontSize:22,fontWeight:800,color:s.color,marginTop:4}}>{s.value}</div>
+                <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
-      <div style={{height:18}}/>
+      {isSalesTrack && <div style={{height:18}}/>}
 
       {/* ── Personal + Employment (2-col) ── */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18,marginBottom:18}}>
@@ -378,42 +387,48 @@ export const AgentProfile = () => {
             <Field2 label="Join Date"     value={hr.joinDate}/>
             <Field2 label="Contract Ends" value={hr.contractEnds}/>
             <Field2 label="Next Review"   value={hr.nextReview}/>
-            <Field2 label="RERA"          value={hr.rera} mono/>
+            {/* RERA is the Egyptian real-estate broker license — sales-track only */}
+            {isSalesTrack && <Field2 label="RERA" value={hr.rera} mono/>}
           </div>
         </Section>
       </div>
 
-      {/* ── Team + Hierarchy (2-col) ── */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18,marginBottom:18}}>
-        <Section title="Team Data" icon={<UsersRound size={14}/>} accent="#E8672A">
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-            <Field2 label="Team"          value={team.team}/>
-            <Field2 label="Branch"        value={team.branch}/>
-            <Field2 label="Headcount"     value={String(team.headcount)}/>
-            <Field2 label="Team Leader"   value={team.teamLeader}/>
-          </div>
-        </Section>
+      {/* ── Team + Hierarchy — sales-track only ──────────────────
+          HR / Finance / Marketing / Marketplace / Executive / System Admin
+          aren't part of a sales team, so the Alpha/Beta team rollup and
+          Director→Manager→TL ladder are hidden for them. */}
+      {isSalesTrack && (
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18,marginBottom:18}}>
+          <Section title="Team Data" icon={<UsersRound size={14}/>} accent="#E8672A">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <Field2 label="Team"          value={team.team}/>
+              <Field2 label="Branch"        value={team.branch}/>
+              <Field2 label="Headcount"     value={String(team.headcount)}/>
+              <Field2 label="Team Leader"   value={team.teamLeader}/>
+            </div>
+          </Section>
 
-        <Section title="Reporting Hierarchy" icon={<ChevronRight size={14}/>} accent="#8b5cf6">
-          <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {[
-              { role:'Sales Director', name: team.salesDirector,  level: 0 },
-              { role:'Sales Manager',  name: team.salesManager,   level: 1 },
-              { role:'Team Leader',    name: team.teamLeader,     level: 2 },
-              { role:'You',            name: persona.label,        level: 3, self: true },
-            ].map((r,i,arr) => (
-              <div key={r.role} style={{display:'flex',alignItems:'center',gap:12,paddingLeft: r.level * 14}}>
-                <div style={{width:8,height:8,borderRadius:4,background: r.self ? 'var(--brand)' : '#cbd5e1',flexShrink:0}}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{r.role}</div>
-                  <div style={{fontSize:13,fontWeight: r.self ? 800 : 500,color: r.self ? 'var(--brand)' : 'var(--text-primary)'}}>{r.name}</div>
+          <Section title="Reporting Hierarchy" icon={<ChevronRight size={14}/>} accent="#8b5cf6">
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {[
+                { role:'Sales Director', name: team.salesDirector,  level: 0 },
+                { role:'Sales Manager',  name: team.salesManager,   level: 1 },
+                { role:'Team Leader',    name: team.teamLeader,     level: 2 },
+                { role:'You',            name: persona.label,        level: 3, self: true },
+              ].map((r,i,arr) => (
+                <div key={r.role} style={{display:'flex',alignItems:'center',gap:12,paddingLeft: r.level * 14}}>
+                  <div style={{width:8,height:8,borderRadius:4,background: r.self ? 'var(--brand)' : '#cbd5e1',flexShrink:0}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{r.role}</div>
+                    <div style={{fontSize:13,fontWeight: r.self ? 800 : 500,color: r.self ? 'var(--brand)' : 'var(--text-primary)'}}>{r.name}</div>
+                  </div>
+                  {i < arr.length - 1 && <ChevronRight size={14} color="var(--text-tertiary)"/>}
                 </div>
-                {i < arr.length - 1 && <ChevronRight size={14} color="var(--text-tertiary)"/>}
-              </div>
-            ))}
-          </div>
-        </Section>
-      </div>
+              ))}
+            </div>
+          </Section>
+        </div>
+      )}
 
       {/* ── Emergency Contact ── */}
       <Section title="Emergency Contact" icon={<BellRing size={14}/>} accent="#dc2626">
@@ -429,7 +444,22 @@ export const AgentProfile = () => {
 
 // ─────────── Documents (agent self-service) ───────────
 export const AgentDocuments = () => {
-  const { state, updateItem, openModal, toast, writeAudit } = useApp();
+  const { state, persona, updateItem, openModal, toast, writeAudit } = useApp();
+  // HR / Finance / Marketing / Marketplace / Executive / System Admin /
+  // Super Admin don't take sales training or carry an MLS license, so the
+  // RERA License + any training-related certificate row are hidden on
+  // their personal Documents page.
+  const isSalesTrack = persona.salesTrack === true;
+  const visibleDocs = state.agentDocs.filter(d => {
+    if (isSalesTrack) return true;
+    const t = (d.doc || '').toLowerCase();
+    if (d.type === 'Regulatory') return false;          // RERA / MLS licenses
+    if (t.includes('rera'))      return false;
+    if (t.includes('training'))  return false;
+    if (t.includes('mls'))       return false;
+    if (t.includes('brokerage')) return false;          // Brokerage Agreement is sales-track
+    return true;
+  });
 
   const upload = (d) => openModal({
     title: `Upload — ${d.doc}`, subtitle: 'Accepted: PDF, JPG, PNG · Max 10MB',
@@ -455,17 +485,17 @@ export const AgentDocuments = () => {
       <h1 className="page-title">Documents</h1>
       <p className="page-subtitle" style={{marginBottom:24}}>Upload and manage your required documents</p>
       <div className="kpi-grid kpi-grid-4" style={{marginBottom:24}}>
-        <div className="kpi-card"><div><div className="kpi-label">Approved</div><div className="kpi-value">{state.agentDocs.filter(d=>d.status==='Approved').length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>✅</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Pending</div><div className="kpi-value">{state.agentDocs.filter(d=>d.status==='Pending').length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Expiring (≤30d)</div><div className="kpi-value">{state.agentDocs.filter(d=>{if(!d.expires) return false; const days=Math.ceil((new Date(d.expires)-new Date())/86_400_000); return days>=0 && days<30;}).length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏰</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Total Required</div><div className="kpi-value">{state.agentDocs.length}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📄</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Approved</div><div className="kpi-value">{visibleDocs.filter(d=>d.status==='Approved').length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>✅</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Pending</div><div className="kpi-value">{visibleDocs.filter(d=>d.status==='Pending').length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Expiring (≤30d)</div><div className="kpi-value">{visibleDocs.filter(d=>{if(!d.expires) return false; const days=Math.ceil((new Date(d.expires)-new Date())/86_400_000); return days>=0 && days<30;}).length}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏰</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Total Required</div><div className="kpi-value">{visibleDocs.length}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📄</span></div></div>
       </div>
       <div className="data-panel">
         <div className="data-scroll">
           <table className="data-table">
             <thead><tr><th>Document</th><th>Type</th><th>Status</th><th>Upload Date</th><th>Expires</th><th style={{textAlign:'right'}}>Action</th></tr></thead>
             <tbody>
-              {state.agentDocs.map(d => {
+              {visibleDocs.map(d => {
                 let expLabel = '—', expColor = 'var(--text-tertiary)', expWeight = 400;
                 if (d.expires) {
                   const days = Math.ceil((new Date(d.expires) - new Date()) / 86_400_000);
@@ -523,7 +553,7 @@ const categorize = (n) => {
 };
 
 export const AgentNotifications = () => {
-  const { state, removeItem, toast } = useApp();
+  const { state, persona, removeItem, toast } = useApp();
   const [activeCat, setActiveCat] = useState('all');
 
   const dismiss = (n) => { removeItem('agentNotifications', n.id, { action: 'Notification Dismissed', module: 'Agent', target: n.id }); toast('Notification dismissed','info'); };
@@ -531,9 +561,13 @@ export const AgentNotifications = () => {
 
   // 11-May ask: CRM-related notifications (tasks / leads / approvals) are
   // suppressed on the Employee Board — they belong inside the CRM module.
+  // Training category notifications are sales-track only — hidden for HR,
+  // Finance, Marketing, Marketplace Admin, Executive, System Admin, Super Admin.
+  const isSalesTrack = persona.salesTrack === true;
   const merged = state.agentNotifications
     .map(n => ({ ...n, category: categorize(n) }))
-    .filter(n => !CRM_CATEGORIES.has(n.category));
+    .filter(n => !CRM_CATEGORIES.has(n.category))
+    .filter(n => isSalesTrack || n.category !== 'training');
 
   const counts = merged.reduce((a,n)=>{a[n.category]=(a[n.category]||0)+1; return a;},{});
   const filtered = activeCat === 'all' ? merged : merged.filter(n=>n.category===activeCat);

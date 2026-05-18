@@ -1,13 +1,13 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Empty } from '../components/UI';
-import { Eye, UserCog, Wallet, Download, GraduationCap, FileCheck2, UsersRound, Award, ClipboardList } from 'lucide-react';
+import { Eye, UserCog, Download, GraduationCap, FileCheck2, UsersRound, Award, ClipboardList } from 'lucide-react';
 
 // ── Per-agent onboarding profile (Backoffice mirror of the Employee Board view) ──
 // Sales hierarchy access (per meeting 8-4-2026, lines 60–62):
 //   TL → sees what their agents see · SM → sees teams underneath · Director → sees managers
 //   Plus HR/Backoffice — full visibility, including learning progress (line 18).
-const AgentProfileDrawer = ({ a, state, onWallet, onToggle, onEdit }) => {
+const AgentProfileDrawer = ({ a, state, onToggle, onEdit }) => {
   const isApproved = a.status === 'Active';
   const isSuspended = a.status === 'Suspended';
   const isPending = a.status === 'Pending';
@@ -163,7 +163,6 @@ const AgentProfileDrawer = ({ a, state, onWallet, onToggle, onEdit }) => {
       {/* Actions */}
       <div style={{marginTop:18,display:'flex',gap:8,flexWrap:'wrap'}}>
         <button className="btn btn-primary" onClick={onEdit}><UserCog size={14}/> Edit Profile</button>
-        <button className="btn btn-outline" onClick={onWallet}><Wallet size={14}/> View Wallet</button>
         <button className="btn btn-outline" onClick={onToggle}>{isSuspended ? 'Reactivate' : 'Suspend'}</button>
       </div>
     </>
@@ -175,17 +174,6 @@ export const AgentsList = () => {
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.staff, {
     searchKeys: ['name', 'id', 'branch', 'manager'],
     filters: { status: 'status' },
-  });
-
-  const showWallet = (a) => openDrawer({
-    title: `${a.name} — Wallet`, subtitle: 'Commission balances',
-    content: (
-      <div className="detail-grid">
-        {[['YTD Earned','EGP 230,000'],['Paid','EGP 150,000'],['Pending','EGP 80,000'],['Last Payout','2024-01-15'],['Next Cycle','2024-02-01']].map(([k,v])=>(
-          <div key={k}><label>{k}</label><div className="v">{v}</div></div>
-        ))}
-      </div>
-    ),
   });
 
   const toggleStatus = (a) => openConfirm({
@@ -200,7 +188,6 @@ export const AgentsList = () => {
     subtitle: `${a.id} · ${a.title} · ${a.branch}`,
     content: <AgentProfileDrawer
       a={a} state={state}
-      onWallet={()=>showWallet(a)}
       onToggle={()=>toggleStatus(a)}
       onEdit={()=>{ toast(`Edit form for ${a.name} would open here`,'info'); }}
     />,
@@ -256,7 +243,6 @@ export const AgentsList = () => {
                   <td onClick={e=>e.stopPropagation()}><div className="action-icons" style={{justifyContent:'flex-end'}}>
                     <span className="action-icon" title="View profile" onClick={()=>view(a)}><Eye size={16}/></span>
                     <span className="action-icon" title="Toggle status" onClick={()=>toggleStatus(a)}><UserCog size={16}/></span>
-                    <span className="action-icon" title="Wallet" onClick={()=>showWallet(a)}><Wallet size={16}/></span>
                   </div></td>
                 </tr>
               ))}

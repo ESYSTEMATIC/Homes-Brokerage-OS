@@ -279,12 +279,25 @@ export const Onboarding = () => {
     setSelected(new Set());
   };
 
-  // ─── New Application modal (enriched) ─────────────────────────
+  // ─── Direct-hire bypass modal ─────────────────────────────────
+  // The canonical onboarding entry point is the offer-accept flow on the
+  // Recruitment Pipeline (candidate → offer → accepted → onboarding
+  // auto-created). This button is a manual bypass for special cases —
+  // executive direct hires, internal transfers, partner placements — where
+  // there was no public Careers application. The form warns HR before they
+  // proceed and writes "Direct hire (bypassed recruitment)" into the
+  // statusHistory so the source is auditable.
   const newApplication = () => openModal({
-    title: 'New Application', subtitle: 'Onboarding intake',
-    submitLabel: 'Submit application',
+    title: 'Direct Hire · Bypass Recruitment',
+    subtitle: 'For special cases only · the normal flow is Candidate → Offer Accepted → auto-spawn onboarding',
+    submitLabel: 'Create onboarding (bypass)',
+    danger: true,
     body: (
       <>
+        <div style={{padding:'10px 12px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:8, fontSize:12, color:'#92400e', marginBottom:16, lineHeight:1.5}}>
+          <b>Heads up:</b> Onboarding usually begins automatically when a candidate accepts their offer in the Recruitment Pipeline.
+          Use this form only for direct hires that didn't go through the public Careers application (executive direct hires, internal transfers, partner placements). The audit log will record "Direct hire (bypassed recruitment)" on the resulting record.
+        </div>
         <FieldRow>
           <Field label="Full Name" name="applicant" required />
           <Field label="Type" name="type" type="select" required options={['Agent','Employee']} />
@@ -314,8 +327,9 @@ export const Onboarding = () => {
         date: today(),
         status: 'Submitted',
         linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+        directHire: true, // flag so the row can be visually marked as bypass
         statusHistory: [
-          { stage: 'Submitted', at: nowISO(), by: 'HR Recruiter (manual intake)', note: 'Application received' },
+          { stage: 'Submitted', at: nowISO(), by: 'HR Recruiter', note: 'Direct hire (bypassed recruitment) — no offer accepted in the system' },
         ],
       }, 'APP', {
         action: 'Application Submitted',
@@ -348,7 +362,26 @@ export const Onboarding = () => {
     <div className="animate-fade-in">
       <div className="page-header">
         <h1 className="page-title">Onboarding & Applications</h1>
-        <p className="page-subtitle">From application submitted to active employee — one canonical pipeline</p>
+        <p className="page-subtitle">Starts when a candidate accepts their offer · ends when the Employee record is created</p>
+      </div>
+
+      {/* ─── Flow explainer banner ────────────────────────────
+          Makes the candidate/offer/onboarding boundary explicit so HR doesn't
+          conflate the Recruitment Pipeline (no system account yet) with
+          Onboarding (account journey begins after offer accepted). */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:14,
+        padding:'14px 18px', marginBottom:18,
+        background:'linear-gradient(90deg, #eff6ff, #fafbfc)',
+        border:'1px solid #bfdbfe', borderRadius:12,
+      }}>
+        <div style={{width:38, height:38, borderRadius:10, background:'#3b82f6', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+          <ListChecks size={18}/>
+        </div>
+        <div style={{flex:1, fontSize:12, color:'#1e3a8a', lineHeight:1.55}}>
+          <b>How onboarding starts:</b> a candidate has <b>no system account</b> while they're in the Recruitment Pipeline. Once they accept their offer there, an onboarding application is auto-created here. The Employee record (system credentials, CRM access, M365 mailbox) is then provisioned on the final Approve step.
+          <span style={{color:'#1e40af', marginLeft:6, fontStyle:'italic'}}>Direct Hire bypass below is reserved for special cases.</span>
+        </div>
       </div>
 
       {/* ─── PIPELINE FUNNEL ──────────────────────────────── */}
@@ -474,7 +507,14 @@ export const Onboarding = () => {
             <button className="btn btn-outline" onClick={() => { exportCSV(`onboarding_${today()}`, visible); toast(`Exported ${visible.length} rows`); writeAudit('Export', 'Onboarding CSV', 'Backoffice', `${visible.length} rows`); }}>
               <Download size={14}/> Export
             </button>
-            <button className="btn btn-primary" onClick={newApplication}><Plus size={14}/> New Application</button>
+            <button
+              className="btn btn-outline"
+              onClick={newApplication}
+              title="Bypass the candidate / offer flow — only for direct executive hires, internal transfers, or partner placements"
+              style={{borderStyle:'dashed'}}
+            >
+              <Plus size={14}/> Direct Hire (bypass)
+            </button>
           </div>
         </div>
 
@@ -540,7 +580,19 @@ export const Onboarding = () => {
                           </div>
                         )}
                         <div style={{minWidth:0}}>
-                          <div className="bold">{a.applicant}</div>
+                          <div className="bold" style={{display:'flex', alignItems:'center', gap:6}}>
+                            {a.applicant}
+                            {a.directHire && (
+                              <span title="Direct hire — bypassed recruitment / offer flow" style={{fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'#fef3c7', color:'#92400e', textTransform:'uppercase', letterSpacing:'.05em'}}>
+                                Direct
+                              </span>
+                            )}
+                            {a.linkedOfferId && (
+                              <span title={`Spawned from offer ${a.linkedOfferId}`} style={{fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'#ecfdf5', color:'#065f46', textTransform:'uppercase', letterSpacing:'.05em'}}>
+                                Offer
+                              </span>
+                            )}
+                          </div>
                           <div style={{fontSize:10, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6}}>
                             <span>{a.email || a.phone || '—'}</span>
                             {a.resumeName && (
@@ -604,20 +656,6 @@ export const Onboarding = () => {
 // Approval?" at a glance.
 // ═══════════════════════════════════════════════════════════════════════
 const PipelineFunnel = ({ funnel, applicants, activeStage, onClickStage }) => {
-  // Cumulative applicants that have ever touched each stage (from
-  // statusHistory). Used for the "conversion %" arrow labels.
-  const everReached = useMemo(() => {
-    const counts = {};
-    funnel.forEach(f => { counts[f.stage] = 0; });
-    applicants.forEach(a => {
-      const stages = new Set((a.statusHistory || []).map(h => h.stage));
-      // Current status counts too in case statusHistory is empty.
-      stages.add(a.status);
-      Object.keys(counts).forEach(s => { if (stages.has(s)) counts[s] += 1; });
-    });
-    return counts;
-  }, [funnel, applicants]);
-
   const totalEver = applicants.length || 1;
 
   return (
@@ -626,26 +664,20 @@ const PipelineFunnel = ({ funnel, applicants, activeStage, onClickStage }) => {
       border: '1px solid var(--border)', borderRadius: 16,
       padding: '20px 22px', marginBottom: 18,
     }}>
-      <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom: 18, flexWrap:'wrap', gap: 12}}>
-        <div style={{display:'flex', alignItems:'center', gap:12}}>
-          <div style={{
-            width:40, height:40, borderRadius:10,
-            background:'linear-gradient(135deg, var(--brand), #b91c1c)',
-            color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:'0 4px 12px rgba(229,9,20,.25)',
-          }}>
-            <Sparkles size={18}/>
-          </div>
-          <div>
-            <h3 style={{fontSize:15, fontWeight:800, color:'var(--text-primary)', letterSpacing:'-0.01em'}}>Application Pipeline</h3>
-            <p style={{fontSize:11, color:'var(--text-tertiary)', marginTop:3}}>
-              {totalEver} total applications · click a stage to filter below · arrows show conversion %
-            </p>
-          </div>
+      <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:18, flexWrap:'wrap'}}>
+        <div style={{
+          width:40, height:40, borderRadius:10,
+          background:'linear-gradient(135deg, var(--brand), #b91c1c)',
+          color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'0 4px 12px rgba(229,9,20,.25)',
+        }}>
+          <Sparkles size={18}/>
         </div>
-        <div style={{display:'flex', gap:14, alignItems:'center'}}>
-          <Legend dot="#10b981" label="On track"/>
-          <Legend dot="#f59e0b" label="Bottleneck"/>
+        <div>
+          <h3 style={{fontSize:15, fontWeight:800, color:'var(--text-primary)', letterSpacing:'-0.01em'}}>Application Pipeline</h3>
+          <p style={{fontSize:11, color:'var(--text-tertiary)', marginTop:3}}>
+            {totalEver} total applications · click a stage to filter below
+          </p>
         </div>
       </div>
 
@@ -656,14 +688,7 @@ const PipelineFunnel = ({ funnel, applicants, activeStage, onClickStage }) => {
       }}>
         {funnel.map((f, i) => {
           const isActive = activeStage === f.stage;
-          const ever     = everReached[f.stage] || 0;
-          const reachedPct = Math.round((ever / totalEver) * 100);
           const next = funnel[i + 1];
-          // Conversion to next stage = nextStage.ever / thisStage.ever.
-          const convPct = next && ever > 0
-            ? Math.round(((everReached[next.stage] || 0) / ever) * 100)
-            : null;
-          const isBottleneck = convPct !== null && convPct < 60;
           return (
             <React.Fragment key={f.stage}>
               <button
@@ -706,33 +731,15 @@ const PipelineFunnel = ({ funnel, applicants, activeStage, onClickStage }) => {
                       <Clock size={9}/>{f.meta.slaDays}d SLA
                     </div>
                   )}
-                  {ever > 0 && reachedPct !== 100 && (
-                    <div style={{fontSize:9, color:'var(--text-tertiary)'}}>
-                      {reachedPct}% ever reached
-                    </div>
-                  )}
                 </div>
               </button>
 
-              {/* Connector arrow + conversion % */}
+              {/* Connector arrow between stages */}
               {next && (
                 <div style={{
-                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                  width: 44, flexShrink: 0,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  width: 36, flexShrink: 0,
                 }}>
-                  {convPct !== null && (
-                    <div style={{
-                      fontSize: 10, fontWeight: 700,
-                      color: isBottleneck ? '#f59e0b' : '#10b981',
-                      background: isBottleneck ? '#fef3c7' : '#ecfdf5',
-                      border: `1px solid ${isBottleneck ? '#fde68a' : '#a7f3d0'}`,
-                      padding: '2px 6px', borderRadius: 999,
-                      whiteSpace: 'nowrap',
-                      marginBottom: 4,
-                    }}>
-                      {convPct}%
-                    </div>
-                  )}
                   <ChevronRight size={20} color="var(--text-tertiary)"/>
                 </div>
               )}
@@ -744,12 +751,6 @@ const PipelineFunnel = ({ funnel, applicants, activeStage, onClickStage }) => {
   );
 };
 
-const Legend = ({ dot, label }) => (
-  <span style={{display:'inline-flex', alignItems:'center', gap:5, fontSize:10, color:'var(--text-secondary)', fontWeight:600}}>
-    <span style={{width:7, height:7, borderRadius:'50%', background: dot}}/>
-    {label}
-  </span>
-);
 
 // ═══════════════════════════════════════════════════════════════════════
 // Kpi card — redesigned with stronger hierarchy, sparkle accents,

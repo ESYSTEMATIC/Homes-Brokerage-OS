@@ -11,7 +11,14 @@ export const AgentLayout = ({ children }) => {
   // 11-May ask: filter CRM-related categories (task / lead / approval) out
   // of the Employee Board notifications drawer — those belong in CRM.
   const CRM_CATS = new Set(['task','lead','approval']);
-  const visibleNotifications = state.agentNotifications.filter(n => !CRM_CATS.has(n.category));
+  // Training notifications are sales-track only — hide for HR / Finance /
+  // Marketing / Marketplace Admin / Executive / System Admin / Super Admin.
+  const isSalesTrack = persona.salesTrack === true;
+  const visibleNotifications = state.agentNotifications.filter(n => {
+    if (CRM_CATS.has(n.category)) return false;
+    if (!isSalesTrack && n.category === 'training') return false;
+    return true;
+  });
   const unread = visibleNotifications.length;
 
   const openNotifs = () => openDrawer({

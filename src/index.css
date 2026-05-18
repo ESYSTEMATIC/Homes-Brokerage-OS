@@ -329,14 +329,37 @@ body.app-locked, body.app-locked #root { height: 100%; overflow: hidden; }
   max-height: 90vh; display: flex; flex-direction: column;
   box-shadow: 0 24px 64px rgba(0,0,0,.25);
   animation: modalIn .22s cubic-bezier(.2,.9,.3,1.4);
+  overflow: hidden;            /* clip rounded corners around scroller */
 }
 .ui-modal-lg { max-width: 780px; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.ui-modal-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
+.ui-modal-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;              /* header stays fixed */
+}
 .ui-modal-header h3 { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 .ui-modal-header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-.ui-modal-body { padding: 18px 22px; overflow-y: auto; }
-.ui-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border); background: #fafbfc; border-radius: 0 0 14px 14px; }
+/* The <form> wrapping body + footer must be a flex column so the body
+   becomes the scroll region and the footer stays visible at the bottom. */
+.ui-modal > form {
+  display: flex; flex-direction: column;
+  flex: 1 1 auto; min-height: 0;
+  overflow: hidden;
+}
+.ui-modal-body {
+  padding: 18px 22px;
+  overflow-y: auto;             /* scrolls when content is tall */
+  flex: 1 1 auto; min-height: 0;
+}
+.ui-modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: #fafbfc;
+  flex-shrink: 0;              /* footer always visible */
+  position: sticky; bottom: 0;
+}
 
 .ui-icon-btn { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--text-secondary); transition: all .15s; }
 .ui-icon-btn:hover { background: #f3f4f6; color: var(--text-primary); }
@@ -376,7 +399,9 @@ body.app-locked, body.app-locked #root { height: 100%; overflow: hidden; }
   border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
   font-size: 13.5px; font-family: var(--font); background: #fff;
   width: 100%; outline: none; transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
 }
+.ui-field textarea { min-height: 72px; resize: vertical; line-height: 1.5; }
 .ui-field input:focus, .ui-field select:focus, .ui-field textarea:focus {
   border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
 }

@@ -20,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Wallet, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName } from '../../data/crmAccess';
 import { stagesForDealType, DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
 

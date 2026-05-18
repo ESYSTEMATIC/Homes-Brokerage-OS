@@ -15,7 +15,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import {
-  Users, UserCheck, FileText, TrendingUp, DollarSign, Clock, Wallet, ReceiptText,
+  Users, UserCheck, FileText, TrendingUp, DollarSign, Clock, ReceiptText,
   Building, ArrowRight, FileWarning, ShieldAlert, Award, CheckCircle2, ListChecks,
   AlertTriangle, Briefcase, Database, ShieldCheck, KanbanSquare, PieChart, Activity,
   UsersRound, UserCog, Sparkles, ArrowUpRight, Megaphone, BarChart3,
@@ -333,7 +333,7 @@ const FinanceDashboard = () => {
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18, marginTop:18}}>
         <KpiCard label="Revenue MTD"        value={fmtM(revenueMTD)} icon={DollarSign}  color="#10b981" footer={`${recognised.length} deals recognised`} delta={{dir:'up', value:'+12%'}}/>
         <KpiCard label="Pending commissions" value={fmtM(pendingComm)} icon={Clock}      color="#f59e0b" footer="Awaiting payout cycle" onClick={() => navigate('/backoffice/finance/commission')}/>
-        <KpiCard label="Paid (MTD)"          value={fmtM(paidComm)}    icon={Wallet}     color="#3b82f6" footer="Cleared payout cycles"/>
+        <KpiCard label="Paid (MTD)"          value={fmtM(paidComm)}    icon={CheckCircle2} color="#3b82f6" footer="Cleared payout cycles"/>
         <KpiCard label="Total expenses"      value={fmt(expenses)}     icon={ReceiptText} color="#dc2626" footer="Operating costs"/>
         <KpiCard label="Net result"          value={fmtM(revenueMTD - expenses)} icon={TrendingUp} color="#10b981" footer={revenueMTD - expenses > 0 ? 'Profitable' : 'Loss'}/>
       </div>
@@ -347,7 +347,7 @@ const FinanceDashboard = () => {
         </div>
         <div style={{background:'#fff', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px'}}>
           <h3 style={{fontSize:14, fontWeight:800, marginBottom:14, display:'flex', alignItems:'center', gap:8}}>
-            <Wallet size={16} color="var(--brand)"/> Payout cycle status
+            <DollarSign size={16} color="var(--brand)"/> Payout cycle status
           </h3>
           <div style={{display:'flex', flexDirection:'column', gap:14, padding:'10px 0'}}>
             {[
@@ -661,7 +661,7 @@ const SuperAdminDashboard = () => {
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:14, marginBottom:18}}>
         <KpiCard label="Pending commissions" value={fmtM(state.commEngine.filter(c=>c.status==='Pending').reduce((s,c)=>s+c.pool,0))} icon={Clock}        color="#f59e0b" footer="Awaiting payout cycle"/>
-        <KpiCard label="Paid commissions"    value={fmtM(state.commEngine.filter(c=>c.status==='Paid').reduce((s,c)=>s+c.pool,0))}    icon={Wallet}       color="#10b981" footer="Cleared payouts"/>
+        <KpiCard label="Paid commissions"    value={fmtM(state.commEngine.filter(c=>c.status==='Paid').reduce((s,c)=>s+c.pool,0))}    icon={CheckCircle2} color="#10b981" footer="Cleared payouts"/>
         <KpiCard label="Total expenses"      value={fmt(293000)}                                                                       icon={ReceiptText}  color="#dc2626" footer="Operating costs"/>
         <KpiCard label="Net result"          value={fmtM(revenue - 293000)}                                                            icon={Building}     color="#10b981" footer="Profitable" delta={{dir:'up', value:'healthy'}}/>
       </div>

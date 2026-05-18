@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
-import { Eye, Download, CheckCircle2, Wallet } from 'lucide-react';
+import { Eye, Download, CheckCircle2, DollarSign } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
@@ -167,7 +167,7 @@ export const AgentDues = () => {
       <>
         <FieldRow>
           <Field label="Amount (EGP)" name="amount" type="number" required defaultValue={a.pending} />
-          <Field label="Method" name="method" type="select" options={['Bank Transfer','Wallet Credit','Cheque']} required />
+          <Field label="Method" name="method" type="select" options={['Bank Transfer','Cash','Cheque']} required />
         </FieldRow>
         <Field label="Reference" name="ref" placeholder="e.g. Wire reference / Cheque #" />
       </>
@@ -204,7 +204,7 @@ export const AgentDues = () => {
                 <td className="muted">{fmt(a.paid)}</td>
                 <td className="bold">{fmt(a.pending)}</td>
                 <td><span className={`badge ${statusBadge(a.status)}`}>{a.status}</span></td>
-                <td style={{textAlign:'right'}}>{a.pending>0 && <button className="btn btn-primary btn-sm" onClick={()=>processPayment(a)}><Wallet size={13}/> Process Payment</button>}</td>
+                <td style={{textAlign:'right'}}>{a.pending>0 && <button className="btn btn-primary btn-sm" onClick={()=>processPayment(a)}><DollarSign size={13}/> Process Payment</button>}</td>
               </tr>
             ))}</tbody>
           </table>

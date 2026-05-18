@@ -24,7 +24,8 @@ import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
 import { RolesPermissions } from './pages/RolesPermissions';
 import { Departments } from './pages/Departments';
 import { FinanceOverview, DealsRevenue, CommissionEngine } from './pages/FinancePages';
-import { EmployeeProfiles } from './pages/HRPages';
+// EmployeeProfiles was merged into Staff Management on 17-May.
+// /backoffice/hr/profiles redirects to /backoffice/staff.
 // Listings/unit types/cities/areas come from EGMLS — only alternatives for
 // developers, compounds and projects are maintained in Master Data.
 import { Developers, MasterProjects, Compounds, Branches, Teams, EmploymentCategories, MasterCommPolicies, LeadSources } from './pages/MasterDataPages';
@@ -153,6 +154,14 @@ const AppRoutes = () => {
   const BACKOFFICE_ROLES   = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
   const MARKETPLACE_ROLES  = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
   const CRM_BLOCKED_ROLES  = ['hrRecruiter','marketplaceAdmin']; // BRD §11 — no CRM data access
+  // Training + agent scoring are sales-track features. Homes Academy
+  // (/board/learning), Performance (/board/performance) and Training
+  // Compliance (/backoffice/training) are hidden + bounced for everyone
+  // outside the sales track.
+  const isSalesTrack = personaKey === 'agent' || personaKey === 'agentActive'
+                    || personaKey === 'teamLeader' || personaKey === 'salesManager'
+                    || personaKey === 'salesDirector';
+  const TRAINING_AUDIT_ROLES = ['salesDirector','backofficeAdmin']; // can see /backoffice/training
 
   return (
     <Routes>
@@ -166,8 +175,12 @@ const AppRoutes = () => {
             <Route path="/" element={<Navigate to="/board/dashboard" />} />
             <Route path="/dashboard" element={<EmployeeBoardDashboard />} />
             <Route path="/services" element={<AgentServices />} />
-            <Route path="/learning" element={<AgentLearning />} />
-            <Route path="/performance" element={<AgentPerformance />} />
+            {/* Homes Academy + Performance are sales-track only — training
+                gates CRM access and scoring rolls into team allocation. HR,
+                Finance, Marketing, Marketplace Admin, Executive and System
+                Admin have no use for them and are bounced to the dashboard. */}
+            <Route path="/learning"    element={isSalesTrack ? <AgentLearning />    : <Navigate to="/board/dashboard" replace />} />
+            <Route path="/performance" element={isSalesTrack ? <AgentPerformance /> : <Navigate to="/board/dashboard" replace />} />
             <Route path="/profile" element={<AgentProfile />} />
             <Route path="/documents" element={<AgentDocuments />} />
             <Route path="/notifications" element={<AgentNotifications />} />
@@ -275,14 +288,19 @@ const AppRoutes = () => {
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/documents" element={<DocumentsReview />} />
               <Route path="/staff" element={<StaffManagement />} />
-              <Route path="/training" element={<TrainingCompliance />} />
+              {/* Training Compliance — sales management + Super Admin only.
+                  Training + scoring are sales-track concerns; HR, Finance,
+                  Executive and System Admin are bounced. */}
+              <Route path="/training" element={TRAINING_AUDIT_ROLES.includes(personaKey) ? <TrainingCompliance /> : <Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/finance" element={<FinancialManagement />} />
               <Route path="/finance/overview" element={<FinanceOverview />} />
               <Route path="/finance/deals-revenue" element={<DealsRevenue />} />
               <Route path="/finance/commission" element={<CommissionEngine />} />
               <Route path="/finance/agent-dues" element={<Navigate to="/backoffice/dashboard" replace />} />
               <Route path="/hr" element={<HRPayroll />} />
-              <Route path="/hr/profiles" element={<EmployeeProfiles />} />
+              {/* Employee Profiles merged into Staff Management — keep this
+                  URL as a redirect so old links / bookmarks still work. */}
+              <Route path="/hr/profiles" element={<Navigate to="/backoffice/staff" replace />} />
               <Route path="/recruitment" element={<RecruitmentPipeline />} />
               <Route path="/jobs" element={<JobVacancies />} />
               {/* Listings, unit types, cities and area lookups are sourced from

@@ -33,11 +33,16 @@ export const BackofficeLayout = ({ children }) => {
   // ── Persona access matrix (Backoffice Admin Portal scope only) ──
   // CRM, Marketplace, Marketplace Dashboard are SEPARATE federated systems
   // launched from the Employee Board via SSO and are not part of this portal.
+  //
+  // 'compliance' = Training Compliance module. Training + agent scoring are
+  // sales-track concerns (Homes Academy gates CRM access), so the module is
+  // restricted to sales management (Director) + Super Admin (audit). HR no
+  // longer surfaces this — onboarding documents are still in HR via 'operations'.
   const accessMatrix = {
     backofficeAdmin: 'ALL',
     salesManager:    ['dashboard', 'operations', 'recruitment'],
-    salesDirector:   ['dashboard', 'operations', 'recruitment', 'data'],
-    hrRecruiter:     ['dashboard', 'operations', 'compliance', 'hr', 'recruitment'],
+    salesDirector:   ['dashboard', 'operations', 'recruitment', 'data', 'compliance'],
+    hrRecruiter:     ['dashboard', 'operations', 'hr', 'recruitment'],
     financeOfficer:  ['dashboard', 'finance', 'hr', 'data'],
     // Marketplace Dashboard Admin only operates inside the Marketplace Dashboard
     // federated system — not the Backoffice Admin Portal.
@@ -85,7 +90,9 @@ export const BackofficeLayout = ({ children }) => {
                 <Link to="/backoffice/onboarding">Onboarding</Link>
                 <Link to="/backoffice/documents">Documents Review</Link>
               </Sub>
-              <Link to="/backoffice/staff"><UsersRound size={16}/>Staff Management</Link>
+              {/* Employees — was two pages (Staff Management + Employee
+                  Profiles); merged into one canonical surface in May 2026. */}
+              <Link to="/backoffice/staff"><UsersRound size={16}/>Employees</Link>
             </>
           )}
 
@@ -102,11 +109,10 @@ export const BackofficeLayout = ({ children }) => {
                   <Link to="/backoffice/finance/commission">Commission Engine</Link>
                 </Sub>
               )}
-              {hasAccess('hr') && (
-                <Sub label="HR" icon={<UserSquare2 size={16}/>} open={hrOpen} toggle={()=>setHrOpen(!hrOpen)}>
-                  <Link to="/backoffice/hr/profiles">Employee Profiles</Link>
-                </Sub>
-              )}
+              {/* The HR submenu used to contain only Employee Profiles, which
+                  is now the merged "Employees" link in the Agents group above.
+                  HR-specific entry points (Recruitment, Onboarding, Documents)
+                  live in their own access groups. */}
             </>
           )}
 
