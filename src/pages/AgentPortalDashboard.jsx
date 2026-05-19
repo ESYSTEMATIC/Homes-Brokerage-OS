@@ -28,7 +28,7 @@ export const AgentPortalDashboard = () => {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
         <div>
           <h1 style={{fontSize:28,fontWeight:800,color:'var(--text-primary)'}}>Welcome back, {persona.label.split(' ')[0]}</h1>
-          <p style={{color:'var(--text-secondary)',marginTop:4}}>{persona.role||'Licensed Agent'} · {persona.scope} · MLS ID: {persona.mls||'EGMLS-287451'}</p>
+          <p style={{color:'var(--text-secondary)',marginTop:4}}>{persona.role || persona.label || 'Employee'} · {persona.scope}{persona.mls ? ` · MLS ID: ${persona.mls}` : ''}</p>
         </div>
         <span className="badge badge-success" style={{fontSize:13,padding:'6px 14px'}}>● Approved Agent</span>
       </div>

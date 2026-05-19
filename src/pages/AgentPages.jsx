@@ -185,7 +185,13 @@ export const AgentProfile = () => {
   const hr = {
     employeeId: staff.id || (personaKey === 'agent' ? 'A009' : personaKey === 'agentActive' ? 'A002' : 'A008'),
     department: staff.department || 'Sales',
-    title: persona.role || staff.title || 'Licensed Agent',
+    // Title fallback: for sales-track personas `persona.role` is set
+    // (e.g. 'Licensed Agent (Active)', 'Team Leader'). For management
+    // personas (Sales Director, HR Recruiter, etc.) there is no `role`
+    // field — but `persona.label` IS the title for those (e.g.
+    // 'Sales Director'). So the staff-by-name lookup only contributes
+    // when the persona label happens to be a person name.
+    title: persona.role || staff.title || persona.label || 'Employee',
     type: staff.type || 'Employee',
     joinDate: staff.joinDate || '2024-01-01',
     employmentStatus: staff.status || 'Active',
