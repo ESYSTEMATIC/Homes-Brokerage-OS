@@ -419,23 +419,97 @@ export const AgentProfile = () => {
           </Section>
 
           <Section title="Reporting Hierarchy" icon={<ChevronRight size={14}/>} accent="#8b5cf6">
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              {[
-                { role:'Sales Director', name: team.salesDirector,  level: 0 },
-                { role:'Sales Manager',  name: team.salesManager,   level: 1 },
-                { role:'Team Leader',    name: team.teamLeader,     level: 2 },
-                { role:'You',            name: persona.label,        level: 3, self: true },
-              ].map((r,i,arr) => (
-                <div key={r.role} style={{display:'flex',alignItems:'center',gap:12,paddingLeft: r.level * 14}}>
-                  <div style={{width:8,height:8,borderRadius:4,background: r.self ? 'var(--brand)' : '#cbd5e1',flexShrink:0}}/>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{r.role}</div>
-                    <div style={{fontSize:13,fontWeight: r.self ? 800 : 500,color: r.self ? 'var(--brand)' : 'var(--text-primary)'}}>{r.name}</div>
-                  </div>
-                  {i < arr.length - 1 && <ChevronRight size={14} color="var(--text-tertiary)"/>}
+            {(() => {
+              // Map each tier to a tone (color band + chip color) and look up
+              // the staff record so we can render a real photo for each
+              // person. Last item ('You') uses the active persona's data.
+              const tiers = [
+                { role:'Sales Director', name: team.salesDirector, tone:'#0f172a', tint:'rgba(15,23,42,0.06)' },
+                { role:'Sales Manager',  name: team.salesManager,  tone:'#7c3aed', tint:'rgba(124,58,237,0.08)' },
+                { role:'Team Leader',    name: team.teamLeader,    tone:'#0891b2', tint:'rgba(8,145,178,0.08)' },
+                { role:'You',            name: persona.label,      tone:'var(--brand)', tint:'var(--brand-tint)', self:true },
+              ];
+              const staffByName = (state.staff || []).reduce((m, s) => { m[s.name] = s; return m; }, {});
+              const initials = (n) => (n || '').split(' ').filter(Boolean).map(w => w[0]).slice(0,2).join('').toUpperCase();
+              return (
+                <div style={{position:'relative', padding:'4px 0'}}>
+                  {tiers.map((t, i) => {
+                    const isLast = i === tiers.length - 1;
+                    const staff = staffByName[t.name];
+                    const photo = t.self ? (staffByName[persona.label]?.photoDataUrl) : staff?.photoDataUrl;
+                    return (
+                      <div key={t.role} style={{position:'relative', display:'flex', alignItems:'center', gap:14, padding:'8px 0'}}>
+                        {/* Connecting line — extends down from the avatar
+                            except on the last (you) row. */}
+                        {!isLast && (
+                          <span style={{
+                            position:'absolute', left:24, top:62, bottom:-8,
+                            width:2, background:'linear-gradient(to bottom, #cbd5e1, #e2e8f0)',
+                          }}/>
+                        )}
+                        {/* Avatar */}
+                        <div style={{
+                          width:48, height:48, borderRadius:'50%', flexShrink:0,
+                          position:'relative', zIndex:1,
+                          background: photo ? 'none' : `linear-gradient(135deg, ${t.tone}, ${t.tone}dd)`,
+                          color:'#fff',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontWeight:800, fontSize:14,
+                          border: t.self ? `3px solid ${t.tone}` : `2px solid #fff`,
+                          boxShadow: t.self ? `0 0 0 3px var(--brand-tint)` : '0 1px 3px rgba(0,0,0,0.08)',
+                          overflow:'hidden',
+                        }}>
+                          {photo
+                            ? <img src={photo} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                            : <span>{initials(t.name)}</span>}
+                        </div>
+                        {/* Tier card */}
+                        <div style={{
+                          flex:1, minWidth:0,
+                          padding:'10px 14px',
+                          background: t.tint,
+                          border:`1px solid ${t.self ? t.tone : 'transparent'}`,
+                          borderRadius:10,
+                          display:'flex', alignItems:'center', justifyContent:'space-between',
+                          gap:10,
+                        }}>
+                          <div style={{minWidth:0}}>
+                            <div style={{
+                              display:'inline-block',
+                              fontSize:9, fontWeight:800, letterSpacing:'.08em',
+                              padding:'2px 8px', borderRadius:999,
+                              background: t.tone, color:'#fff',
+                              textTransform:'uppercase', marginBottom:5,
+                            }}>{t.role}</div>
+                            <div style={{
+                              fontSize:14,
+                              fontWeight: t.self ? 800 : 600,
+                              color: t.self ? t.tone : 'var(--text-primary)',
+                              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                            }}>
+                              {t.name}{t.self && <span style={{marginLeft:6, fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:999, background:t.tone, color:'#fff', verticalAlign:'2px'}}>YOU</span>}
+                            </div>
+                            {staff && !t.self && (
+                              <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                                {staff.email || ''}{staff.email && staff.branch ? ' · ' : ''}{staff.branch || ''}
+                              </div>
+                            )}
+                          </div>
+                          {!isLast && (
+                            <div title="Manages the tier below" style={{
+                              fontSize:18, color:'var(--text-tertiary)',
+                              whiteSpace:'nowrap', flexShrink:0,
+                            }}>
+                              ↓
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </Section>
         </div>
       )}
