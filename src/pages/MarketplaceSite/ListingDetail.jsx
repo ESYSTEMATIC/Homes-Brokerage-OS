@@ -21,14 +21,38 @@ const monthlyPayment = (principal, annualRate, years) => {
   return principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
 };
 
-// Build a small gallery from the single hero image (Unsplash returns
-// different crops per query parameter — gives a 4-frame carousel feel).
+// ─── Gallery generation ─────────────────────────────────────────────
+// The old implementation tried to fake variants with bogus Unsplash query
+// params (sat=-15, blend, hue) that Unsplash ignores — so every thumbnail
+// was a duplicate of the hero (or broken). Replaced with a curated set of
+// real interior + exterior photo IDs that work for any listing. The hero
+// stays as the listing's own image, then we splice in 4 supplementary
+// shots (kitchen / living / bedroom / exterior) and label them.
+const SUPPLEMENT_PHOTOS = [
+  { tag: 'Living room', id: '1600210492486-724fe5c67fb0' },
+  { tag: 'Kitchen',     id: '1556909114-f6e7ad7d3136'   },
+  { tag: 'Bedroom',     id: '1505693416388-ac5ce068fe85' },
+  { tag: 'Bathroom',    id: '1552321554-5fefe8c9ef14'   },
+  { tag: 'Balcony',     id: '1542621334-a254cf47733d'   },
+  { tag: 'Exterior',    id: '1564013799919-ab600027ffc6' },
+  { tag: 'Compound',    id: '1605276374104-dee2a0ed3cd6' },
+];
+const UNSPLASH_URL = (id, w = 1600) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
+
 const buildGallery = (l) => {
   if (!l?.img) return [];
-  const variants = ['', '&sat=-15', '&blend=10pct', '&hue=10'];
-  return variants.map((v, i) => ({
-    id: i, src: l.img + v,
-  }));
+  // Deterministic shuffle of supplements so two visits to the same listing
+  // show the same secondary shots — derived from the listing ID hash.
+  const seed = (l.id || '').split('').reduce((s, c) => (s * 31 + c.charCodeAt(0)) & 0xffffffff, 0);
+  const shuffled = [...SUPPLEMENT_PHOTOS].sort((a, b) => {
+    const ka = ((seed * a.id.charCodeAt(0)) % 97);
+    const kb = ((seed * b.id.charCodeAt(0)) % 97);
+    return ka - kb;
+  }).slice(0, 4);
+  return [
+    { id: 'hero', tag: 'Hero', src: l.img.includes('w=') ? l.img.replace(/w=\d+/, 'w=1600') : `${l.img}&w=1600` },
+    ...shuffled.map((p, i) => ({ id: `s${i}`, tag: p.tag, src: UNSPLASH_URL(p.id, 1200) })),
+  ];
 };
 
 // Schedule-tour modal (lead capture #5).
@@ -247,20 +271,84 @@ export const ListingDetail = () => {
         ]} />
       </div>
 
-      {/* Gallery */}
+      {/* ─── Gallery (Airbnb-style hero + 4-grid) ─────────────────────
+          Hero takes the left 60%; the right 40% is a 2×2 grid of
+          secondary shots. Click any cell to make it the hero. Each
+          frame carries its room-type label as a chip. */}
       <section className="pm-detail-gallery">
-        <div className="pm-detail-main-img" style={{ backgroundImage: `url(${gallery[imgIx]?.src})` }}>
-          {gallery.length > 1 && (
-            <>
-              <button type="button" className="pm-gallery-arrow left" onClick={() => setImgIx((imgIx - 1 + gallery.length) % gallery.length)} aria-label="Previous"><ChevronLeft size={18}/></button>
-              <button type="button" className="pm-gallery-arrow right" onClick={() => setImgIx((imgIx + 1) % gallery.length)} aria-label="Next"><ChevronRight size={18}/></button>
-              <div className="pm-gallery-counter">{imgIx + 1} / {gallery.length}</div>
-            </>
-          )}
+        <div className="pm-detail-hero-grid">
+          {/* Hero — current selected image */}
+          <button
+            type="button"
+            className="pm-detail-hero-cell"
+            style={{ backgroundImage: `url(${gallery[imgIx]?.src})` }}
+            onClick={() => setImgIx((imgIx + 1) % gallery.length)}
+            aria-label="Cycle hero photo"
+          >
+            {gallery[imgIx]?.tag && gallery[imgIx].tag !== 'Hero' && (
+              <span className="pm-detail-img-chip">{gallery[imgIx].tag}</span>
+            )}
+            {gallery.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="pm-gallery-arrow left"
+                  onClick={(e) => { e.stopPropagation(); setImgIx((imgIx - 1 + gallery.length) % gallery.length); }}
+                  aria-label="Previous photo"
+                ><ChevronLeft size={18}/></button>
+                <button
+                  type="button"
+                  className="pm-gallery-arrow right"
+                  onClick={(e) => { e.stopPropagation(); setImgIx((imgIx + 1) % gallery.length); }}
+                  aria-label="Next photo"
+                ><ChevronRight size={18}/></button>
+                <div className="pm-gallery-counter">{imgIx + 1} / {gallery.length}</div>
+              </>
+            )}
+          </button>
+
+          {/* Side grid — 4 secondary cells (or fewer if gallery is small) */}
+          <div className="pm-detail-side-grid">
+            {gallery.slice(1, 5).map((g, i) => {
+              const realIx = i + 1;
+              const isLast = i === 3 && gallery.length > 5;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  className={`pm-detail-side-cell ${realIx === imgIx ? 'active' : ''}`}
+                  style={{ backgroundImage: `url(${g.src})` }}
+                  onClick={() => setImgIx(realIx)}
+                  aria-label={`View ${g.tag}`}
+                >
+                  <span className="pm-detail-img-chip">{g.tag}</span>
+                  {isLast && (
+                    <span className="pm-detail-more-overlay">+{gallery.length - 5} more</span>
+                  )}
+                </button>
+              );
+            })}
+            {/* Fill empty grid cells with subtle placeholders when gallery
+                has fewer than 5 frames so the right column doesn't look
+                broken. */}
+            {gallery.length < 5 && Array.from({ length: 4 - (gallery.length - 1) }).map((_, i) => (
+              <div key={`ph-${i}`} className="pm-detail-side-cell pm-detail-placeholder"/>
+            ))}
+          </div>
         </div>
+
+        {/* Thumbnail strip — kept under the hero for quick navigation. */}
         <div className="pm-detail-thumbs">
           {gallery.map((g, i) => (
-            <button key={g.id} type="button" className={`pm-detail-thumb ${i === imgIx ? 'active' : ''}`} style={{ backgroundImage: `url(${g.src})` }} onClick={() => setImgIx(i)} aria-label={`Photo ${i+1}`} />
+            <button
+              key={g.id}
+              type="button"
+              className={`pm-detail-thumb ${i === imgIx ? 'active' : ''}`}
+              style={{ backgroundImage: `url(${g.src})` }}
+              onClick={() => setImgIx(i)}
+              aria-label={`Photo ${i+1} — ${g.tag}`}
+              title={g.tag}
+            />
           ))}
         </div>
       </section>
