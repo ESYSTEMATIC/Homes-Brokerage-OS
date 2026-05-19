@@ -94,7 +94,7 @@ export const AgentPerformance = () => {
 
   const leadsCount = myLeads.length;
   const leadsAtTour = myLeads.filter(l => l.stage === 'Tour Scheduled').length;
-  const dealsClosed = myDeals.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
+  const dealsClosed = myDeals.filter(d => d.status === 'Closed' || d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
   const conversion = leadsCount ? Math.round((dealsClosed / leadsCount) * 100) : 0;
   const myActivePipeline = myDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s,d) => s + (d.value || 0), 0);
   const revenueRecognised = myDeals.filter(d => d.revenueRecognised).reduce((s,d) => s + ((d.value || 0) * (d.commission || 0) / 100), 0);

@@ -52,7 +52,7 @@ export const CrmDashboard = () => {
   const openLeads = leads.filter(l => !['Closed Won','Closed Lost','Nurturing'].includes(l.stage)).length;
   const activeDeals = deals.filter(d => d.status === 'Active' || d.status === undefined).length;
   const pipelineValue = deals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s,d) => s + (d.value||0), 0);
-  const closedWonCount = deals.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
+  const closedWonCount = deals.filter(d => d.status === 'Closed' || d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
   const conversionRate = totalLeads ? Math.round((closedWonCount / totalLeads) * 100) : 0;
   const slaBreaches = leads.filter(l => slaForStage(l.stage, leadAgeDays(l.created)).level === 'breach').length;
   const slaWarnings = leads.filter(l => slaForStage(l.stage, leadAgeDays(l.created)).level === 'warn').length;
@@ -101,7 +101,7 @@ export const CrmDashboard = () => {
     if (d.revenueRecognised) {
       p.closed += 1;
       p.revenue += (d.value || 0) * (d.commission || 0) / 100;
-    } else if (d.status === 'Closed Won' || d.stage === 'Contract Signed' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment') {
+    } else if (d.status === 'Closed' || d.status === 'Closed Won' || d.stage === 'Contract Signed' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment') {
       p.closed += 1;
     }
     perfMap[d.owner] = p;

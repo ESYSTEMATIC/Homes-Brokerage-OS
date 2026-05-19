@@ -61,7 +61,7 @@ export const CrmReports = () => {
     const teamLeads = leads.filter(l => l.team === team);
     const teamDeals = deals.filter(d => d.team === team);
     const dealsInWindow = teamDeals.filter(d => (d.created || '') >= sixtyDaysAgo);
-    const closedWonInWindow = dealsInWindow.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
+    const closedWonInWindow = dealsInWindow.filter(d => d.status === 'Closed' || d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
     const pipelineActive = teamDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s,d) => s + (d.value || 0), 0);
     const dealsInWindowCount = dealsInWindow.length;
     let status;

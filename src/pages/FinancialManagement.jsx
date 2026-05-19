@@ -10,7 +10,8 @@ import { Plus, Download, Pencil, Zap, History, Sliders } from 'lucide-react';
 // Company input goes negative (so the validation in onSubmit can catch it
 // before save). Renders four editable number inputs + a read-only
 // Company display + a total bar so the System Admin sees the maths add up.
-const SplitEditor = ({ initial }) => {
+// Exported so the deal-level Director direct-override modal can reuse it.
+export const SplitEditor = ({ initial }) => {
   const seed = initial || COMMISSION_SPLIT_DEFAULT;
   const [agent, setAgent]       = useState(String(seed.agent));
   const [tl, setTl]             = useState(String(seed.tl));

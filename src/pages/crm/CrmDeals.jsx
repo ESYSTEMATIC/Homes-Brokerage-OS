@@ -24,6 +24,7 @@ import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 import { stagesForDealType, DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
 import { ExportMenu } from '../../components/ExportMenu';
+import { SplitEditor } from '../FinancialManagement';
 
 const DEALS_EXPORT_COLUMNS = [
   { key: 'id',         label: 'ID' },
@@ -93,7 +94,7 @@ const lifecyclePatch = (deal, newStage) => {
   if (deal.type === 'OffPlan') {
     if (newStage === 'Contract Signed') {
       patch.commissionLocked = true;
-      patch.status = 'Closed Won';
+      patch.status = 'Closed';
     }
     if (newStage === 'Early Collection Trigger (5%)') {
       patch.homesAdvanceAvailable = true;
@@ -102,14 +103,14 @@ const lifecyclePatch = (deal, newStage) => {
     if (newStage === 'Standard Collection (10%)') {
       patch.homesAdvanceAvailable = true;
       patch.revenueRecognised = true;
-      patch.status = 'Closed Won';
+      patch.status = 'Closed';
       if (!deal.collectionPercent || deal.collectionPercent < 10) patch.collectionPercent = 10;
     }
   } else if (deal.type === 'Resale') {
     if (newStage === 'Contract Signed & Payment') {
       patch.commissionLocked = true;
       patch.revenueRecognised = true;
-      patch.status = 'Closed Won';
+      patch.status = 'Closed';
     }
   }
   return patch;
@@ -407,11 +408,17 @@ export const CrmDeals = () => {
   // Director direct override — bypasses the TL→Manager→Director chain.
   // Director (or admin) can apply a one-off rate AND optionally override
   // the per-deal commission split (4-persona breakdown) in a single step.
-  // Lands on the deal with status: 'Approved' and bypassedApproval: true
-  // so the audit trail clearly distinguishes 'went through the chain' from
-  // 'Director applied directly'.
+  // Uses the same auto-balanced SplitEditor as the policy form so the
+  // Company % is always derived from 100% - (Agent + TL + Mgr + Dir).
   const directOverride = (d) => {
     if (!canDirectOverride(personaKey)) { toast('Only Sales Director can apply a direct override', 'error'); return; }
+    // Try to resolve the active policy for this deal's developer × project
+    // so the split editor pre-fills with the current policy percentages —
+    // the Director edits from there.
+    const activePolicy = (state.commissionPolicies || []).find(
+      p => p.developer === d.developer && p.project === d.project && p.status === 'Active'
+    );
+    const initialSplit = activePolicy?.split || null;
     openModal({
       title: `Director direct override · ${d.id}`,
       subtitle: `Bypass the TL → Manager → Director chain. Sets the rate (and optionally the split) on this deal only.`,
@@ -423,19 +430,15 @@ export const CrmDeals = () => {
             <Field label="New Rate %" name="rate" type="number" step="0.01" required defaultValue={(d.commission + 0.5).toFixed(2)} />
             <Field label="Reason" name="reason" required placeholder="e.g. Strategic close, VIP retention" />
           </FieldRow>
-          <div style={{margin:'12px 0 6px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>
-            Optional · per-deal split override (leave blank to use the policy split)
+          <div style={{margin:'12px 0 6px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.08em'}}>
+            Per-deal split override · 100% = Agent + TL + Mgr + Dir + Company (Company auto-balances)
           </div>
-          <FieldRow>
-            <Field label="Agent %" name="splitAgent" type="number" step="0.01" placeholder="e.g. 35" />
-            <Field label="TL %" name="splitTl" type="number" step="0.01" placeholder="e.g. 12" />
-          </FieldRow>
-          <FieldRow>
-            <Field label="Manager %" name="splitManager" type="number" step="0.01" placeholder="e.g. 6" />
-            <Field label="Director %" name="splitDirector" type="number" step="0.01" placeholder="e.g. 4" />
-          </FieldRow>
+          {/* Same controlled editor used by Commission Policies — Company
+              auto-balances, total bar shows live, and the inputs accept
+              decimals like 33.33%. */}
+          <SplitEditor initial={initialSplit} />
           <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6,padding:'8px 12px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:6,lineHeight:1.5}}>
-            Direct overrides are logged with <b>bypassedApproval: true</b> so auditors can see they didn't go through the chain.
+            Direct overrides are logged with <b>bypassedApproval: true</b> so auditors can see they didn't go through the chain. The split applies to this deal only — the policy stays at {activePolicy ? `${activePolicy.split?.agent}/${activePolicy.split?.tl}/${activePolicy.split?.manager}/${activePolicy.split?.director}/${activePolicy.split?.company}` : 'default'}.
           </div>
         </>
       ),
@@ -443,18 +446,22 @@ export const CrmDeals = () => {
         if (!reason?.trim()) { toast('Reason is required', 'error'); return false; }
         const newRate = Number(rate);
         if (!Number.isFinite(newRate) || newRate <= 0) { toast('New rate must be a positive number', 'error'); return false; }
-        // Optional split override — only saved if at least one persona % was filled in.
-        let splitOverride = null;
-        const hasSplit = [splitAgent, splitTl, splitManager, splitDirector].some(v => v !== '' && v != null);
-        if (hasSplit) {
-          const a = Number(splitAgent || 0);
-          const t = Number(splitTl || 0);
-          const m = Number(splitManager || 0);
-          const dr = Number(splitDirector || 0);
-          const sum = a + t + m + dr;
-          if (sum > 100) { toast(`Agent + TL + Manager + Director total ${sum.toFixed(2)}% — must stay ≤ 100`, 'error'); return false; }
-          splitOverride = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
+        // SplitEditor always emits values — Company is auto-balanced from
+        // the other four. Validate the four persona shares are sane.
+        const a = Number(splitAgent || 0);
+        const t = Number(splitTl || 0);
+        const m = Number(splitManager || 0);
+        const dr = Number(splitDirector || 0);
+        if ([a, t, m, dr].some(n => !Number.isFinite(n) || n < 0)) {
+          toast('Each persona % must be a positive number', 'error');
+          return false;
         }
+        const sum = a + t + m + dr;
+        if (sum > 100) {
+          toast(`Agent + TL + Mgr + Dir total ${sum.toFixed(2)}% — must be ≤ 100 so Company stays ≥ 0`, 'error');
+          return false;
+        }
+        const splitOverride = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
         const at = new Date().toISOString();
         const entry = {
           at,
@@ -528,7 +535,7 @@ export const CrmDeals = () => {
               ['Est. Commission', `EGP ${fmt((d.value || 0) * (d.commission || 0) / 100)}`],
               ['Created', d.created || '—'],
             ].map(([k,v])=>(<div key={k}><div className="drawer-label">{k}</div><div className="drawer-value">{v}</div></div>))}
-            <div><div className="drawer-label">Status</div><span className={`badge ${d.status==='Active'?'badge-success':d.status==='Closed Won'?'badge-info':'badge-danger'}`}>{d.status}</span></div>
+            <div><div className="drawer-label">Status</div><span className={`badge ${d.status==='Active'?'badge-success':(d.status==='Closed'||d.status==='Closed Won')?'badge-info':'badge-danger'}`}>{d.status==='Closed Won'?'Closed':d.status}</span></div>
           </div>
 
           {/* Linked Property */}
@@ -677,8 +684,26 @@ export const CrmDeals = () => {
           {/* Actions */}
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {!readOnly && <button className="btn btn-sm btn-brand" onClick={()=>openEdit(d)}><Edit size={13}/> Edit</button>}
-            {!readOnly && !d.commissionLocked && (!d.commissionOverride || d.commissionOverride.status === 'Rejected') && canRequestOverride(personaKey) && <button className="btn btn-sm btn-outline" onClick={()=>openOverride(d)}><Percent size={13}/> Request commission override</button>}
-            {!readOnly && !d.commissionLocked && canDirectOverride(personaKey) && <button className="btn btn-sm btn-warning" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>directOverride(d)}><Percent size={13}/> Director direct override</button>}
+            {/* Request override — visible whenever there isn't an active
+                override already in flight. Stage-independent (a TL can ask
+                for an exception at any pre-final stage). Commission lock
+                doesn't block the REQUEST anymore — only the final apply. */}
+            {!readOnly && canRequestOverride(personaKey) && (!d.commissionOverride || d.commissionOverride.status === 'Rejected') && (
+              <button className="btn btn-sm btn-outline" onClick={()=>openOverride(d)}><Percent size={13}/> Request commission override</button>
+            )}
+            {/* When an override is in flight, show a status pill instead
+                of the request button so the TL sees what's happening. */}
+            {!readOnly && d.commissionOverride && (d.commissionOverride.status === 'Pending Manager' || d.commissionOverride.status === 'Pending Director') && (
+              <span className="badge badge-warning" title={`Requested by ${d.commissionOverride.requestedBy} · ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px'}}>
+                <Percent size={11}/> Override in review · {d.commissionOverride.status}
+              </span>
+            )}
+            {!readOnly && d.commissionOverride && d.commissionOverride.status === 'Approved' && (
+              <span className="badge badge-success" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px'}} title={d.commissionOverride.bypassedApproval ? 'Director direct override' : `Approved · ${d.commissionOverride.requestedPct}%`}>
+                <Percent size={11}/> Override applied{d.commissionOverride.bypassedApproval ? ' (Direct)' : ''}
+              </span>
+            )}
+            {!readOnly && canDirectOverride(personaKey) && <button className="btn btn-sm btn-warning" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>directOverride(d)}><Percent size={13}/> Director direct override</button>}
             {!readOnly && <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>handleDel(d.id)}><Trash2 size={13}/> Delete</button>}
           </div>
         </div>

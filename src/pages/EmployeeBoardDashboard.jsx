@@ -284,7 +284,7 @@ export const EmployeeBoardDashboard = () => {
   const myLeadsAtTour = myLeads.filter(l => l.stage === 'Tour Scheduled').length;
   const myDeals = useMemo(() => (state.deals || []).filter(d => d.owner === ownerName), [state.deals, ownerName]);
   const myActivePipeline = myDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s, d) => s + (d.value || 0), 0);
-  const myClosedWon = myDeals.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
+  const myClosedWon = myDeals.filter(d => d.status === 'Closed' || d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
   const myTasksDueToday = (state.tasks || []).filter(t => t.owner === ownerName && t.due === todayIso && t.status !== 'Completed').length;
   const myTasksOverdue = (state.tasks || []).filter(t => t.owner === ownerName && t.due < todayIso && t.status !== 'Completed').length;
 
