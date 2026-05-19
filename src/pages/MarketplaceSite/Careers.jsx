@@ -552,8 +552,9 @@ export const CareerDetail = () => {
                 <SideRow label="Mode"       value={job.mode}/>
                 <SideRow label="Type"       value={job.type}/>
                 <SideRow label="Experience" value={job.experienceYears ? `${job.experienceYears} years` : '—'}/>
-                <SideRow label="Openings"   value={`${job.headcount} hire${job.headcount===1?'':'s'}`}/>
-                <SideRow label="Hiring manager" value={job.hiringManager || '—'}/>
+                {/* Openings + Hiring manager removed per business review
+                    (May 2026) — candidate doesn't need to know internal
+                    headcount or the manager's name on the public page. */}
                 <SideRow label="Posted"     value={job.created}/>
                 <SideRow label="Deadline"   value={job.deadline || '—'} highlight={daysToDeadline !== null && daysToDeadline <= 14 && daysToDeadline > 0}/>
               </ul>
