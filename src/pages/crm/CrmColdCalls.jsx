@@ -58,6 +58,10 @@ export const CrmColdCalls = () => {
 
   const [tab, setTab] = useState(canManage ? 'All' : isMarketing ? 'My Imports' : 'To Call');
   const [query, setQuery] = useState('');
+  // Bulk-assign selection (managers only). Stores cold-call IDs.
+  const [selected, setSelected] = useState(() => new Set());
+  const toggleSel = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
 
   const all = state.coldCalls || [];
 
@@ -151,17 +155,96 @@ export const CrmColdCalls = () => {
     },
   });
 
+  // Available sales agents — shared by single + bulk assign.
+  const salesAgents = (state.staff || []).filter(s => s.department === 'Sales' && (s.title?.includes('Sales Agent') || s.type === 'Employee'));
+
   const assignCall = (c) => {
-    const agents = (state.staff || []).filter(s => s.department === 'Sales' && (s.title?.includes('Sales Agent') || s.type === 'Employee'));
     openModal({
       title: `Assign — ${c.name}`,
       subtitle: `${c.id} · ${c.phone} · ${c.source}`,
       submitLabel: 'Assign to agent',
-      body: <Field label="Sales Agent" name="agent" type="select" required options={agents.map(s => s.name)} defaultValue={agents[0]?.name || 'Fatma Ibrahim'} />,
+      body: <Field label="Sales Agent" name="agent" type="select" required options={salesAgents.map(s => s.name)} defaultValue={salesAgents[0]?.name || 'Fatma Ibrahim'} />,
       onSubmit: ({ agent }) => {
         const now = new Date().toISOString().slice(0,10);
         updateItem('coldCalls', c.id, { status: 'Assigned', assignedAgent: agent, assignedAt: now }, { action: 'Cold Call Assigned', module: 'Cold Calls', target: c.id, detail: `Assigned to ${agent}` });
         toast(`${c.name} assigned to ${agent}`, 'success');
+      },
+    });
+  };
+
+  // ─── Bulk assign ──────────────────────────────────────────────
+  // Two strategies:
+  //   • One agent → all selected go to the same person.
+  //   • Round-robin → distribute evenly across the agent roster.
+  // Only acts on selected records still in status 'New' (the assignable
+  // pool); already-assigned records are skipped with a hint.
+  const bulkAssign = () => {
+    const ids = Array.from(selected);
+    const records = (state.coldCalls || []).filter(c => ids.includes(c.id));
+    const assignable = records.filter(c => c.status === 'New');
+    const skipped = records.length - assignable.length;
+    if (assignable.length === 0) {
+      toast('No selected records are in New status — nothing to assign', 'warning');
+      return;
+    }
+    let strategy = 'one';
+    let agent = salesAgents[0]?.name || 'Fatma Ibrahim';
+    openModal({
+      title: `Bulk assign — ${assignable.length} record${assignable.length === 1 ? '' : 's'}`,
+      subtitle: skipped > 0 ? `${skipped} already-assigned record(s) will be skipped` : `${assignable.length} record(s) in New status will be assigned`,
+      submitLabel: 'Assign all',
+      body: (
+        <div style={{display:'flex', flexDirection:'column', gap:14}}>
+          <div>
+            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em', display:'block', marginBottom:6}}>Distribution strategy</label>
+            <div style={{display:'flex', gap:8}}>
+              {[
+                ['one', 'Single agent',  'All selected records go to one person'],
+                ['rr',  'Round-robin',   `Distribute evenly across ${salesAgents.length} agents`],
+              ].map(([k, lbl, desc]) => (
+                <label key={k} style={{flex:1, padding:'10px 12px', border:'1.5px solid var(--border)', borderRadius:8, cursor:'pointer', display:'block'}}>
+                  <input
+                    type="radio" name="strategy" defaultChecked={k === 'one'}
+                    onChange={() => { strategy = k; }}
+                    style={{marginRight:8}}
+                  />
+                  <b style={{fontSize:12}}>{lbl}</b>
+                  <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:3}}>{desc}</div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div id="bulk-assign-agent-picker">
+            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em', display:'block', marginBottom:6}}>Target agent (Single agent strategy only)</label>
+            <select
+              defaultValue={agent}
+              onChange={e => { agent = e.target.value; }}
+              style={{width:'100%', padding:'9px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}
+            >
+              {salesAgents.map(s => <option key={s.id || s.name} value={s.name}>{s.name}{s.team ? ` · ${s.team}` : ''}</option>)}
+            </select>
+            <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:6}}>Ignored when Round-robin is selected.</div>
+          </div>
+
+          <div style={{padding:'10px 12px', background:'#f8fafc', border:'1px solid var(--border)', borderRadius:8, fontSize:11, color:'var(--text-secondary)', lineHeight:1.5}}>
+            <b style={{color:'var(--text-primary)'}}>Audit:</b> each assignment is written to the audit log individually so the trail mirrors single-record assigns.
+          </div>
+        </div>
+      ),
+      onSubmit: () => {
+        const now = new Date().toISOString().slice(0,10);
+        let assignedCount = 0;
+        assignable.forEach((c, i) => {
+          const target = strategy === 'rr'
+            ? salesAgents[i % salesAgents.length]?.name || agent
+            : agent;
+          updateItem('coldCalls', c.id, { status: 'Assigned', assignedAgent: target, assignedAt: now }, { action: 'Cold Call Assigned (bulk)', module: 'Cold Calls', target: c.id, detail: `Bulk → ${target}` });
+          assignedCount += 1;
+        });
+        writeAudit('Cold Calls Bulk Assigned', `${assignedCount} record(s)`, 'Cold Calls', strategy === 'rr' ? `Round-robin across ${salesAgents.length} agents` : `All → ${agent}`);
+        toast(`Assigned ${assignedCount} cold call${assignedCount === 1 ? '' : 's'}${skipped > 0 ? ` · ${skipped} skipped` : ''}`, 'success');
+        clearSel();
       },
     });
   };
@@ -294,14 +377,33 @@ export const CrmColdCalls = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div style={{marginBottom:14}}>
+      {/* Search + bulk toolbar */}
+      <div style={{marginBottom:14, display:'flex', gap:12, alignItems:'center', flexWrap:'wrap'}}>
         <input
           placeholder="Search by name, phone or ID…"
           value={query}
           onChange={e=>setQuery(e.target.value)}
-          style={{padding:'9px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',maxWidth:380,width:'100%'}}
+          style={{padding:'9px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',flex:'1 1 280px',maxWidth:380}}
         />
+        {/* Bulk-assign toolbar (managers only) — surfaces only when at
+            least one record is selected. Hidden in agent + marketing views. */}
+        {canManage && selected.size > 0 && (
+          <div style={{display:'flex', gap:8, alignItems:'center', padding:'8px 14px', background:'var(--brand-tint)', border:'1px solid rgba(232,103,42,.25)', borderRadius:10}}>
+            <span style={{fontSize:12, fontWeight:700, color:'var(--brand)'}}>
+              {selected.size} selected
+            </span>
+            <button onClick={bulkAssign} className="btn btn-sm btn-primary">
+              <UserPlus size={12}/> Bulk Assign…
+            </button>
+            <button onClick={clearSel} className="btn btn-sm btn-outline">Clear</button>
+          </div>
+        )}
+        {canManage && selected.size === 0 && filtered.some(c => c.status === 'New') && (
+          <div style={{fontSize:11, color:'var(--text-tertiary)', display:'inline-flex', alignItems:'center', gap:6}}>
+            <span style={{display:'inline-block', width:13, height:13, border:'1.5px solid var(--text-tertiary)', borderRadius:3}}/>
+            Tip: tick rows to enable bulk assign
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -309,6 +411,27 @@ export const CrmColdCalls = () => {
         <table className="data-table" style={{width:'100%'}}>
           <thead>
             <tr>
+              {canManage && (
+                <th style={{width:32}}>
+                  {/* Select-all (filtered + assignable) */}
+                  <input
+                    type="checkbox"
+                    title="Select all New records on this view"
+                    checked={(() => {
+                      const newOnView = filtered.filter(c => c.status === 'New');
+                      return newOnView.length > 0 && newOnView.every(c => selected.has(c.id));
+                    })()}
+                    onChange={() => {
+                      const newOnView = filtered.filter(c => c.status === 'New');
+                      const allChecked = newOnView.length > 0 && newOnView.every(c => selected.has(c.id));
+                      const next = new Set(selected);
+                      if (allChecked) newOnView.forEach(c => next.delete(c.id));
+                      else newOnView.forEach(c => next.add(c.id));
+                      setSelected(next);
+                    }}
+                  />
+                </th>
+              )}
               <th>ID</th>
               <th>Name</th>
               <th>Phone</th>
@@ -321,7 +444,21 @@ export const CrmColdCalls = () => {
           </thead>
           <tbody>
             {filtered.map(c => (
-              <tr key={c.id}>
+              <tr key={c.id} style={selected.has(c.id) ? {background:'rgba(232,103,42,.04)'} : undefined}>
+                {canManage && (
+                  <td style={{width:32}}>
+                    {c.status === 'New' ? (
+                      <input
+                        type="checkbox"
+                        checked={selected.has(c.id)}
+                        onChange={() => toggleSel(c.id)}
+                        title="Select for bulk assign"
+                      />
+                    ) : (
+                      <span style={{display:'inline-block', width:13, height:13}} title="Only New records can be bulk-assigned"/>
+                    )}
+                  </td>
+                )}
                 <td style={{fontFamily:'monospace',fontSize:11}}>{c.id}</td>
                 <td style={{fontWeight:600}}>{c.name}</td>
                 <td>{c.phone}</td>
@@ -352,7 +489,7 @@ export const CrmColdCalls = () => {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={canManage ? 8 : isMarketing ? 6 : 7} style={{textAlign:'center',padding:'30px 0',color:'var(--text-tertiary)'}}>No cold calls match your filters.</td></tr>
+              <tr><td colSpan={canManage ? 9 : isMarketing ? 6 : 7} style={{textAlign:'center',padding:'30px 0',color:'var(--text-tertiary)'}}>No cold calls match your filters.</td></tr>
             )}
           </tbody>
         </table>
