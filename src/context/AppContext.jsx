@@ -186,11 +186,27 @@ export const AppProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const [ssoSplash, setSsoSplash] = useState(null);
 
-  const openModal = useCallback((cfg) => setModal(cfg), []);
+  // Modal / drawer / confirm layers are mutually exclusive — opening one
+  // closes the others so we never get a centered modal stacked on top of
+  // a right-side drawer (UX feedback May 2026 — looked layered, hard to
+  // tell what was active, click targets overlapped).
+  const openModal = useCallback((cfg) => {
+    setDrawer(null);
+    setConfirm(null);
+    setModal(cfg);
+  }, []);
   const closeModal = useCallback(() => setModal(null), []);
-  const openDrawer = useCallback((cfg) => setDrawer(cfg), []);
+  const openDrawer = useCallback((cfg) => {
+    setModal(null);
+    setConfirm(null);
+    setDrawer(cfg);
+  }, []);
   const closeDrawer = useCallback(() => setDrawer(null), []);
-  const openConfirm = useCallback((cfg) => setConfirm(cfg), []);
+  const openConfirm = useCallback((cfg) => {
+    setDrawer(null);
+    setModal(null);
+    setConfirm(cfg);
+  }, []);
   const closeConfirm = useCallback(() => setConfirm(null), []);
 
   const toast = useCallback((message, kind = 'success') => {

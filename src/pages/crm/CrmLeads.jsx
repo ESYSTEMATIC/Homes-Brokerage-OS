@@ -25,7 +25,7 @@ const SlaBadge = ({ stage, created }) => {
 };
 
 export const CrmLeads = () => {
-  const { state, addItem, updateItem, removeItem, toast, openDrawer, openConfirm, dispatch, persona, personaKey, writeAudit } = useApp();
+  const { state, addItem, updateItem, removeItem, toast, openDrawer, closeDrawer, openConfirm, dispatch, persona, personaKey, writeAudit } = useApp();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [fStage, setFStage] = useState('All');
@@ -82,8 +82,8 @@ export const CrmLeads = () => {
     return true;
   }),[visible,search,fStage,fPrio,fSrc,fOwner]);
 
-  const openAdd2 = ()=>{setForm({...def, owner: persona.label || personaOwnerName(personaKey) || def.owner});setEditLead(null);setShowAdd(true);};
-  const openEdit = l=>{setForm({name:l.name,phone:l.phone||'',email:l.email||'',source:l.source||'Walk-in',project:l.project||'',developer:l.developer||'',budget:l.budget||'',stage:l.stage||'New',priority:l.priority||'Warm',owner:l.owner||'',notes:l.notes||'',createdManually:!!l.createdManually});setEditLead(l);setShowAdd(true);};
+  const openAdd2 = ()=>{closeDrawer();setForm({...def, owner: persona.label || personaOwnerName(personaKey) || def.owner});setEditLead(null);setShowAdd(true);};
+  const openEdit = l=>{closeDrawer();setForm({name:l.name,phone:l.phone||'',email:l.email||'',source:l.source||'Walk-in',project:l.project||'',developer:l.developer||'',budget:l.budget||'',stage:l.stage||'New',priority:l.priority||'Warm',owner:l.owner||'',notes:l.notes||'',createdManually:!!l.createdManually});setEditLead(l);setShowAdd(true);};
   const handleSubmit = e=>{
     e.preventDefault();
     if(!form.name.trim()){toast('Name is required','error');return;}
@@ -125,7 +125,7 @@ export const CrmLeads = () => {
   };
   const toggleSel = id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
 
-  const openReassign = l => { setReassignLead(l); setReassignTo(l.owner || ''); };
+  const openReassign = l => { closeDrawer(); setReassignLead(l); setReassignTo(l.owner || ''); };
   const submitReassign = () => {
     if (!reassignTo) { toast('Pick a new owner', 'error'); return; }
     const before = reassignLead.owner || 'Unassigned';
@@ -161,6 +161,7 @@ export const CrmLeads = () => {
 
   const openBulk = () => {
     if (sel.length === 0) { toast('Select at least one lead', 'info'); return; }
+    closeDrawer();
     setBulkOwner('');
     setBulkRoundRobin(false);
     setBulkRRAgents([]);

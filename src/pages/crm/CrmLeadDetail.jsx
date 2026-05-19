@@ -11,7 +11,7 @@ const priorityColor = p => p==='Hot'?'badge-danger':p==='Warm'?'badge-warning':'
 export const CrmLeadDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { state, addItem, updateItem, toast, persona, personaKey, writeAudit } = useApp();
+  const { state, addItem, updateItem, toast, persona, personaKey, writeAudit, closeDrawer } = useApp();
   const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
   const readOnly = isReadOnly(personaKey);
   const [tab, setTab] = useState('overview');
@@ -79,6 +79,7 @@ export const CrmLeadDetail = () => {
       timeline:      prefs.timeline || '',
       notes:         prefs.notes || '',
     });
+    closeDrawer();
     setShowPrefEdit(true);
   };
 
@@ -212,12 +213,12 @@ export const CrmLeadDetail = () => {
           </div>
           <div className="lead-hero-actions">
             {!readOnly && (
-              <button className="btn btn-hero-ghost btn-sm" onClick={()=>setShowEdit(true)}>
+              <button className="btn btn-hero-ghost btn-sm" onClick={()=>{closeDrawer();setShowEdit(true);}}>
                 <Edit size={14}/> Edit
               </button>
             )}
             {canReassignThis && (
-              <button className="btn btn-hero-ghost btn-sm" onClick={()=>setShowReassign(true)}>
+              <button className="btn btn-hero-ghost btn-sm" onClick={()=>{closeDrawer();setShowReassign(true);}}>
                 <UserPlus size={14}/> Reassign
               </button>
             )}
@@ -238,7 +239,7 @@ export const CrmLeadDetail = () => {
               </button>
             )}
             {!readOnly && (
-              <button className="btn btn-brand btn-sm" onClick={()=>setShowTourAdd(true)} style={{boxShadow:'0 2px 8px rgba(232,103,42,0.35)'}}>
+              <button className="btn btn-brand btn-sm" onClick={()=>{closeDrawer();setShowTourAdd(true);}} style={{boxShadow:'0 2px 8px rgba(232,103,42,0.35)'}}>
                 <Calendar size={14}/> Schedule Tour
               </button>
             )}
@@ -376,7 +377,7 @@ export const CrmLeadDetail = () => {
             </div>
           </div>
           </>
-        ) : <div className="data-panel" style={{padding:40,textAlign:'center'}}><Home size={32} color="var(--text-tertiary)"/><p style={{color:'var(--text-secondary)',marginTop:12}}>No buyer preferences recorded yet</p><button className="btn btn-brand" onClick={()=>setShowPrefAdd(true)}>Add Preferences</button></div>
+        ) : <div className="data-panel" style={{padding:40,textAlign:'center'}}><Home size={32} color="var(--text-tertiary)"/><p style={{color:'var(--text-secondary)',marginTop:12}}>No buyer preferences recorded yet</p><button className="btn btn-brand" onClick={()=>{closeDrawer();setShowPrefAdd(true);}}>Add Preferences</button></div>
       )}
 
       {/* Tab: Activity */}
@@ -390,7 +391,7 @@ export const CrmLeadDetail = () => {
           <div className="data-panel" style={{padding:20}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
               <h3 style={{fontSize:14,fontWeight:700}}>Activity Timeline</h3>
-              <button className="btn btn-brand btn-sm" onClick={()=>setShowActivityAdd(true)}>+ Log Action</button>
+              <button className="btn btn-brand btn-sm" onClick={()=>{closeDrawer();setShowActivityAdd(true);}}>+ Log Action</button>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:0,position:'relative',paddingLeft:24}}>
               <div style={{position:'absolute',left:7,top:0,bottom:0,width:2,background:'var(--border)'}}/>
