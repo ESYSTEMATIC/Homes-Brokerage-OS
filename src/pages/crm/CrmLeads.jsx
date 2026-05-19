@@ -115,16 +115,23 @@ export const CrmLeads = () => {
   // Manager-only flow. Two modes:
   //   1) Single owner   — every selected lead goes to one agent.
   //   2) Round-robin    — selected agents share the batch in rotation.
-  // Protected leads (6-month manual lock, BRD §6.1.4) are SKIPPED unless
-  // the acting persona is Sales Director (scope === 'all'). The skip
-  // count is surfaced in the success toast.
+  //
+  // Policy (May 2026): bulk assign operates on UNASSIGNED leads only.
+  // The thinking — bulk assign is the "fresh-marketplace-pile distribution"
+  // flow. Already-owned leads have an active agent working them and must
+  // be reassigned one-by-one via the per-row Reassign button so the agent
+  // hand-off has individual context + audit. We enforce this in three
+  // places: row checkbox visibility, the select-all toggle, and the
+  // eligibility filter that feeds the bulk-assign submit.
+  const isBulkable = l => !l.owner && canAssign(personaKey, l);
+  const bulkableInView = useMemo(() => filtered.filter(isBulkable), [filtered, personaKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedLeads = useMemo(
     () => filtered.filter(l => sel.includes(l.id)),
     [filtered, sel]
   );
   const eligibleForBulk = useMemo(
-    () => selectedLeads.filter(l => canAssign(personaKey, l)),
-    [selectedLeads, personaKey]
+    () => selectedLeads.filter(isBulkable),
+    [selectedLeads, personaKey] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const blockedByLock = selectedLeads.length - eligibleForBulk.length;
 
@@ -170,16 +177,26 @@ export const CrmLeads = () => {
 
   const submitBulkDelete = () => {
     if (!canDelete) { toast('Only Sales Manager + can delete leads', 'error'); return; }
-    const ids = sel.slice();
+    // Policy (May 2026): bulk delete is restricted to UNASSIGNED leads
+    // for the same reason bulk assign is — once a lead has an owner,
+    // there's active work attached and removal needs a deliberate
+    // per-row action with full context.
+    const deletable = selectedLeads.filter(l => !l.owner);
+    const skipped = sel.length - deletable.length;
+    if (deletable.length === 0) {
+      toast(`All ${sel.length} selected lead(s) already have an owner. Use the per-row Delete on owned leads.`, 'error');
+      return;
+    }
+    const ids = deletable.map(l => l.id);
     openConfirm({
-      title: `Delete ${ids.length} lead${ids.length === 1 ? '' : 's'}?`,
-      message: `This permanently removes ${ids.length} selected lead${ids.length === 1 ? '' : 's'} from the pipeline. The action will be audit-logged. Continue?`,
+      title: `Delete ${ids.length} unassigned lead${ids.length === 1 ? '' : 's'}?`,
+      message: `${ids.length} unassigned lead${ids.length === 1 ? '' : 's'} will be permanently removed from the pipeline.${skipped > 0 ? ` ${skipped} owned lead${skipped === 1 ? '' : 's'} in your selection will be skipped — use the per-row Delete to remove those individually.` : ''} The action will be audit-logged. Continue?`,
       confirmLabel: 'Delete',
       kind: 'danger',
       onConfirm: () => {
         ids.forEach(id => removeItem('leads', id));
-        writeAudit('CRM Leads Bulk Deleted', `${ids.length} leads removed`, 'CRM', `Acted by ${persona.label} · ids: ${ids.join(', ')}`);
-        toast(`Deleted ${ids.length} lead(s)`, 'success');
+        writeAudit('CRM Leads Bulk Deleted', `${ids.length} unassigned leads removed`, 'CRM', `Acted by ${persona.label} · ids: ${ids.join(', ')}${skipped > 0 ? ` · ${skipped} owned skipped` : ''}`);
+        toast(`Deleted ${ids.length} unassigned lead(s)${skipped > 0 ? ` · ${skipped} owned skipped` : ''}`, 'success');
         setSel([]);
       },
     });
@@ -326,9 +343,10 @@ export const CrmLeads = () => {
           background:'var(--brand-tint)',border:'1px solid var(--brand)',
           borderRadius:10,
         }}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
             <CheckSquare size={18} color="var(--brand)"/>
-            <div style={{fontSize:13,fontWeight:700}}>{sel.length} lead{sel.length===1?'':'s'} selected</div>
+            <div style={{fontSize:13,fontWeight:700}}>{sel.length} unassigned lead{sel.length===1?'':'s'} selected</div>
+            <span style={{fontSize:11,color:'var(--text-secondary)'}}>· bulk actions apply to unassigned leads only</span>
             {blockedByLock > 0 && (
               <span style={{fontSize:11,color:'#b45309',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:4,padding:'2px 6px'}}>
                 <Lock size={10} style={{marginRight:3,verticalAlign:'-1px'}}/>{blockedByLock} locked
@@ -342,12 +360,18 @@ export const CrmLeads = () => {
         </div>
       )}
 
-      <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th style={{width:36}}><input type="checkbox" checked={sel.length===filtered.length&&filtered.length>0} onChange={()=>setSel(sel.length===filtered.length?[]:filtered.map(l=>l.id))}/></th><th>ID</th><th>Name</th><th>Source</th><th>Project</th><th>Stage</th><th>Priority</th><th>Team</th><th>Owner</th><th>SLA</th><th>Actions</th></tr></thead>
+      <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th style={{width:36}}><input type="checkbox" title="Select all unassigned leads in view" disabled={bulkableInView.length === 0} checked={bulkableInView.length>0 && bulkableInView.every(l=>sel.includes(l.id))} onChange={()=>{
+            const allSelected = bulkableInView.length>0 && bulkableInView.every(l=>sel.includes(l.id));
+            setSel(allSelected ? [] : bulkableInView.map(l=>l.id));
+          }}/></th><th>ID</th><th>Name</th><th>Source</th><th>Project</th><th>Stage</th><th>Priority</th><th>Team</th><th>Owner</th><th>SLA</th><th>Actions</th></tr></thead>
         <tbody>{filtered.length===0?<tr><td colSpan={11} style={{textAlign:'center',padding:40,color:'var(--text-tertiary)'}}>No leads match your filters or visibility scope.</td></tr>:filtered.map(l=>{
           const locked = isManualLockActive(l);
           return (
           <tr key={l.id} className={sel.includes(l.id)?'row-selected':''}>
-            <td><input type="checkbox" checked={sel.includes(l.id)} onChange={()=>toggleSel(l.id)}/></td>
+            <td>{!l.owner
+              ? <input type="checkbox" title="Select for bulk assign / delete" checked={sel.includes(l.id)} onChange={()=>toggleSel(l.id)}/>
+              : <span title="Bulk assign / delete only operate on unassigned leads. Use the per-row Reassign / Delete buttons." style={{display:'inline-block',width:14,height:14,borderRadius:3,border:'1px dashed var(--border)',opacity:.4}}/>
+            }</td>
             <td className="muted" style={{fontSize:11}}>{l.id}</td>
             <td className="bold clickable" onClick={()=>navigate(`/system/crm/leads/${l.id}`)}>
               {l.name}
@@ -416,8 +440,9 @@ export const CrmLeads = () => {
           </div>
           <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
             <div style={{padding:12,background:'#f8fafc',borderRadius:8,fontSize:12,lineHeight:1.6}}>
-              <div><b>{eligibleForBulk.length}</b> eligible · <b>{blockedByLock}</b> locked (6-month protection — Director-only override)</div>
-              <div style={{color:'var(--text-secondary)',marginTop:4}}>Acted by <b>{persona.label}</b> ({h.role}). Each lead's owner will be patched and an audit-log entry written.</div>
+              <div><b>{eligibleForBulk.length}</b> unassigned · ready to assign{blockedByLock > 0 && <span> · <b>{blockedByLock}</b> blocked (locked / outside scope)</span>}</div>
+              <div style={{color:'var(--text-secondary)',marginTop:4}}>Bulk assign operates on <b>unassigned leads only</b>. To reassign a lead that already has an owner, use the per-row Reassign button.</div>
+              <div style={{color:'var(--text-secondary)',marginTop:4}}>Acted by <b>{persona.label}</b> ({h.role}). Audit-logged per owner group.</div>
             </div>
 
             <div style={{display:'flex',gap:8,padding:'4px',background:'#f1f5f9',borderRadius:8}}>
