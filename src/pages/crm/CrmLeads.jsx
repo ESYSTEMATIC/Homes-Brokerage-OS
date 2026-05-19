@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import {
   Search, Plus, Edit, Trash2, Eye, X, Download, AlertTriangle, Lock,
-  ShieldCheck, History, ChevronRight, UserCog,
+  ShieldCheck, History, ChevronRight, UserCog, Users2, CheckSquare,
 } from 'lucide-react';
 import {
   HIERARCHY, canSeeLead, canAssign, canCreateLead, canDeleteLead, assignableStaff, leadAgeDays,
@@ -25,7 +25,7 @@ const SlaBadge = ({ stage, created }) => {
 };
 
 export const CrmLeads = () => {
-  const { state, addItem, updateItem, removeItem, toast, openDrawer, persona, personaKey, writeAudit } = useApp();
+  const { state, addItem, updateItem, removeItem, toast, openDrawer, openConfirm, dispatch, persona, personaKey, writeAudit } = useApp();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [fStage, setFStage] = useState('All');
@@ -40,6 +40,16 @@ export const CrmLeads = () => {
   const [reassignLead, setReassignLead] = useState(null);
   const [reassignTo, setReassignTo] = useState('');
   const [sel, setSel] = useState([]);
+  // Bulk assign drawer state — opens when manager clicks 'Bulk assign'
+  // with rows selected. Owner pick goes through `assignable` so it's
+  // already hierarchy-scoped.
+  const [bulkOwner, setBulkOwner] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
+  // Round-robin split mode — divides the selected leads evenly across
+  // multiple agents in rotation. Useful for redistributing a fresh batch
+  // of unassigned marketplace leads.
+  const [bulkRoundRobin, setBulkRoundRobin] = useState(false);
+  const [bulkRRAgents, setBulkRRAgents] = useState([]); // string[] of staff names
   const def = {name:'',phone:'',email:'',source:'Walk-in',project:'',developer:'',budget:'',stage:'New',priority:'Warm',owner:personaOwnerName(personaKey) || 'Fatma Ibrahim',notes:'',createdManually:true};
   const [form, setForm] = useState(def);
   const allLeads = state.leads || [];
@@ -99,6 +109,80 @@ export const CrmLeads = () => {
     writeAudit('CRM Lead Reassigned', `${reassignLead.name}: ${before} → ${reassignTo}`, 'CRM', `Acted by ${persona.label} (${h.role})`);
     toast(`Lead reassigned to ${reassignTo}`, 'success');
     setReassignLead(null);
+  };
+
+  // ─── Bulk assign ─────────────────────────────────────────────────
+  // Manager-only flow. Two modes:
+  //   1) Single owner   — every selected lead goes to one agent.
+  //   2) Round-robin    — selected agents share the batch in rotation.
+  // Protected leads (6-month manual lock, BRD §6.1.4) are SKIPPED unless
+  // the acting persona is Sales Director (scope === 'all'). The skip
+  // count is surfaced in the success toast.
+  const selectedLeads = useMemo(
+    () => filtered.filter(l => sel.includes(l.id)),
+    [filtered, sel]
+  );
+  const eligibleForBulk = useMemo(
+    () => selectedLeads.filter(l => canAssign(personaKey, l)),
+    [selectedLeads, personaKey]
+  );
+  const blockedByLock = selectedLeads.length - eligibleForBulk.length;
+
+  const openBulk = () => {
+    if (sel.length === 0) { toast('Select at least one lead', 'info'); return; }
+    setBulkOwner('');
+    setBulkRoundRobin(false);
+    setBulkRRAgents([]);
+    setBulkOpen(true);
+  };
+
+  const submitBulkAssign = () => {
+    if (eligibleForBulk.length === 0) {
+      toast(`All ${selectedLeads.length} selected lead(s) are locked — Director only can override.`, 'error');
+      return;
+    }
+    const nowIso = new Date().toISOString();
+
+    if (bulkRoundRobin) {
+      if (bulkRRAgents.length < 2) { toast('Pick at least 2 agents for round-robin', 'error'); return; }
+      // Distribute eligible leads across the selected agents in rotation.
+      const groups = {}; // ownerName -> [ids]
+      eligibleForBulk.forEach((lead, i) => {
+        const owner = bulkRRAgents[i % bulkRRAgents.length];
+        (groups[owner] = groups[owner] || []).push(lead.id);
+      });
+      Object.entries(groups).forEach(([owner, ids]) => {
+        dispatch({ type: 'BULK_UPDATE', payload: { slice: 'leads', ids, patch: { owner, reassignedAt: nowIso } } });
+        writeAudit('CRM Leads Bulk Reassigned', `${ids.length} leads → ${owner}`, 'CRM', `Round-robin · acted by ${persona.label} (${h.role}) · ids: ${ids.join(', ')}`);
+      });
+      const summary = Object.entries(groups).map(([o, ids]) => `${o} (${ids.length})`).join(' · ');
+      toast(`Distributed ${eligibleForBulk.length} leads · ${summary}${blockedByLock ? ` · ${blockedByLock} skipped (locked)` : ''}`, 'success');
+    } else {
+      if (!bulkOwner) { toast('Pick a new owner', 'error'); return; }
+      const ids = eligibleForBulk.map(l => l.id);
+      dispatch({ type: 'BULK_UPDATE', payload: { slice: 'leads', ids, patch: { owner: bulkOwner, reassignedAt: nowIso } } });
+      writeAudit('CRM Leads Bulk Reassigned', `${ids.length} leads → ${bulkOwner}`, 'CRM', `Single-owner bulk · acted by ${persona.label} (${h.role}) · ids: ${ids.join(', ')}`);
+      toast(`Assigned ${ids.length} lead(s) to ${bulkOwner}${blockedByLock ? ` · ${blockedByLock} skipped (locked)` : ''}`, 'success');
+    }
+    setSel([]);
+    setBulkOpen(false);
+  };
+
+  const submitBulkDelete = () => {
+    if (!canDelete) { toast('Only Sales Manager + can delete leads', 'error'); return; }
+    const ids = sel.slice();
+    openConfirm({
+      title: `Delete ${ids.length} lead${ids.length === 1 ? '' : 's'}?`,
+      message: `This permanently removes ${ids.length} selected lead${ids.length === 1 ? '' : 's'} from the pipeline. The action will be audit-logged. Continue?`,
+      confirmLabel: 'Delete',
+      kind: 'danger',
+      onConfirm: () => {
+        ids.forEach(id => removeItem('leads', id));
+        writeAudit('CRM Leads Bulk Deleted', `${ids.length} leads removed`, 'CRM', `Acted by ${persona.label} · ids: ${ids.join(', ')}`);
+        toast(`Deleted ${ids.length} lead(s)`, 'success');
+        setSel([]);
+      },
+    });
   };
 
   const viewDetail = l => openDrawer({title:l.name,subtitle:`Lead · ${l.id}`,content:(
@@ -232,6 +316,32 @@ export const CrmLeads = () => {
         <div style={{marginTop:8,fontSize:12,color:'var(--text-tertiary)'}}>Showing {filtered.length} of {visible.length} leads</div>
       </div>
 
+      {/* ─── Bulk action bar — surfaces when rows are selected ───
+           Only shown to roles that can reassign (Team Leader+). Single-owner
+           assign + Round-robin split + bulk delete (Manager+). */}
+      {sel.length > 0 && (h.scope === 'team' || h.scope === 'cross' || h.scope === 'all') && (
+        <div style={{
+          display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',
+          padding:'12px 16px',marginBottom:12,
+          background:'var(--brand-tint)',border:'1px solid var(--brand)',
+          borderRadius:10,
+        }}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <CheckSquare size={18} color="var(--brand)"/>
+            <div style={{fontSize:13,fontWeight:700}}>{sel.length} lead{sel.length===1?'':'s'} selected</div>
+            {blockedByLock > 0 && (
+              <span style={{fontSize:11,color:'#b45309',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:4,padding:'2px 6px'}}>
+                <Lock size={10} style={{marginRight:3,verticalAlign:'-1px'}}/>{blockedByLock} locked
+              </span>
+            )}
+          </div>
+          <div style={{flex:1}}/>
+          <button className="btn btn-brand btn-sm" onClick={openBulk}><Users2 size={14}/> Bulk assign…</button>
+          {canDelete && <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={submitBulkDelete}><Trash2 size={14}/> Bulk delete</button>}
+          <button className="btn btn-outline btn-sm" onClick={()=>setSel([])}><X size={14}/> Clear</button>
+        </div>
+      )}
+
       <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th style={{width:36}}><input type="checkbox" checked={sel.length===filtered.length&&filtered.length>0} onChange={()=>setSel(sel.length===filtered.length?[]:filtered.map(l=>l.id))}/></th><th>ID</th><th>Name</th><th>Source</th><th>Project</th><th>Stage</th><th>Priority</th><th>Team</th><th>Owner</th><th>SLA</th><th>Actions</th></tr></thead>
         <tbody>{filtered.length===0?<tr><td colSpan={11} style={{textAlign:'center',padding:40,color:'var(--text-tertiary)'}}>No leads match your filters or visibility scope.</td></tr>:filtered.map(l=>{
           const locked = isManualLockActive(l);
@@ -294,6 +404,97 @@ export const CrmLeads = () => {
             </div>
             <div className="modal-footer"><button type="button" className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button><button type="submit" className="btn btn-brand">{editLead?'Update':'Create'} Lead</button></div>
           </form>
+        </div>
+      </div>}
+
+      {/* ─── Bulk assign modal — single owner OR round-robin split ─── */}
+      {bulkOpen && <div className="modal-overlay" onClick={()=>setBulkOpen(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+          <div className="modal-header">
+            <h3>Bulk assign {sel.length} lead{sel.length===1?'':'s'}</h3>
+            <button className="btn-icon" onClick={()=>setBulkOpen(false)}><X size={18}/></button>
+          </div>
+          <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{padding:12,background:'#f8fafc',borderRadius:8,fontSize:12,lineHeight:1.6}}>
+              <div><b>{eligibleForBulk.length}</b> eligible · <b>{blockedByLock}</b> locked (6-month protection — Director-only override)</div>
+              <div style={{color:'var(--text-secondary)',marginTop:4}}>Acted by <b>{persona.label}</b> ({h.role}). Each lead's owner will be patched and an audit-log entry written.</div>
+            </div>
+
+            <div style={{display:'flex',gap:8,padding:'4px',background:'#f1f5f9',borderRadius:8}}>
+              <button
+                type="button"
+                onClick={()=>setBulkRoundRobin(false)}
+                style={{flex:1,padding:'8px 12px',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer',
+                  background: !bulkRoundRobin ? '#fff' : 'transparent',
+                  color: !bulkRoundRobin ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  boxShadow: !bulkRoundRobin ? '0 1px 3px rgba(0,0,0,.08)' : 'none'}}
+              >Single owner</button>
+              <button
+                type="button"
+                onClick={()=>setBulkRoundRobin(true)}
+                style={{flex:1,padding:'8px 12px',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer',
+                  background: bulkRoundRobin ? '#fff' : 'transparent',
+                  color: bulkRoundRobin ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  boxShadow: bulkRoundRobin ? '0 1px 3px rgba(0,0,0,.08)' : 'none'}}
+              >Round-robin split</button>
+            </div>
+
+            {!bulkRoundRobin && (
+              <div className="form-group">
+                <label>Assign all {eligibleForBulk.length} lead(s) to</label>
+                <select value={bulkOwner} onChange={e=>setBulkOwner(e.target.value)}>
+                  <option value="">Pick agent…</option>
+                  {assignable.map(s=>(
+                    <option key={s.id || s.name} value={s.name}>
+                      {s.name}{s.team ? ` — ${s.team}` : ''}{s.role ? ` (${s.role})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:6}}>The chosen agent will receive every eligible lead in this selection.</div>
+              </div>
+            )}
+
+            {bulkRoundRobin && (
+              <div className="form-group">
+                <label>Distribute across (multi-select)</label>
+                <div style={{
+                  display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,
+                  maxHeight:220,overflowY:'auto',padding:8,
+                  border:'1px solid var(--border)',borderRadius:8,background:'#fff',
+                }}>
+                  {assignable.map(s => (
+                    <label key={s.id || s.name} style={{
+                      display:'flex',alignItems:'center',gap:6,fontSize:12,
+                      padding:'6px 8px',borderRadius:6,cursor:'pointer',
+                      background: bulkRRAgents.includes(s.name) ? 'var(--brand-tint)' : 'transparent',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={bulkRRAgents.includes(s.name)}
+                        onChange={()=> setBulkRRAgents(p => p.includes(s.name) ? p.filter(n=>n!==s.name) : [...p, s.name])}
+                      />
+                      <span>{s.name}{s.team ? ` · ${s.team}` : ''}</span>
+                    </label>
+                  ))}
+                </div>
+                <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6}}>
+                  {bulkRRAgents.length >= 2
+                    ? `${eligibleForBulk.length} leads ÷ ${bulkRRAgents.length} agents ≈ ${Math.ceil(eligibleForBulk.length / bulkRRAgents.length)} each (last agent may get fewer).`
+                    : 'Pick at least 2 agents to split across.'}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-outline" onClick={()=>setBulkOpen(false)}>Cancel</button>
+            <button
+              className="btn btn-brand"
+              onClick={submitBulkAssign}
+              disabled={eligibleForBulk.length === 0 || (bulkRoundRobin ? bulkRRAgents.length < 2 : !bulkOwner)}
+            >
+              <Users2 size={14}/> {bulkRoundRobin ? `Distribute ${eligibleForBulk.length}` : `Assign ${eligibleForBulk.length}`} & log
+            </button>
+          </div>
         </div>
       </div>}
 
