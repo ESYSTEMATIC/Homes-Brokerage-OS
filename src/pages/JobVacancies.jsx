@@ -1,9 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
 import { Plus, Download, Eye, Pencil, Globe, Archive } from 'lucide-react';
 import { JOB_STATUS } from '../data/staticData';
-import { VacancyCandidates } from '../components/VacancyCandidates';
 
 const statusColor = s => {
   if (s === 'Published') return 'badge-success';
@@ -13,7 +13,8 @@ const statusColor = s => {
 };
 
 export const JobVacancies = () => {
-  const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
+  const { state, addItem, updateItem, openModal, openConfirm, toast, writeAudit } = useApp();
+  const navigate = useNavigate();
   const managers = state.staff.filter(s=>['Sales Manager','Team Leader','Sales Director'].includes(s.type) || s.title.toLowerCase().includes('manager')).map(s=>s.name);
 
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.jobs, {
@@ -114,79 +115,11 @@ export const JobVacancies = () => {
     title: `Close vacancy?`, message: `${j.title} will be archived. Existing applications remain visible.`, danger: true,
     onConfirm: () => { updateItem('jobs', j.id, { status: 'Closed' }, { action: 'Vacancy Closed', module: 'Recruitment', target: j.id }); toast(`${j.title} closed`,'warning'); },
   });
-  const view = (j) => openDrawer({
-    title: j.title,
-    subtitle: `${j.id} · ${j.department} · ${j.location}`,
-    content: (
-      <>
-        {/* Headline + key facts (same as the public Careers card top) */}
-        <div className="detail-grid">
-          {[
-            ['ID',              j.id],
-            ['Department',      j.department],
-            ['Location',        j.location],
-            ['Type',            j.type],
-            ['Mode',            j.mode],
-            ['Headcount',       j.headcount],
-            ['Applicants',      j.applicants],
-            ['Hiring Manager',  j.hiringManager],
-            ['Experience',      j.experienceYears || '—'],
-            ['Deadline',        j.deadline || '—'],
-            ['Status',          j.status],
-            ['Created',         j.created],
-          ].map(([k,v])=>(
-            <div key={k}><label>{k}</label><div className="v">{v}</div></div>
-          ))}
-        </div>
-
-        {/* Marketing copy — matches the public Career detail layout */}
-        {j.summary && (
-          <div style={{marginTop:18}}>
-            <h4 style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6}}>Summary</h4>
-            <p style={{fontSize:13, color:'var(--text-primary)', lineHeight:1.6, padding:'10px 12px', background:'#fafbfc', borderRadius:8, border:'1px solid var(--border)'}}>{j.summary}</p>
-          </div>
-        )}
-
-        {Array.isArray(j.responsibilities) && j.responsibilities.length > 0 && (
-          <ListBlock title="Responsibilities" items={j.responsibilities}/>
-        )}
-        {Array.isArray(j.requirements) && j.requirements.length > 0 && (
-          <ListBlock title="Requirements" items={j.requirements}/>
-        )}
-        {Array.isArray(j.benefits) && j.benefits.length > 0 && (
-          <ListBlock title="What we offer" items={j.benefits}/>
-        )}
-
-        {/* Salary band — HR-internal */}
-        {j.salaryBand && (j.salaryBand.min || j.salaryBand.max || j.salaryBand.commission) && (
-          <div style={{marginTop:18, padding:'12px 14px', background:'var(--brand-tint)', border:'1px solid var(--border)', borderRadius:8}}>
-            <h4 style={{fontSize:11, fontWeight:700, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8}}>Salary band · HR-internal</h4>
-            {(j.salaryBand.min || j.salaryBand.max) && (
-              <div style={{fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>
-                EGP {(j.salaryBand.min || 0).toLocaleString()}{' – '}{(j.salaryBand.max || 0).toLocaleString()} <span style={{fontSize:11, fontWeight:500, color:'var(--text-tertiary)'}}>/ month</span>
-              </div>
-            )}
-            {j.salaryBand.commission && (
-              <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:6}}>{j.salaryBand.commission}</div>
-            )}
-          </div>
-        )}
-
-        <div style={{marginTop:18,display:'flex',gap:8,flexWrap:'wrap'}}>
-          <button className="btn btn-primary" onClick={()=>openForm(j)}><Pencil size={14}/> Edit</button>
-          {j.status==='Draft' && <button className="btn btn-success" onClick={()=>publish(j)}><Globe size={14}/> Publish</button>}
-          {j.status==='Published' && <button className="btn btn-danger" onClick={()=>close(j)}><Archive size={14}/> Close</button>}
-        </div>
-
-        {/* Business-team feedback (May 2026): candidate pipeline must live
-            inside the vacancy detail. All controls — Add Candidate, Stage
-            change, View, Reject — are driven from here. */}
-        <div style={{marginTop:24, paddingTop:18, borderTop:'2px solid var(--border)'}}>
-          <VacancyCandidates vacancy={j} showAnalytics={true}/>
-        </div>
-      </>
-    ),
-  });
+  // Business-team feedback (May 2026): the side-drawer view wasn't
+  // convenient — too much content for a 520px panel. View now navigates
+  // to a dedicated /backoffice/jobs/:id page with the candidate pipeline,
+  // role description, salary band, and headcount tracker all in one place.
+  const view = (j) => navigate(`/backoffice/jobs/${j.id}`);
 
   return (
     <div>

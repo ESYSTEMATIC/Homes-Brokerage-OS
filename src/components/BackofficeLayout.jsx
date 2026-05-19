@@ -38,16 +38,25 @@ export const BackofficeLayout = ({ children }) => {
   // sales-track concerns (Homes Academy gates CRM access), so the module is
   // restricted to sales management (Director) + Super Admin (audit). HR no
   // longer surfaces this — onboarding documents are still in HR via 'operations'.
+  // Business-team review (May 2026): Finance Officer scope tightened to
+  // its minimum needs — Dashboard + Financial Mgmt only. Director Inbox,
+  // Audit Logs and Executive Dashboard are cross-functional / governance
+  // surfaces and no longer belong to Finance.
+  //
+  // 'inbox' is a new access key — Director Inbox unions HR offers +
+  // Finance commissions + Deal overrides, so it lives with roles that own
+  // cross-functional approval queues (Super Admin, Director, Executive),
+  // not with everyone who has 'data' read access.
   const accessMatrix = {
     backofficeAdmin: 'ALL',
     salesManager:    ['dashboard', 'operations', 'recruitment'],
-    salesDirector:   ['dashboard', 'operations', 'recruitment', 'data', 'compliance'],
+    salesDirector:   ['dashboard', 'operations', 'recruitment', 'data', 'compliance', 'inbox'],
     hrRecruiter:     ['dashboard', 'operations', 'hr', 'recruitment'],
-    financeOfficer:  ['dashboard', 'finance', 'hr', 'data'],
+    financeOfficer:  ['dashboard', 'finance'],
     // Marketplace Dashboard Admin only operates inside the Marketplace Dashboard
     // federated system — not the Backoffice Admin Portal.
     marketplaceAdmin: [],
-    executive:       ['dashboard', 'data', 'finance', 'hr'],
+    executive:       ['dashboard', 'data', 'finance', 'hr', 'inbox'],
     systemAdmin:     ['dashboard', 'system', 'master', 'data'],
   };
 
@@ -148,9 +157,12 @@ export const BackofficeLayout = ({ children }) => {
             </Sub>
           )}
 
+          {hasAccess('inbox') && (
+            <Link to="/backoffice/inbox"><Inbox size={16}/>Director Inbox</Link>
+          )}
+
           {hasAccess('data') && (
             <>
-              <Link to="/backoffice/inbox"><Inbox size={16}/>Director Inbox</Link>
               <Link to="/backoffice/audit"><ScrollText size={16}/>Audit Logs</Link>
               <Link to="/backoffice/executive"><Building2 size={16}/>Executive Dashboard</Link>
             </>

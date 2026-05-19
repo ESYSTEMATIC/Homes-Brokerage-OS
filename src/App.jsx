@@ -19,6 +19,7 @@ import { FinancialManagement } from './pages/FinancialManagement';
 import { HRPayroll } from './pages/HRPayroll';
 import { RecruitmentPipeline } from './pages/RecruitmentPipeline';
 import { JobVacancies } from './pages/JobVacancies';
+import { VacancyDetail } from './pages/VacancyDetail';
 import { AuditLogs } from './pages/AuditLogs';
 import { DirectorInbox } from './pages/DirectorInbox';
 import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
@@ -304,6 +305,7 @@ const AppRoutes = () => {
               <Route path="/hr/profiles" element={<Navigate to="/backoffice/staff" replace />} />
               <Route path="/recruitment" element={<RecruitmentPipeline />} />
               <Route path="/jobs" element={<JobVacancies />} />
+              <Route path="/jobs/:id" element={<VacancyDetail />} />
               {/* Listings, unit types, cities and area lookups are sourced from
                   EGMLS — the brokerage only maintains alternatives to
                   developers / compounds / projects locally. */}
