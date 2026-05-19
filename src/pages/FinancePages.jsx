@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, Field, FieldRow, Empty } from '../components/UI';
 import { ExportMenu } from '../components/ExportMenu';
-import { Eye, CheckCircle2, DollarSign } from 'lucide-react';
+import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
@@ -109,9 +109,59 @@ export const DealsRevenue = () => {
 
 export const CommissionEngine = () => {
   const { state, updateItem, openConfirm, openDrawer, toast, persona } = useApp();
-  const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.commEngine, {
+  const { q, setQ, filterVals, setFilter, filtered: baseFiltered } = useTableState(state.commEngine, {
     searchKeys:['deal','agent','id'], filters:{ status:'status' },
   });
+
+  // ─── Advanced filters (May 2026) ──────────────────────────────────
+  // Date-range pickers + pool min/max + agent filter sit in a collapsible
+  // panel so the toolbar stays clean. Quick-range presets jump the date
+  // window to common audit periods (This month / Last month / Q1 / etc).
+  const [showAdv, setShowAdv] = useState(false);
+  const [adv, setAdv] = useState({
+    dateField: 'createdAt', // createdAt | approvedAt | paidAt
+    dateFrom: '',
+    dateTo: '',
+    minPool: '',
+    maxPool: '',
+    agent: '',
+  });
+  const resetAdv = () => setAdv({ dateField: 'createdAt', dateFrom: '', dateTo: '', minPool: '', maxPool: '', agent: '' });
+  const applyQuickRange = (kind) => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const iso = (d) => d.toISOString().slice(0, 10);
+    let from = '', to = '';
+    if (kind === 'thisMonth')   { from = iso(new Date(y, m, 1));        to = iso(today); }
+    if (kind === 'lastMonth')   { from = iso(new Date(y, m - 1, 1));    to = iso(new Date(y, m, 0)); }
+    if (kind === 'last30')      { const d = new Date(); d.setDate(d.getDate() - 30); from = iso(d); to = iso(today); }
+    if (kind === 'last90')      { const d = new Date(); d.setDate(d.getDate() - 90); from = iso(d); to = iso(today); }
+    if (kind === 'q1')          { from = `${y}-01-01`; to = `${y}-03-31`; }
+    if (kind === 'q2')          { from = `${y}-04-01`; to = `${y}-06-30`; }
+    if (kind === 'ytd')         { from = `${y}-01-01`; to = iso(today); }
+    setAdv({ ...adv, dateFrom: from, dateTo: to });
+  };
+
+  const agentsInScope = useMemo(() => Array.from(new Set((state.commEngine || []).map(c => c.agent))).sort(), [state.commEngine]);
+
+  const filtered = useMemo(() => baseFiltered.filter(c => {
+    if (adv.dateFrom || adv.dateTo) {
+      const v = (c[adv.dateField] || '').slice(0, 10);
+      if (!v) return false;
+      if (adv.dateFrom && v < adv.dateFrom) return false;
+      if (adv.dateTo && v > adv.dateTo) return false;
+    }
+    if (adv.minPool && (c.pool || 0) < Number(adv.minPool)) return false;
+    if (adv.maxPool && (c.pool || 0) > Number(adv.maxPool)) return false;
+    if (adv.agent && c.agent !== adv.agent) return false;
+    return true;
+  }), [baseFiltered, adv]);
+
+  const advCount =
+    (adv.dateFrom ? 1 : 0) + (adv.dateTo ? 1 : 0) +
+    (adv.minPool ? 1 : 0) + (adv.maxPool ? 1 : 0) +
+    (adv.agent ? 1 : 0);
 
   // Append a transaction entry to the commission record's history array.
   // Every state change on a commission row (approve, mark paid, reject,
@@ -127,29 +177,33 @@ export const CommissionEngine = () => {
     return [...(c.history || []), stamped];
   };
 
+  const splitLine = (c) => `Agent ${fmt(c.agentShare)} · TL ${fmt(c.tlShare)} · Mgr ${fmt(c.managerShare)} · Dir ${fmt(c.directorShare)} · Co ${fmt(c.companyShare)}`;
+
   const approve = (c) => openConfirm({
-    title: `Approve commission for ${c.deal}?`, message: `Lock pool of ${fmt(c.pool)} (Agent: ${fmt(c.agentShare)}, TL: ${fmt(c.tlShare)}, Company: ${fmt(c.companyShare)}).`,
+    title: `Approve commission for ${c.deal}?`,
+    message: `Lock pool of ${fmt(c.pool)} · ${splitLine(c)}`,
     onConfirm: () => {
       const history = appendCommHistory(c, {
         action: 'Approved',
         fromStatus: c.status,
         toStatus: 'Approved',
         amount: c.pool,
-        detail: `Pool locked at ${fmt(c.pool)} — Agent ${fmt(c.agentShare)} · TL ${fmt(c.tlShare)} · Company ${fmt(c.companyShare)}`,
+        detail: `Pool locked at ${fmt(c.pool)} — ${splitLine(c)}`,
       });
       updateItem('commEngine', c.id, { status: 'Approved', approvedAt: new Date().toISOString(), approvedBy: persona?.label, history }, { action: 'Commission Approved', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
       toast(`${c.deal} approved`);
     },
   });
   const markPaid = (c) => openConfirm({
-    title: `Mark ${c.deal} as paid?`, message: `Funds released to ${c.agent}. This is irreversible.`,
+    title: `Mark ${c.deal} as paid?`,
+    message: `Funds released to ${c.agent} and the management chain. This is irreversible.`,
     onConfirm: () => {
       const history = appendCommHistory(c, {
         action: 'Paid',
         fromStatus: c.status,
         toStatus: 'Paid',
-        amount: c.agentShare,
-        detail: `Disbursed ${fmt(c.agentShare)} to ${c.agent} · TL ${fmt(c.tlShare)} · Company ${fmt(c.companyShare)}`,
+        amount: c.pool,
+        detail: `Disbursed ${fmt(c.agentShare)} → ${c.agent} · ${fmt(c.tlShare)} → ${c.teamLeader} · ${fmt(c.managerShare)} → ${c.manager} · ${fmt(c.directorShare)} → ${c.director} · ${fmt(c.companyShare)} → Company`,
       });
       updateItem('commEngine', c.id, { status: 'Paid', paidAt: new Date().toISOString(), paidBy: persona?.label, history }, { action: 'Commission Paid', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
       toast(`${c.deal} paid`);
@@ -159,8 +213,42 @@ export const CommissionEngine = () => {
     content: (
       <div style={{display:'flex', flexDirection:'column', gap:18}}>
         <div className="detail-grid">
-          {[['Deal',c.deal],['Agent',c.agent],['Pool',fmt(c.pool)],['Agent Share',fmt(c.agentShare)],['TL Share',fmt(c.tlShare)],['Company Share',fmt(c.companyShare)],['Status',c.status],['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Paid' ? '—' : 'pending')],['Paid by', c.paidBy || (c.status === 'Paid' ? '—' : 'pending')]].map(([k,v])=>(
-            <div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
+          {[
+            ['Deal', c.deal],
+            ['Pool', fmt(c.pool)],
+            ['Created', c.createdAt || '—'],
+            ['Status', c.status],
+            ['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Paid' ? '—' : 'pending')],
+            ['Paid by', c.paidBy || (c.status === 'Paid' ? '—' : 'pending')],
+          ].map(([k,v])=>(<div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
+        </div>
+
+        {/* Four-persona breakdown — every commission row now splits across
+            Agent / Team Leader / Sales Manager / Sales Director with the
+            company share as the remainder. */}
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Commission split</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {[
+              { who: c.agent,      role: 'Sales Agent',    amount: c.agentShare,    pct: c.pool ? (c.agentShare    / c.pool * 100).toFixed(1) : '0', color: 'var(--brand)' },
+              { who: c.teamLeader, role: 'Team Leader',    amount: c.tlShare,       pct: c.pool ? (c.tlShare       / c.pool * 100).toFixed(1) : '0', color: '#3b82f6' },
+              { who: c.manager,    role: 'Sales Manager',  amount: c.managerShare,  pct: c.pool ? (c.managerShare  / c.pool * 100).toFixed(1) : '0', color: '#8b5cf6' },
+              { who: c.director,   role: 'Sales Director', amount: c.directorShare, pct: c.pool ? (c.directorShare / c.pool * 100).toFixed(1) : '0', color: '#10b981' },
+              { who: 'Homes Brokerage', role: 'Company', amount: c.companyShare, pct: c.pool ? (c.companyShare / c.pool * 100).toFixed(1) : '0', color: '#64748b' },
+            ].map((row) => (
+              <div key={row.role} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8}}>
+                <div style={{width:6,alignSelf:'stretch',background:row.color,borderRadius:2}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>{row.who || <i style={{color:'var(--text-tertiary)'}}>—</i>}</div>
+                  <div style={{fontSize:10,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.05em',marginTop:1}}>{row.role}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:13,fontWeight:700}}>{fmt(row.amount)}</div>
+                  <div style={{fontSize:10,color:'var(--text-tertiary)'}}>{row.pct}%</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Per-record transaction history — every state change appends
@@ -198,29 +286,110 @@ export const CommissionEngine = () => {
           <div className="data-toolbar-left">
             <input className="data-search" placeholder="Search deal or agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
-              <option value="">All Statuses</option>{['Approved','Pending','Paid'].map(s=><option key={s}>{s}</option>)}
+              <option value="">All Statuses</option>{['Approved','Pending','Paid','Rejected'].map(s=><option key={s}>{s}</option>)}
             </select>
+            <button
+              type="button"
+              className={`btn btn-sm ${advCount > 0 || showAdv ? 'btn-brand' : 'btn-outline'}`}
+              onClick={() => setShowAdv(s => !s)}
+              title="Date range, pool size, agent filters"
+            >
+              <SlidersHorizontal size={13}/> Advanced{advCount > 0 ? ` · ${advCount}` : ''}
+            </button>
           </div>
           <ExportMenu
             rows={filtered}
             columns={[
-              { key: 'id',           label: 'ID' },
-              { key: 'deal',         label: 'Deal' },
-              { key: 'agent',        label: 'Agent' },
-              { key: 'pool',         label: 'Pool (EGP)',  format: v => fmt(v) },
-              { key: 'agentShare',   label: 'Agent share', format: v => fmt(v) },
-              { key: 'tlShare',      label: 'TL share',    format: v => fmt(v) },
-              { key: 'companyShare', label: 'Company share', format: v => fmt(v) },
-              { key: 'status',       label: 'Status' },
+              { key: 'id',            label: 'ID' },
+              { key: 'deal',          label: 'Deal' },
+              { key: 'agent',         label: 'Agent' },
+              { key: 'teamLeader',    label: 'Team Leader' },
+              { key: 'manager',       label: 'Sales Manager' },
+              { key: 'director',      label: 'Sales Director' },
+              { key: 'pool',          label: 'Pool (EGP)',         format: v => fmt(v) },
+              { key: 'agentShare',    label: 'Agent share',         format: v => fmt(v) },
+              { key: 'tlShare',       label: 'TL share',            format: v => fmt(v) },
+              { key: 'managerShare',  label: 'Manager share',       format: v => fmt(v) },
+              { key: 'directorShare', label: 'Director share',      format: v => fmt(v) },
+              { key: 'companyShare',  label: 'Company share',       format: v => fmt(v) },
+              { key: 'status',        label: 'Status' },
+              { key: 'createdAt',     label: 'Created' },
+              { key: 'approvedAt',    label: 'Approved at' },
+              { key: 'paidAt',        label: 'Paid at' },
             ]}
             filename="commission_engine"
             title="Commission Engine Export"
             subtitle={`Filtered view · ${filtered.length} commission${filtered.length === 1 ? '' : 's'}`}
           />
         </div>
+
+        {/* Advanced filter panel — collapses by default, surfaces when the
+            user clicks 'Advanced'. Date-range presets + custom from/to
+            + agent + pool min/max. */}
+        {showAdv && (
+          <div style={{padding:'14px 16px',background:'#fafbfc',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+                <Calendar size={13}/> Advanced filter
+              </div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                {[
+                  ['thisMonth','This month'],['lastMonth','Last month'],
+                  ['last30','Last 30d'],['last90','Last 90d'],
+                  ['q1','Q1'],['q2','Q2'],['ytd','YTD'],
+                ].map(([k,label]) => (
+                  <button key={k} type="button" className="btn btn-outline btn-sm" onClick={()=>applyQuickRange(k)} style={{padding:'4px 10px',fontSize:11}}>
+                    {label}
+                  </button>
+                ))}
+                {advCount > 0 && (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={resetAdv} style={{padding:'4px 10px',fontSize:11,color:'var(--danger)'}}>
+                    <X size={11}/> Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10}}>
+              <div className="form-group" style={{margin:0}}>
+                <label>Date field</label>
+                <select value={adv.dateField} onChange={e=>setAdv({...adv, dateField: e.target.value})}>
+                  <option value="createdAt">Created</option>
+                  <option value="approvedAt">Approved</option>
+                  <option value="paidAt">Paid</option>
+                </select>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>From</label>
+                <input type="date" value={adv.dateFrom} onChange={e=>setAdv({...adv, dateFrom: e.target.value})}/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>To</label>
+                <input type="date" value={adv.dateTo} onChange={e=>setAdv({...adv, dateTo: e.target.value})}/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Agent</label>
+                <select value={adv.agent} onChange={e=>setAdv({...adv, agent: e.target.value})}>
+                  <option value="">All agents</option>
+                  {agentsInScope.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Min pool (EGP)</label>
+                <input type="number" value={adv.minPool} onChange={e=>setAdv({...adv, minPool: e.target.value})} placeholder="—"/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Max pool (EGP)</label>
+                <input type="number" value={adv.maxPool} onChange={e=>setAdv({...adv, maxPool: e.target.value})} placeholder="—"/>
+              </div>
+            </div>
+            <div style={{fontSize:11,color:'var(--text-tertiary)'}}>{filtered.length} of {baseFiltered.length} match · status filter applied first, then advanced.</div>
+          </div>
+        )}
+
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>Deal</th><th>Agent</th><th>Pool</th><th>Agent</th><th>TL</th><th>Company</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <thead><tr><th>Deal</th><th>Agent</th><th>Pool</th><th>Agent</th><th>TL</th><th>Mgr</th><th>Dir</th><th>Co</th><th>Status</th><th>Created</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>{filtered.map(c=>(
               <tr key={c.id}>
                 <td className="bold">{c.deal}</td>
@@ -228,13 +397,17 @@ export const CommissionEngine = () => {
                 <td className="bold">{fmt(c.pool)}</td>
                 <td>{fmt(c.agentShare)}</td>
                 <td>{fmt(c.tlShare)}</td>
+                <td>{fmt(c.managerShare)}</td>
+                <td>{fmt(c.directorShare)}</td>
                 <td>{fmt(c.companyShare)}</td>
                 <td><span className={`badge ${statusBadge(c.status)}`}>{c.status}</span></td>
+                <td className="muted" style={{fontSize:11,fontFamily:'ui-monospace,monospace'}}>{c.createdAt || '—'}</td>
                 <td style={{textAlign:'right'}}><div className="row-actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>view(c)}><Eye size={13}/></button>
                   {c.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>approve(c)}>Approve</button>}
                   {c.status==='Approved' && <button className="btn btn-success btn-sm" onClick={()=>markPaid(c)}><CheckCircle2 size={13}/> Mark Paid</button>}
                   {c.status==='Paid' && <span style={{color:'var(--success)',fontWeight:600,fontSize:12}}>Paid ✓</span>}
+                  {c.status==='Rejected' && <span style={{color:'var(--danger)',fontWeight:600,fontSize:12}}>Rejected</span>}
                 </div></td>
               </tr>
             ))}</tbody>

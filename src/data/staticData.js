@@ -927,32 +927,57 @@ export const DEALS_REV = [
   { id:'DL025', unit:'HP-A-220',    developer:'Hyde Park',     agent:'Ahmed Hassan',  price:9800000,  revenue:196000, status:'Approved' },
 ];
 
+// Commission split breakdown (May 2026 — auditor + Finance Officer ask):
+// Pool is divided across the four sales-track personas + company:
+//   agent      ≈ 33.33%  (1/3 of pool)
+//   teamLeader ≈ 10%
+//   manager    ≈  5%
+//   director   ≈  3%
+//   company    ≈ 48.67%  (remainder — covers ops, overhead, marketing)
+// Names of the three management persons are denormalised onto each row so
+// the detail drawer and the action log can show '→ Omar Sherif' rather
+// than just 'TL share'.
+const _split = (pool) => {
+  const agentShare    = Math.round(pool * 0.3333);
+  const tlShare       = Math.round(pool * 0.10);
+  const managerShare  = Math.round(pool * 0.05);
+  const directorShare = Math.round(pool * 0.03);
+  const companyShare  = pool - agentShare - tlShare - managerShare - directorShare;
+  return { agentShare, tlShare, managerShare, directorShare, companyShare };
+};
+// Demo hierarchy — same TL / Manager / Director chain for every row in the
+// seed. In production these would come from the deal's owner → reporting
+// graph at the time the commission row is created.
+const _TL = 'Omar Sherif';
+const _MGR = 'Nour El-Din';
+const _DIR = 'Tarek Amin';
+
 export const COMM_ENGINE = [
-  { id:'CE-01', deal:'PH-BAD-A101', agent:'Ahmed Hassan', pool:135000, agentShare:45000, tlShare:13500, companyShare:76500, status:'Approved' },
-  { id:'CE-02', deal:'EM-VIL-B205', agent:'Fatma Ibrahim', pool:186000, agentShare:62000, tlShare:18600, companyShare:105400, status:'Pending' },
-  { id:'CE-03', deal:'MV-IC-C310', agent:'Mohamed Ali', pool:114000, agentShare:38000, tlShare:11400, companyShare:64600, status:'Paid' },
-  { id:'CE-04', deal:'ORA-ZED-D102', agent:'Sara Nabil', pool:153000, agentShare:51000, tlShare:15300, companyShare:86700, status:'Approved' },
-  { id:'CE-05', deal:'CE-NC-E201', agent:'Dina Samir', pool:87000, agentShare:29000, tlShare:8700, companyShare:49300, status:'Pending' },
-  { id:'CE-06', deal:'TM-OW-F305', agent:'Ahmed Hassan', pool:234000, agentShare:78000, tlShare:23400, companyShare:132600, status:'Paid' },
-  { id:'CE-07', deal:'SD-EST-G110', agent:'Mohamed Ali', pool:276000, agentShare:92000, tlShare:27600, companyShare:156400, status:'Approved' },
+  { id:'CE-01', deal:'PH-BAD-A101', agent:'Ahmed Hassan',  pool:135000, ..._split(135000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-12' },
+  { id:'CE-02', deal:'EM-VIL-B205', agent:'Fatma Ibrahim', pool:186000, ..._split(186000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-14' },
+  { id:'CE-03', deal:'MV-IC-C310',  agent:'Mohamed Ali',   pool:114000, ..._split(114000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Paid',     createdAt:'2026-03-22' },
+  { id:'CE-04', deal:'ORA-ZED-D102',agent:'Sara Nabil',    pool:153000, ..._split(153000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-30' },
+  { id:'CE-05', deal:'CE-NC-E201',  agent:'Dina Samir',    pool:87000,  ..._split(87000),  teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-16' },
+  { id:'CE-06', deal:'TM-OW-F305',  agent:'Ahmed Hassan',  pool:234000, ..._split(234000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Paid',     createdAt:'2026-02-18' },
+  { id:'CE-07', deal:'SD-EST-G110', agent:'Mohamed Ali',   pool:276000, ..._split(276000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-05-02' },
   // ─── Expansion seed (May 2026) ───
-  { id:'CE-08', deal:'PH-NC-V101', agent:'Fatma Ibrahim', pool:396000, agentShare:132000, tlShare:39600, companyShare:224400, status:'Approved' },
-  { id:'CE-09', deal:'HP-TH-B304', agent:'Fatma Ibrahim', pool:372000, agentShare:124000, tlShare:37200, companyShare:210800, status:'Pending'  },
-  { id:'CE-10', deal:'MR-CH-12',   agent:'Fatma Ibrahim', pool:510000, agentShare:170000, tlShare:51000, companyShare:289000, status:'Approved' },
-  { id:'CE-11', deal:'HB-CH-A12',  agent:'Hana Mahmoud',  pool:708750, agentShare:236250, tlShare:70875, companyShare:401625, status:'Pending'  },
-  { id:'CE-12', deal:'MV-DX-44',   agent:'Ahmed Hassan',  pool:276000, agentShare:92000,  tlShare:27600, companyShare:156400, status:'Paid'     },
-  { id:'CE-13', deal:'SW-V-08',    agent:'Fatma Ibrahim', pool:324450, agentShare:108150, tlShare:32445, companyShare:183855, status:'Paid'     },
-  { id:'CE-14', deal:'CH-A-110',   agent:'Omar Sherif',   pool:122400, agentShare:40800,  tlShare:12240, companyShare:69360,  status:'Pending'  },
-  { id:'CE-15', deal:'MV-V-201',   agent:'Ahmed Hassan',  pool:257400, agentShare:85800,  tlShare:25740, companyShare:145860, status:'Pending'  },
-  { id:'CE-16', deal:'ET-A-301',   agent:'Fatma Ibrahim', pool:417450, agentShare:139150, tlShare:41745, companyShare:236555, status:'Approved' },
-  { id:'CE-17', deal:'PP-TW-15',   agent:'Ahmed Hassan',  pool:345000, agentShare:115000, tlShare:34500, companyShare:195500, status:'Approved' },
-  { id:'CE-18', deal:'CFC-A-410',  agent:'Omar Sherif',   pool:234000, agentShare:78000,  tlShare:23400, companyShare:132600, status:'Approved' },
-  { id:'CE-19', deal:'MR-PH-08',   agent:'Hana Mahmoud',  pool:660000, agentShare:220000, tlShare:66000, companyShare:374000, status:'Pending'  },
-  { id:'CE-20', deal:'ZH-A-105',   agent:'Ahmed Hassan',  pool:101250, agentShare:33750,  tlShare:10125, companyShare:57375,  status:'Approved' },
-  { id:'CE-21', deal:'TS-CH-22',   agent:'Hana Mahmoud',  pool:210000, agentShare:70000,  tlShare:21000, companyShare:119000, status:'Paid'     },
-  { id:'CE-22', deal:'CG-A-308',   agent:'Fatma Ibrahim', pool:279000, agentShare:93000,  tlShare:27900, companyShare:158100, status:'Approved' },
-  { id:'CE-23', deal:'AR-A-505',   agent:'Omar Sherif',   pool:108000, agentShare:36000,  tlShare:10800, companyShare:61200,  status:'Paid'     },
-  { id:'CE-24', deal:'HP-A-220',   agent:'Ahmed Hassan',  pool:294000, agentShare:98000,  tlShare:29400, companyShare:166600, status:'Approved' },
+  { id:'CE-08', deal:'PH-NC-V101',  agent:'Fatma Ibrahim', pool:396000, ..._split(396000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-05' },
+  { id:'CE-09', deal:'HP-TH-B304',  agent:'Fatma Ibrahim', pool:372000, ..._split(372000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-10' },
+  { id:'CE-10', deal:'MR-CH-12',    agent:'Fatma Ibrahim', pool:510000, ..._split(510000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-18' },
+  { id:'CE-11', deal:'HB-CH-A12',   agent:'Hana Mahmoud',  pool:708750, ..._split(708750), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-15' },
+  { id:'CE-12', deal:'MV-DX-44',    agent:'Ahmed Hassan',  pool:276000, ..._split(276000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Paid',     createdAt:'2026-01-25' },
+  { id:'CE-13', deal:'SW-V-08',     agent:'Fatma Ibrahim', pool:324450, ..._split(324450), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Paid',     createdAt:'2026-02-08' },
+  { id:'CE-14', deal:'CH-A-110',    agent:'Omar Sherif',   pool:122400, ..._split(122400), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-17' },
+  { id:'CE-15', deal:'MV-V-201',    agent:'Ahmed Hassan',  pool:257400, ..._split(257400), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-09' },
+  { id:'CE-16', deal:'ET-A-301',    agent:'Fatma Ibrahim', pool:417450, ..._split(417450), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-22' },
+  { id:'CE-17', deal:'PP-TW-15',    agent:'Ahmed Hassan',  pool:345000, ..._split(345000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-28' },
+  { id:'CE-18', deal:'CFC-A-410',   agent:'Omar Sherif',   pool:234000, ..._split(234000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-05-04' },
+  { id:'CE-19', deal:'MR-PH-08',    agent:'Hana Mahmoud',  pool:660000, ..._split(660000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Pending',  createdAt:'2026-05-13' },
+  { id:'CE-20', deal:'ZH-A-105',    agent:'Ahmed Hassan',  pool:101250, ..._split(101250), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-10' },
+  { id:'CE-21', deal:'TS-CH-22',    agent:'Hana Mahmoud',  pool:210000, ..._split(210000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Paid',     createdAt:'2026-03-05' },
+  { id:'CE-22', deal:'CG-A-308',    agent:'Fatma Ibrahim', pool:279000, ..._split(279000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-04-24' },
+  { id:'CE-23', deal:'AR-A-505',    agent:'Omar Sherif',   pool:108000, ..._split(108000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Paid',     createdAt:'2026-02-12' },
+  { id:'CE-24', deal:'HP-A-220',    agent:'Ahmed Hassan',  pool:294000, ..._split(294000), teamLeader:_TL, manager:_MGR, director:_DIR, status:'Approved', createdAt:'2026-05-06' },
 ];
 
 export const AGENT_DUES = [
