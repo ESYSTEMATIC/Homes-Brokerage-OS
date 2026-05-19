@@ -6,7 +6,7 @@ import {
   ShieldCheck, History, ChevronRight, UserCog,
 } from 'lucide-react';
 import {
-  HIERARCHY, canSeeLead, canAssign, assignableStaff, leadAgeDays,
+  HIERARCHY, canSeeLead, canAssign, canCreateLead, canDeleteLead, assignableStaff, leadAgeDays,
   slaForStage, isManualLockActive, isReadOnly, personaOwnerName,
 } from '../../data/crmAccess';
 
@@ -45,6 +45,11 @@ export const CrmLeads = () => {
   const allLeads = state.leads || [];
   const readOnly = isReadOnly(personaKey);
   const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
+  // Business-team policy (May 2026): only Sales Manager + up can manually
+  // create / delete leads. Agents and Team Leaders work the leads that
+  // come in from the Marketplace CTAs or get assigned by the Sales Manager.
+  const canCreate = canCreateLead(personaKey);
+  const canDelete = canDeleteLead(personaKey);
 
   // Role-scoped visibility (BRD §6 / §11) — agents see only their own,
   // team leaders see their team, managers see their cross-team scope, etc.
@@ -72,13 +77,18 @@ export const CrmLeads = () => {
       writeAudit('CRM Lead Updated', `${form.name} (${editLead.id})`, 'CRM');
       toast('Lead updated','success');
     }else{
+      // Policy guard (May 2026): only Sales Manager + up can mint leads.
+      if (!canCreate) { toast('Only Sales Manager + can create leads. Leads come from Marketplace CTA or get assigned.', 'error'); return; }
       addItem('leads',{...form,budget:form.budget?Number(form.budget):0,created:new Date().toISOString().split('T')[0],team: h.team || 'Alpha'},'L');
-      writeAudit('CRM Lead Created', `${form.name} (manual entry — protected 6 months)`, 'CRM');
+      writeAudit('CRM Lead Created', `${form.name} (manual entry by ${persona.label} — protected 6 months)`, 'CRM');
       toast('Lead created — protected from reassignment for 6 months','success');
     }
     setShowAdd(false);
   };
-  const handleDel = id=>{removeItem('leads',id);writeAudit('CRM Lead Deleted', id, 'CRM');toast('Lead deleted','success');};
+  const handleDel = id=>{
+    if (!canDelete) { toast('Only Sales Manager + can delete leads', 'error'); return; }
+    removeItem('leads',id);writeAudit('CRM Lead Deleted', id, 'CRM');toast('Lead deleted','success');
+  };
   const toggleSel = id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
 
   const openReassign = l => { setReassignLead(l); setReassignTo(l.owner || ''); };
@@ -131,7 +141,7 @@ export const CrmLeads = () => {
       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
         {!readOnly && <button className="btn btn-sm btn-brand" onClick={()=>openEdit(l)}><Edit size={13}/> Edit</button>}
         {canAssign(personaKey, l) && <button className="btn btn-sm btn-outline" onClick={()=>openReassign(l)}><UserCog size={13}/> Reassign</button>}
-        {!readOnly && <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>handleDel(l.id)}><Trash2 size={13}/> Delete</button>}
+        {canDelete && <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>handleDel(l.id)}><Trash2 size={13}/> Delete</button>}
         <button className="btn btn-sm btn-outline" onClick={()=>navigate(`/system/crm/leads/${l.id}`)}>Open detail page <ChevronRight size={13}/></button>
       </div>
     </div>
@@ -211,8 +221,13 @@ export const CrmLeads = () => {
               {(state.audit || []).filter(a => a.action?.includes('Reassigned')).length === 0 && <div style={{fontSize:13,color:'var(--text-secondary)'}}>No reassignments logged yet.</div>}
             </div>
           )})}><History size={14}/> Audit trail</button>
-          {!readOnly && <button className="btn btn-brand" onClick={openAdd2}><Plus size={16}/> Add Lead</button>}
+          {canCreate && <button className="btn btn-brand" onClick={openAdd2}><Plus size={16}/> Add Lead</button>}
           {readOnly && <span className="badge badge-warning">Read-only · audit role</span>}
+          {!canCreate && !readOnly && (
+            <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',background:'#f1f5f9',border:'1px solid var(--border)',borderRadius:6,fontSize:11,color:'var(--text-secondary)'}} title="Sales Manager policy">
+              <Lock size={12}/> Leads arrive from Marketplace CTA · assigned by Sales Manager
+            </span>
+          )}
         </div>
         <div style={{marginTop:8,fontSize:12,color:'var(--text-tertiary)'}}>Showing {filtered.length} of {visible.length} leads</div>
       </div>
@@ -241,7 +256,7 @@ export const CrmLeads = () => {
                 <button className="btn-icon" title="View" onClick={()=>viewDetail(l)}><Eye size={14}/></button>
                 {!readOnly && <button className="btn-icon" title="Edit" onClick={()=>openEdit(l)}><Edit size={14}/></button>}
                 {canAssign(personaKey, l) && <button className="btn-icon" title="Reassign" onClick={()=>openReassign(l)}><UserCog size={14}/></button>}
-                {!readOnly && <button className="btn-icon" title="Delete" style={{color:'var(--danger)'}} onClick={()=>handleDel(l.id)}><Trash2 size={14}/></button>}
+                {canDelete && <button className="btn-icon" title="Delete" style={{color:'var(--danger)'}} onClick={()=>handleDel(l.id)}><Trash2 size={14}/></button>}
               </div>
             </td>
           </tr>

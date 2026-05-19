@@ -112,6 +112,25 @@ export const canManageColdCalls = (personaKey) => canSeeCrmModule(personaKey, 'c
 export const canImportColdCalls = (personaKey) =>
   canSeeCrmModule(personaKey, 'coldCallsImport') || canSeeCrmModule(personaKey, 'coldCalls');
 
+// Returns true if the user can MANUALLY CREATE a lead in the CRM.
+// Business-team policy (May 2026): agents cannot create leads — those flow
+// in automatically from the public Marketplace CTAs (Buy / Sell / Mortgage /
+// Tour-request / Inquiry forms) or from Cold-Call imports, and are assigned
+// by the Sales Manager / Sales Director. Manual creation is reserved for
+// Sales Manager and up so they can immediately set the owner.
+export const canCreateLead = (personaKey) => {
+  const h = HIERARCHY[personaKey];
+  if (!h) return false;
+  // 'cross' = Sales Manager, 'all' = Sales Director.
+  // Backoffice / System Admins keep mutate rights via 'audit' explicitly here.
+  return h.scope === 'cross' || h.scope === 'all' || personaKey === 'backofficeAdmin' || personaKey === 'systemAdmin';
+};
+
+// Returns true if the user can DELETE a lead. Same gate as create — only
+// Sales Manager and up. Agents can update stage / priority / notes on their
+// own leads but cannot remove them from the pipeline.
+export const canDeleteLead = (personaKey) => canCreateLead(personaKey);
+
 // Returns true if the user can ASSIGN / REASSIGN a lead's owner.
 // Honors the 6-month manual-lead protection (BRD §6.1.4).
 export const canAssign = (personaKey, lead) => {
