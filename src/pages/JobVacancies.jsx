@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
 import { Plus, Download, Eye, Pencil, Globe, Archive } from 'lucide-react';
 import { JOB_STATUS } from '../data/staticData';
+import { VacancyCandidates } from '../components/VacancyCandidates';
 
 const statusColor = s => {
   if (s === 'Published') return 'badge-success';
@@ -175,6 +176,13 @@ export const JobVacancies = () => {
           <button className="btn btn-primary" onClick={()=>openForm(j)}><Pencil size={14}/> Edit</button>
           {j.status==='Draft' && <button className="btn btn-success" onClick={()=>publish(j)}><Globe size={14}/> Publish</button>}
           {j.status==='Published' && <button className="btn btn-danger" onClick={()=>close(j)}><Archive size={14}/> Close</button>}
+        </div>
+
+        {/* Business-team feedback (May 2026): candidate pipeline must live
+            inside the vacancy detail. All controls — Add Candidate, Stage
+            change, View, Reject — are driven from here. */}
+        <div style={{marginTop:24, paddingTop:18, borderTop:'2px solid var(--border)'}}>
+          <VacancyCandidates vacancy={j} showAnalytics={true}/>
         </div>
       </>
     ),

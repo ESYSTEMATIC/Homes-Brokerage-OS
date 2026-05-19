@@ -1,8 +1,40 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
-import { Plus, Download, Eye, ChevronRight, X, FileText, CheckCircle2, Send, Award, AlertCircle } from 'lucide-react';
+import { Plus, Download, Eye, ChevronRight, X, FileText, CheckCircle2, Send, Award, AlertCircle, Briefcase, Info } from 'lucide-react';
 import { CANDIDATE_STAGES, OFFER_STAGES } from '../data/staticData';
+
+// Stage <select> — business-team feedback (May 2026): HR moves candidates
+// between stages via dropdown, not via "Next Step" auto-advance.
+const stageBadgeTone = (v) =>
+  v === 'Offer' ? { bg:'#dcfce7', fg:'#166534', border:'#86efac' }
+  : v === 'Rejected' ? { bg:'#fee2e2', fg:'#991b1b', border:'#fca5a5' }
+  : v === 'Interview' ? { bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' }
+  : v === 'Screening' ? { bg:'#fef3c7', fg:'#92400e', border:'#fcd34d' }
+  : { bg:'#f1f5f9', fg:'#475569', border:'#cbd5e1' };
+
+const StageSelectInline = ({ value, onChange }) => {
+  const t = stageBadgeTone(value);
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)}
+      style={{
+        appearance:'none',
+        padding:'5px 26px 5px 10px',
+        fontSize:11, fontWeight:700,
+        background: `${t.bg} url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23${t.fg.slice(1)}' stroke-width='3'><polyline points='6 9 12 15 18 9'/></svg>") right 8px center / 10px no-repeat`,
+        color: t.fg,
+        border: `1px solid ${t.border}`,
+        borderRadius: 999,
+        cursor:'pointer',
+        outline:'none',
+      }}
+      title="Move candidate to a different stage"
+    >
+      {CANDIDATE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+    </select>
+  );
+};
 
 const stageColor = s => s==='Offer'?'badge-success':s==='Rejected'?'badge-danger':s==='Interview'?'badge-info':s==='Screening'?'badge-warning':'badge-gray';
 const offerStageColor = s => s==='Accepted'?'badge-success':s==='Declined'||s==='Withdrawn'?'badge-danger':s==='Sent'?'badge-info':s==='Approved'?'badge-info':s==='Pending Approval'?'badge-warning':'badge-gray';
@@ -12,10 +44,12 @@ export const RecruitmentPipeline = () => {
   const isSalesDirector = personaKey === 'salesDirector';
   const interviewers = state.staff.filter(s=>['Sales Manager','Team Leader','HR Recruiter'].includes(s.type) || s.department.startsWith('HR')).map(s=>s.name);
 
+  const navigate = useNavigate();
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.candidates, {
-    searchKeys: ['name', 'job', 'source', 'id'],
-    filters: { stage: 'stage', job: 'job' },
+    searchKeys: ['name', 'job', 'vacancyId', 'id'],
+    filters: { stage: 'stage', vacancyId: 'vacancyId' },
   });
+  const vacancyById = (state.jobs || []).reduce((m, j) => { m[j.id] = j; return m; }, {});
 
   const today = () => new Date().toISOString().split('T')[0];
 
@@ -29,6 +63,10 @@ export const RecruitmentPipeline = () => {
     fr.readAsDataURL(file);
   });
 
+  // Business-team feedback (May 2026): there is no separate "source"
+  // dropdown — the source IS the vacancy. Intake therefore requires a
+  // vacancyId, and `source` is no longer stored. `score` was also removed
+  // from the hiring flow per the same review.
   const newCandidate = () => openModal({
     title: 'Add Candidate', subtitle: 'Recruitment intake · photo + CV required',
     submitLabel: 'Add candidate',
@@ -40,11 +78,11 @@ export const RecruitmentPipeline = () => {
         </FieldRow>
         <FieldRow>
           <Field label="Phone" name="phone" placeholder="+20 100 ..." required />
-          <Field label="Source" name="source" type="select" required options={['Careers Page','Referral','LinkedIn','Direct','Recruiter']} />
+          <Field label="Vacancy (source)" name="vacancyId" type="select" required
+            options={(state.jobs || []).map(j => ({ value: j.id, label: `${j.id} · ${j.title}` }))} />
         </FieldRow>
         <FieldRow>
-          <Field label="Job" name="job" type="select" required options={state.jobs.map(j=>j.title)} />
-          <Field label="Stage" name="stage" type="select" required options={CANDIDATE_STAGES} defaultValue="Applied" />
+          <Field label="Initial stage" name="stage" type="select" required options={CANDIDATE_STAGES.filter(s => s !== 'Rejected')} defaultValue="Applied" />
         </FieldRow>
         <FieldRow>
           <Field label="Profile photo" required>
@@ -63,17 +101,21 @@ export const RecruitmentPipeline = () => {
       ]);
       const photoName  = data.photo  instanceof File ? data.photo.name  : null;
       const resumeName = data.resume instanceof File ? data.resume.name : null;
+      const vac = vacancyById[data.vacancyId];
       const c = addItem('candidates', {
         name: data.name, email: data.email, phone: data.phone,
-        source: data.source, job: data.job, stage: data.stage,
+        vacancyId: data.vacancyId,
+        job: vac?.title || '—',
+        stage: data.stage,
         photoDataUrl, photoName,
         resumeDataUrl, resumeName,
-        applied: today(), score: null, interviewer: null,
+        applied: today(), interviewer: null,
       }, 'CAN', {
         action: 'Candidate Added', module: 'Recruitment',
-        detail: `${data.name} for ${data.job} · photo + CV attached`,
+        target: data.vacancyId,
+        detail: `${data.name} for ${vac?.title || data.vacancyId} · photo + CV attached`,
       });
-      toast(`Candidate ${c.id} added`);
+      toast(`Candidate ${c.id} added to ${data.vacancyId}`);
     },
   });
 
@@ -244,29 +286,58 @@ export const RecruitmentPipeline = () => {
     content: <OfferLetterPreview offer={offer} />,
   });
 
-  const advance = (c) => {
-    const idx = CANDIDATE_STAGES.indexOf(c.stage);
-    const next = CANDIDATE_STAGES[Math.min(idx+1, CANDIDATE_STAGES.length-2)]; // skip Rejected
-    if (next === 'Interview') return openModal({
-      title: `Schedule interview — ${c.name}`, subtitle: 'Multi-interviewer scoring',
-      submitLabel: 'Schedule',
-      body: (
-        <>
-          <FieldRow>
-            <Field label="Interviewer" name="interviewer" type="select" required options={interviewers} />
-            <Field label="Date" name="date" type="date" defaultValue={today()} required />
-          </FieldRow>
-          <Field label="Notes" name="notes" type="textarea" placeholder="Agenda, focus areas…" />
-        </>
-      ),
-      onSubmit: ({ interviewer }) => {
-        updateItem('candidates', c.id, { stage: 'Interview', interviewer }, { action: 'Interview Scheduled', module: 'Recruitment', target: c.id, detail: `with ${interviewer}` });
-        toast(`${c.name} → Interview · ${interviewer}`);
-      },
-    });
-    if (next === 'Offer') return draftOffer(c);
-    updateItem('candidates', c.id, { stage: next }, { action: 'Candidate Advanced', module: 'Recruitment', target: `${c.id} → ${next}` });
-    toast(`${c.name} → ${next}`);
+  // Business-team feedback (May 2026): HR moves candidates via stage
+  // dropdown, not auto-advance. The function now accepts an arbitrary
+  // target stage. Interview prompts for an interviewer; Offer launches the
+  // draft-offer flow; Rejected prompts for a reason; everything else is a
+  // direct write to the audit log.
+  const changeStage = (c, newStage) => {
+    if (newStage === c.stage) return;
+
+    if (newStage === 'Rejected') {
+      openModal({
+        title: `Reject — ${c.name}`, submitLabel: 'Reject', danger: true,
+        body: <Field label="Reason" name="reason" type="textarea" required placeholder="Visible in audit trail" />,
+        onSubmit: ({ reason }) => {
+          updateItem('candidates', c.id, { stage: 'Rejected', rejectionReason: reason }, { action: 'Candidate Rejected', module: 'Recruitment', target: c.id, detail: reason });
+          toast(`${c.name} rejected`, 'warning');
+        },
+      });
+      return;
+    }
+
+    if (newStage === 'Interview' && c.stage !== 'Interview') {
+      openModal({
+        title: `Schedule interview — ${c.name}`,
+        // Note: no scoring — business team removed score attribute from the
+        // hiring flow. We schedule the interview and capture interviewer
+        // + notes only.
+        subtitle: 'Capture interviewer + date · notes optional',
+        submitLabel: 'Schedule & move stage',
+        body: (
+          <>
+            <FieldRow>
+              <Field label="Interviewer" name="interviewer" type="select" required options={interviewers} />
+              <Field label="Date" name="date" type="date" defaultValue={today()} required />
+            </FieldRow>
+            <Field label="Notes" name="notes" type="textarea" placeholder="Agenda, focus areas…" />
+          </>
+        ),
+        onSubmit: ({ interviewer }) => {
+          updateItem('candidates', c.id, { stage: 'Interview', interviewer }, { action: 'Interview Scheduled', module: 'Recruitment', target: c.id, detail: `with ${interviewer}` });
+          toast(`${c.name} → Interview · ${interviewer}`);
+        },
+      });
+      return;
+    }
+
+    if (newStage === 'Offer' && c.stage !== 'Offer') {
+      draftOffer(c);
+      return;
+    }
+
+    updateItem('candidates', c.id, { stage: newStage }, { action: 'Candidate Stage Change', module: 'Recruitment', target: c.id, detail: `${c.stage} → ${newStage} (HR direct)` });
+    toast(`${c.name} → ${newStage}`);
   };
 
   const reject = (c) => openModal({
@@ -294,8 +365,20 @@ export const RecruitmentPipeline = () => {
           </div>
         </div>
 
+        {/* Stage as dropdown (HR-direct change) lives here too so the
+            drawer mirrors the row control. Score field removed per business
+            review — no scoring is conducted in the hiring flow. */}
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em', display:'block', marginBottom:6}}>Stage</label>
+          <StageSelectInline value={c.stage} onChange={(s) => changeStage(c, s)}/>
+        </div>
         <div className="detail-grid">
-          {[['ID',c.id],['Job',c.job],['Stage',c.stage],['Score',c.score??'—'],['Source',c.source],['Applied',c.applied],['Interviewer',c.interviewer||'—']].map(([k,v])=>(
+          {[
+            ['ID', c.id],
+            ['Vacancy (source)', c.vacancyId ? `${c.vacancyId} (${vacancyById[c.vacancyId]?.title || c.job || '—'})` : (c.job || '—')],
+            ['Applied', c.applied],
+            ['Interviewer', c.interviewer || '—'],
+          ].map(([k, v]) => (
             <div key={k}><label>{k}</label><div className="v">{v}</div></div>
           ))}
         </div>
@@ -328,9 +411,18 @@ export const RecruitmentPipeline = () => {
           )}
         </div>
 
-        <div style={{marginTop:18,display:'flex',gap:8,flexWrap:'wrap'}}>
-          {!['Rejected','Offer'].includes(c.stage) && <button className="btn btn-primary" onClick={()=>advance(c)}><ChevronRight size={14}/> Advance Stage</button>}
-          {c.stage!=='Rejected' && <button className="btn btn-danger" onClick={()=>reject(c)}><X size={14}/> Reject</button>}
+        {/* Stage transitions are now handled by the dropdown above. The
+            Reject button is kept as a quick action because it captures a
+            mandatory reason that the stage-change handler routes through. */}
+        <div style={{marginTop:18, display:'flex', gap:8, flexWrap:'wrap'}}>
+          {c.vacancyId && (
+            <button className="btn btn-outline" onClick={() => navigate(`/backoffice/jobs?openVacancy=${c.vacancyId}`)}>
+              <Briefcase size={14}/> Open vacancy {c.vacancyId}
+            </button>
+          )}
+          {c.stage !== 'Rejected' && (
+            <button className="btn btn-danger" onClick={() => changeStage(c, 'Rejected')}><X size={14}/> Reject</button>
+          )}
         </div>
       </>
     ),
@@ -348,14 +440,16 @@ export const RecruitmentPipeline = () => {
   })();
   const conversionPct = funnelStats.total === 0 ? 0 : Math.round(((funnelStats.counts['Offer'] || 0) / funnelStats.total) * 100);
 
-  // Source-of-hire ROI: hires made = candidates that reached Offer stage.
+  // Vacancy-of-hire ROI — replaces the old Source ROI per business
+  // feedback. Hires made = candidates that reached Offer stage, grouped by
+  // the vacancy they applied to.
   const sourceROI = (() => {
     const groups = {};
     state.candidates.forEach(c => {
-      const src = c.source || 'Other';
-      groups[src] = groups[src] || { applied: 0, offers: 0 };
-      groups[src].applied += 1;
-      if (c.stage === 'Offer') groups[src].offers += 1;
+      const key = c.vacancyId ? `${c.vacancyId} · ${vacancyById[c.vacancyId]?.title || ''}` : (c.job || 'Other');
+      groups[key] = groups[key] || { applied: 0, offers: 0 };
+      groups[key].applied += 1;
+      if (c.stage === 'Offer') groups[key].offers += 1;
     });
     return Object.entries(groups).map(([source, g]) => ({
       source, ...g, pct: g.applied ? Math.round((g.offers / g.applied) * 100) : 0,
@@ -394,7 +488,20 @@ export const RecruitmentPipeline = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Candidate Pipeline</span></div>
         <h1 className="page-title">Candidate Pipeline</h1>
-        <p className="page-subtitle">Manage candidates, interviews, scorecards · funnel + time-to-fill analytics</p>
+        <p className="page-subtitle">Cross-vacancy overview · for per-vacancy management, open the vacancy detail</p>
+      </div>
+
+      {/* Business-team feedback (May 2026): the canonical place to manage
+          candidates is inside each Job Vacancy. This page remains as a
+          cross-vacancy overview so HR can scan everything at once. */}
+      <div style={{padding:'12px 16px', background:'var(--brand-tint)', border:'1px solid #fed7aa', borderRadius:10, marginBottom:16, display:'flex', alignItems:'center', gap:12}}>
+        <Info size={18} color="#9a3412" style={{flexShrink:0}}/>
+        <div style={{fontSize:12, color:'#7c2d12', lineHeight:1.5, flex:1}}>
+          <b>Per-vacancy management is the canonical workflow.</b> Add Candidate, stage transitions, and rejections live inside each <b>Job Vacancy</b> detail page so the candidate stays scoped to the vacancy they applied to. This page is an HR-wide overview for funnel + time-to-fill analytics only.
+        </div>
+        <button className="btn btn-sm btn-outline" onClick={() => navigate('/backoffice/jobs')}>
+          <Briefcase size={13}/> Go to Job Vacancies
+        </button>
       </div>
 
       {/* ── Funnel Analytics ─────────────────────────────────── */}
@@ -418,8 +525,9 @@ export const RecruitmentPipeline = () => {
             <select className="data-select" value={filterVals.stage} onChange={e=>setFilter('stage', e.target.value)}>
               <option value="">All Stages</option>{CANDIDATE_STAGES.map(s=><option key={s}>{s}</option>)}
             </select>
-            <select className="data-select" value={filterVals.job} onChange={e=>setFilter('job', e.target.value)}>
-              <option value="">All Jobs</option>{[...new Set(state.candidates.map(c=>c.job))].map(j=><option key={j}>{j}</option>)}
+            <select className="data-select" value={filterVals.vacancyId} onChange={e=>setFilter('vacancyId', e.target.value)}>
+              <option value="">All Vacancies</option>
+              {(state.jobs || []).map(j => <option key={j.id} value={j.id}>{j.id} · {j.title}</option>)}
             </select>
           </div>
           <div style={{display:'flex',gap:8}}>
@@ -429,8 +537,10 @@ export const RecruitmentPipeline = () => {
         </div>
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>ID</th><th>Name</th><th>Job</th><th>Stage</th><th>Score</th><th>Source</th><th>Applied</th><th>Interviewer</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
-            <tbody>{filtered.map(c=>(
+            <thead><tr><th>ID</th><th>Name</th><th>Vacancy (source)</th><th>Stage</th><th>Applied</th><th>Interviewer</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <tbody>{filtered.map(c=>{
+              const vac = c.vacancyId ? vacancyById[c.vacancyId] : null;
+              return (
               <tr key={c.id}>
                 <td className="muted">{c.id}</td>
                 <td className="bold">
@@ -452,19 +562,29 @@ export const RecruitmentPipeline = () => {
                     </div>
                   </div>
                 </td>
-                <td>{c.job}</td>
-                <td><span className={`badge ${stageColor(c.stage)}`}>{c.stage}</span></td>
-                <td className="bold">{c.score??'—'}</td>
-                <td className="muted">{c.source}</td>
+                <td>
+                  {vac ? (
+                    <div>
+                      <div style={{fontWeight:700, fontSize:12}}>{vac.id}</div>
+                      <div style={{fontSize:11, color:'var(--text-secondary)'}}>{vac.title}</div>
+                    </div>
+                  ) : c.vacancyId ? (
+                    <span className="muted" style={{fontSize:11}}>{c.vacancyId} (vacancy not found)</span>
+                  ) : (
+                    <span className="muted" style={{fontSize:11}}>{c.job || '—'}</span>
+                  )}
+                </td>
+                <td><StageSelectInline value={c.stage} onChange={(s) => changeStage(c, s)}/></td>
                 <td className="muted">{c.applied}</td>
                 <td>{c.interviewer||'—'}</td>
                 <td style={{textAlign:'right'}}><div className="row-actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>view(c)}><Eye size={13}/> View</button>
-                  {!['Rejected','Offer'].includes(c.stage) && <button className="btn btn-primary btn-sm" onClick={()=>advance(c)}>Next Step</button>}
-                  {c.stage!=='Rejected' && <button className="btn btn-danger btn-sm" onClick={()=>reject(c)}>Reject</button>}
+                  {c.vacancyId && (
+                    <button className="btn btn-outline btn-sm" title="Open vacancy detail" onClick={() => navigate(`/backoffice/jobs?openVacancy=${c.vacancyId}`)}><Briefcase size={13}/></button>
+                  )}
                 </div></td>
               </tr>
-            ))}</tbody>
+            );})}</tbody>
           </table>
           {filtered.length===0 && <Empty />}
         </div>
@@ -737,12 +857,13 @@ const RecruitmentAnalytics = ({ funnel, conversionPct, sourceROI, timeToFill, di
           </div>
         </div>
 
-        {/* Source ROI */}
+        {/* Vacancy-of-hire ROI — was Source ROI, renamed to reflect that
+            the vacancy is the source per business review. */}
         <div>
-          <h4 style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Source ROI</h4>
+          <h4 style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Vacancy-of-Hire ROI</h4>
           <table style={{width:'100%', fontSize:11, borderCollapse:'collapse'}}>
             <thead><tr style={{color:'var(--text-tertiary)'}}>
-              <th style={{textAlign:'left', padding:'4px 0', fontWeight:500}}>Source</th>
+              <th style={{textAlign:'left', padding:'4px 0', fontWeight:500}}>Vacancy</th>
               <th style={{textAlign:'right', padding:'4px 0', fontWeight:500}}>Applied</th>
               <th style={{textAlign:'right', padding:'4px 0', fontWeight:500}}>Offers</th>
               <th style={{textAlign:'right', padding:'4px 0', fontWeight:500}}>%</th>
@@ -750,13 +871,13 @@ const RecruitmentAnalytics = ({ funnel, conversionPct, sourceROI, timeToFill, di
             <tbody>
               {sourceROI.map(s => (
                 <tr key={s.source} style={{borderTop:'1px solid #f1f5f9'}}>
-                  <td style={{padding:'5px 0', fontWeight:600}}>{s.source}</td>
+                  <td style={{padding:'5px 0', fontWeight:600, fontSize:11}}>{s.source}</td>
                   <td style={{textAlign:'right', padding:'5px 0'}}>{s.applied}</td>
                   <td style={{textAlign:'right', padding:'5px 0', fontWeight:700, color: s.offers > 0 ? '#10b981' : 'var(--text-tertiary)'}}>{s.offers}</td>
                   <td style={{textAlign:'right', padding:'5px 0', fontWeight:700, color: s.pct >= 30 ? '#10b981' : s.pct >= 15 ? '#f59e0b' : '#94a3b8'}}>{s.pct}%</td>
                 </tr>
               ))}
-              {sourceROI.length === 0 && <tr><td colSpan={4} style={{textAlign:'center', color:'var(--text-tertiary)', padding:8}}>No source data</td></tr>}
+              {sourceROI.length === 0 && <tr><td colSpan={4} style={{textAlign:'center', color:'var(--text-tertiary)', padding:8}}>No applications yet</td></tr>}
             </tbody>
           </table>
         </div>
