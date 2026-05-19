@@ -18,6 +18,11 @@ export const CrmLeadDetail = () => {
   const [showReassign, setShowReassign] = useState(false);
   const [showTourAdd, setShowTourAdd] = useState(false);
   const [showPrefAdd, setShowPrefAdd] = useState(false);
+  // Edit Preferences modal — opens with the existing prefs row pre-loaded.
+  // Saving drops `inferred: true` and stamps `confirmedBy / confirmedAt` so
+  // the system knows the agent has confirmed the campaign-inferred values.
+  const [showPrefEdit, setShowPrefEdit] = useState(false);
+  const [prefEditForm, setPrefEditForm] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showActivityAdd, setShowActivityAdd] = useState(false);
   // Triggered when a lead's stage transitions to "Qualified" — business team
@@ -46,6 +51,82 @@ export const CrmLeadDetail = () => {
   const sla = slaForStage(lead.stage, age);
 
   const prefs = buyerPreferences.find(p => p.leadId === id);
+  // Who can edit Buyer Preferences:
+  //   - The lead owner (the agent working it).
+  //   - The Team Leader / Sales Manager / Sales Director above them.
+  //   - Backoffice / System Admins for data-fixes (mutate rights).
+  // Audit-only personas (Executive / Finance) see it read-only.
+  const canEditPrefs = !readOnly && (
+    lead.owner === persona.label ||
+    h.scope === 'team' || h.scope === 'cross' || h.scope === 'all' ||
+    personaKey === 'backofficeAdmin' || personaKey === 'systemAdmin'
+  );
+
+  // Open the Edit Preferences modal with the current row pre-loaded.
+  // Multi-value fields (propertyTypes / locations / amenities / preferredDevelopers)
+  // are joined with ', ' for an easy text input; we split on submit.
+  const openEditPrefs = () => {
+    if (!prefs) return;
+    setPrefEditForm({
+      propertyTypes: (prefs.propertyTypes || []).join(', '),
+      locations:     (prefs.locations || []).join(', '),
+      bedrooms:      prefs.bedrooms || '',
+      bathrooms:     prefs.bathrooms || '',
+      budgetMin:     prefs.budgetMin || '',
+      budgetMax:     prefs.budgetMax || '',
+      preferredDevelopers: (prefs.preferredDevelopers || []).join(', '),
+      amenities:     (prefs.amenities || []).join(', '),
+      timeline:      prefs.timeline || '',
+      notes:         prefs.notes || '',
+    });
+    setShowPrefEdit(true);
+  };
+
+  // Save the edited preferences. Drops `inferred:true` because once the
+  // agent has touched the values they're no longer inferred — they're
+  // captured. Audit-log records the changed field list.
+  const submitEditPrefs = () => {
+    if (!prefs || !prefEditForm) return;
+    const splitCsv = s => (s || '').split(',').map(x => x.trim()).filter(Boolean);
+    const patch = {
+      propertyTypes:       splitCsv(prefEditForm.propertyTypes),
+      locations:           splitCsv(prefEditForm.locations),
+      bedrooms:            prefEditForm.bedrooms ? Number(prefEditForm.bedrooms) : null,
+      bathrooms:           prefEditForm.bathrooms ? Number(prefEditForm.bathrooms) : null,
+      budgetMin:           prefEditForm.budgetMin ? Number(prefEditForm.budgetMin) : 0,
+      budgetMax:           prefEditForm.budgetMax ? Number(prefEditForm.budgetMax) : 0,
+      preferredDevelopers: splitCsv(prefEditForm.preferredDevelopers),
+      amenities:           splitCsv(prefEditForm.amenities),
+      timeline:            prefEditForm.timeline,
+      notes:               prefEditForm.notes,
+      inferred:            false,
+      confirmedBy:         persona.label,
+      confirmedAt:         new Date().toISOString(),
+    };
+    // Compute changed field list for the audit detail.
+    const changed = Object.keys(patch).filter(k => {
+      if (k === 'inferred' || k === 'confirmedBy' || k === 'confirmedAt') return false;
+      const before = prefs[k];
+      const after  = patch[k];
+      if (Array.isArray(before) && Array.isArray(after)) return before.join(',') !== after.join(',');
+      return (before ?? '') !== (after ?? '');
+    });
+    updateItem('buyerPreferences', prefs.id, patch);
+    writeAudit('CRM Buyer Preferences Updated', `${lead.name} (${lead.id})`, 'CRM', `By ${persona.label} · changed: ${changed.length ? changed.join(', ') : 'confirmed-as-is'}${prefs.inferred ? ' · was inferred from ' + (prefs.inferredFrom || 'campaign') : ''}`);
+    toast(prefs.inferred ? 'Preferences confirmed & refined' : 'Preferences updated', 'success');
+    setShowPrefEdit(false);
+  };
+
+  // One-click "Confirm as-is" — flips `inferred: false` without touching
+  // any other field. Useful when the campaign signal was already accurate
+  // and the agent just wants to mark it as confirmed on the call.
+  const confirmPrefsAsIs = () => {
+    if (!prefs || !prefs.inferred) return;
+    updateItem('buyerPreferences', prefs.id, { inferred: false, confirmedBy: persona.label, confirmedAt: new Date().toISOString() });
+    writeAudit('CRM Buyer Preferences Confirmed', `${lead.name} (${lead.id})`, 'CRM', `By ${persona.label} · confirmed as-is · was inferred from ${prefs.inferredFrom || 'campaign'}`);
+    toast('Preferences confirmed as-is', 'success');
+  };
+
   const sourceHist = sourceHistory.find(s => s.leadId === id);
   const duplicates = duplicateCandidates.filter(d => d.leadId === id);
   const assignments = assignmentLog.filter(a => a.leadId === id);
@@ -234,12 +315,36 @@ export const CrmLeadDetail = () => {
             {/* 11-May ask: surface campaign inference so the agent knows
                 these values came from the lead's source, not a phone call. */}
             {prefs.inferred && (
-              <div style={{padding:'12px 16px',background:'var(--brand-tint)',border:'1px solid rgba(232,103,42,.25)',borderRadius:10,marginBottom:16,display:'flex',gap:12,alignItems:'center'}}>
-                <div style={{width:36,height:36,borderRadius:10,background:'#fff',color:'var(--brand)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:18}}>✨</div>
-                <div style={{flex:1}}>
+              <div style={{padding:'12px 16px',background:'var(--brand-tint)',border:'1px solid rgba(232,103,42,.25)',borderRadius:10,marginBottom:16,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+                <div style={{width:36,height:36,borderRadius:10,background:'#fff',color:'var(--brand)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:18,flexShrink:0}}>✨</div>
+                <div style={{flex:1,minWidth:200}}>
                   <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Auto-filled from campaign signal · <i>{prefs.inferredFrom}</i></div>
-                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:2,lineHeight:1.4}}>Locations and property types below came from the campaign this lead clicked through. Agent confirms and refines on first call — open the conversation already knowing the interest area.</div>
+                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:2,lineHeight:1.4}}>Locations and property types below came from the campaign this lead clicked through. Agent confirms and refines on first call.</div>
                 </div>
+                {canEditPrefs && (
+                  <div style={{display:'flex',gap:8}}>
+                    <button className="btn btn-sm btn-brand" onClick={openEditPrefs}><Edit size={13}/> Refine on call</button>
+                    <button className="btn btn-sm btn-outline" onClick={confirmPrefsAsIs} title="Mark these inferred values as confirmed without changing them">
+                      <CheckCircle size={13}/> Confirm as-is
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Captured-by line — shows when an agent has confirmed/refined
+                the preferences. Helps managers spot the agents who are
+                actually doing the discovery call vs leaving inferred values. */}
+            {!prefs.inferred && prefs.confirmedBy && (
+              <div style={{padding:'8px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,marginBottom:16,fontSize:11,color:'#166534',display:'flex',alignItems:'center',gap:8}}>
+                <CheckCircle size={13}/>
+                <span>Confirmed by <b>{prefs.confirmedBy}</b>{prefs.confirmedAt ? ` · ${prefs.confirmedAt.slice(0,10)}` : ''}{prefs.inferredFrom ? ` · originally inferred from ${prefs.inferredFrom}` : ''}</span>
+              </div>
+            )}
+            {/* Edit button row when there's no inferred banner — keeps the
+                action discoverable even after the agent has confirmed. */}
+            {canEditPrefs && !prefs.inferred && (
+              <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
+                <button className="btn btn-sm btn-outline" onClick={openEditPrefs}><Edit size={13}/> Edit preferences</button>
               </div>
             )}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
@@ -407,6 +512,71 @@ export const CrmLeadDetail = () => {
           <div className="form-group" style={{gridColumn:'span 2'}}><label>Agent</label><select value={tourForm.agent} onChange={e=>setTourForm({...tourForm,agent:e.target.value})}>{staff.filter(s=>s.department==='Sales').map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
         </div>
         <div className="modal-footer"><button className="btn btn-outline" onClick={()=>setShowTourAdd(false)}>Cancel</button><button className="btn btn-brand" onClick={()=>{addItem('tours',{leadId:lead.id,leadName:lead.name,property:tourForm.property,date:tourForm.date,time:tourForm.time,agent:tourForm.agent,status:'Scheduled',rating:null,feedback:''},'TR'); toast('Tour scheduled','success');setShowTourAdd(false);}}>Schedule Tour</button></div></div></div>}
+
+      {/* Edit Preferences Modal — pre-filled from the existing prefs row.
+          On save, drops the `inferred` flag and writes confirmedBy/At so
+          the system knows the agent has captured them on a real call. */}
+      {showPrefEdit && prefEditForm && <div className="modal-overlay" onClick={()=>setShowPrefEdit(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:640}}>
+          <div className="modal-header">
+            <h3>{prefs?.inferred ? 'Refine inferred preferences' : 'Edit Buyer Preferences'}</h3>
+            <button className="btn-icon" onClick={()=>setShowPrefEdit(false)}><X size={18}/></button>
+          </div>
+          <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            {prefs?.inferred && (
+              <div style={{gridColumn:'span 2',padding:'10px 12px',background:'var(--brand-tint)',border:'1px solid rgba(232,103,42,.25)',borderRadius:8,fontSize:12,lineHeight:1.5,color:'var(--text-secondary)'}}>
+                These values came from the <b>{prefs.inferredFrom}</b> campaign. Edit them with what the customer told you on the call — saving will mark them as <b>confirmed</b>.
+              </div>
+            )}
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Property Types (comma-separated)</label>
+              <input type="text" value={prefEditForm.propertyTypes} onChange={e=>setPrefEditForm({...prefEditForm, propertyTypes:e.target.value})} placeholder="Apartment, Villa, Townhouse"/>
+            </div>
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Preferred Locations (comma-separated)</label>
+              <input type="text" value={prefEditForm.locations} onChange={e=>setPrefEditForm({...prefEditForm, locations:e.target.value})} placeholder="New Cairo, Sheikh Zayed"/>
+            </div>
+            <div className="form-group">
+              <label>Bedrooms</label>
+              <input type="number" value={prefEditForm.bedrooms} onChange={e=>setPrefEditForm({...prefEditForm, bedrooms:e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label>Bathrooms</label>
+              <input type="number" value={prefEditForm.bathrooms} onChange={e=>setPrefEditForm({...prefEditForm, bathrooms:e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label>Min Budget (EGP)</label>
+              <input type="number" value={prefEditForm.budgetMin} onChange={e=>setPrefEditForm({...prefEditForm, budgetMin:e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label>Max Budget (EGP)</label>
+              <input type="number" value={prefEditForm.budgetMax} onChange={e=>setPrefEditForm({...prefEditForm, budgetMax:e.target.value})}/>
+            </div>
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Preferred Developers (comma-separated)</label>
+              <input type="text" value={prefEditForm.preferredDevelopers} onChange={e=>setPrefEditForm({...prefEditForm, preferredDevelopers:e.target.value})} placeholder="Ora, Sodic, Mountain View"/>
+            </div>
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Amenities (comma-separated)</label>
+              <input type="text" value={prefEditForm.amenities} onChange={e=>setPrefEditForm({...prefEditForm, amenities:e.target.value})} placeholder="Club Access, Gym, Park View"/>
+            </div>
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Timeline</label>
+              <input type="text" value={prefEditForm.timeline} onChange={e=>setPrefEditForm({...prefEditForm, timeline:e.target.value})} placeholder="Immediate · 3 months · 6 months"/>
+            </div>
+            <div className="form-group" style={{gridColumn:'span 2'}}>
+              <label>Notes</label>
+              <textarea rows={3} value={prefEditForm.notes} onChange={e=>setPrefEditForm({...prefEditForm, notes:e.target.value})}/>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-outline" onClick={()=>setShowPrefEdit(false)}>Cancel</button>
+            <button className="btn btn-brand" onClick={submitEditPrefs}>
+              <CheckCircle size={14}/> Save & mark confirmed
+            </button>
+          </div>
+        </div>
+      </div>}
 
       {/* Add Preferences Modal */}
       {showPrefAdd&&<div className="modal-overlay" onClick={()=>setShowPrefAdd(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}><div className="modal-header"><h3>Add Buyer Preferences</h3><button className="btn-icon" onClick={()=>setShowPrefAdd(false)}><X size={18}/></button></div>
