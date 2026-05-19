@@ -252,32 +252,57 @@ export const CrmDeals = () => {
   const openOverride = (d) => {
     if (!canRequestOverride(personaKey)) { toast('Only Team Leader and above can request a commission override', 'error'); return; }
     setOverrideFor(d);
-    setOverrideForm({ requestedPct: '', reason: '' });
+    setOverrideForm({ requestedPct: String(d.commission || ''), reason: '' });
   };
-  const submitOverride = () => {
-    const requestedPct = Number(overrideForm.requestedPct);
-    if (!requestedPct || requestedPct <= overrideFor.commission) { toast('Override must be higher than current commission','error'); return; }
-    if (!overrideForm.reason.trim()) { toast('Reason required','error'); return; }
-    const delta = requestedPct - overrideFor.commission;
+  // submitOverride now reads the requested 4-persona split directly from
+  // the form (the SplitEditor sets splitAgent/Tl/Manager/Director on the
+  // FormData via name attributes). Company is the auto-balanced residual.
+  const submitOverride = (formData) => {
+    if (!overrideFor) return;
+    const requestedPct = Number(formData?.requestedPct ?? overrideForm.requestedPct);
+    if (!Number.isFinite(requestedPct) || requestedPct <= 0) { toast('Requested rate must be a positive number', 'error'); return false; }
+    const reason = (formData?.reason ?? overrideForm.reason ?? '').toString();
+    if (!reason.trim()) { toast('Reason required', 'error'); return false; }
+
+    // Resolve the per-persona split — supplied by the SplitEditor.
+    const a  = Number(formData?.splitAgent    || 0);
+    const t  = Number(formData?.splitTl       || 0);
+    const m  = Number(formData?.splitManager  || 0);
+    const dr = Number(formData?.splitDirector || 0);
+    if ([a, t, m, dr].some(n => !Number.isFinite(n) || n < 0)) { toast('Each persona % must be a positive number', 'error'); return false; }
+    const sum = a + t + m + dr;
+    if (sum > 100) { toast(`Agent + TL + Manager + Director total ${sum.toFixed(2)}% — must stay ≤ 100`, 'error'); return false; }
+    const requestedSplit = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
+
     const at = new Date().toISOString();
-    // Initial stage depends on who's requesting. TL starts at the bottom
-    // of the chain; Manager skips their own review; Director's request is
-    // effectively a direct override (handled separately).
+    // TL starts at the bottom of the chain; Sales Manager skips their own
+    // review and goes straight to Director. Sales Director shouldn't be
+    // here (they have a Direct Override button instead).
     const initialStatus = personaKey === 'salesManager' ? 'Pending Director' : 'Pending Manager';
     const nextActor      = initialStatus === 'Pending Manager' ? 'Sales Manager' : 'Sales Director';
+    const delta = requestedPct - overrideFor.commission;
     updateItem('deals', overrideFor.id, {
       commissionOverride: {
         requestedPct,
         currentPct: overrideFor.commission,
         delta: Number(delta.toFixed(2)),
-        reason: overrideForm.reason,
+        requestedSplit,
+        reason,
         requestedBy: persona.label,
         requestedAt: at,
         status: initialStatus,
-        history: [{ at, actor: persona.label, action: 'Requested', stage: initialStatus, comment: overrideForm.reason }],
+        history: [{
+          at,
+          actor: persona.label,
+          action: 'Requested',
+          stage: initialStatus,
+          comment: reason,
+          requestedPct,
+          requestedSplit,
+        }],
       },
     });
-    writeAudit('Commission Override Requested', `${overrideFor.id}: ${overrideFor.commission}% → ${requestedPct}% (Δ ${delta.toFixed(2)}%)`, 'CRM', `By ${persona.label} · awaiting ${nextActor}`);
+    writeAudit('Commission Override Requested', `${overrideFor.id}: ${overrideFor.commission}% → ${requestedPct}% · split A${a}/T${t}/M${m}/D${dr}/C${requestedSplit.company}`, 'CRM', `By ${persona.label} · awaiting ${nextActor} · "${reason}"`);
     toast(`Override submitted — awaiting ${nextActor} review`, 'success');
     setOverrideFor(null);
   };
@@ -369,13 +394,15 @@ export const CrmDeals = () => {
             toast('Accepted — forwarded to Sales Director for final approval', 'success');
             return;
           }
-          // Director stage: final approve — patch the deal.
+          // Director stage: final approve — patch the deal (rate + the
+          // per-deal split override the requestor asked for).
           const entry = { at, actor: persona.label, action: 'Director Approved', stage: 'Approved', decision: 'approve', comment: comment.trim() };
           updateItem('deals', d.id, {
             commission: d.commissionOverride.requestedPct,
             commissionOverride: {
               ...d.commissionOverride,
               status: 'Approved',
+              splitOverride: d.commissionOverride.requestedSplit || d.commissionOverride.splitOverride || null,
               decidedBy: persona.label,
               decidedAt: at,
               decisionComment: comment.trim(),
@@ -957,23 +984,81 @@ export const CrmDeals = () => {
         </div>
       </div>}
 
-      {/* ─── Override modal ─── */}
-      {overrideFor && <div className="modal-overlay" onClick={()=>setOverrideFor(null)}>
-        <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
-          <div className="modal-header"><h3>Request Commission Override</h3><button className="btn-icon" onClick={()=>setOverrideFor(null)}><X size={18}/></button></div>
-          <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
-            <div style={{padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}>
-              <b>Current:</b> {overrideFor.commission}% · <b>Δ routing:</b> ≤ 0.5% → TL · ≤ 1.0% → Manager · &gt; 1.0% → Director
-            </div>
-            <div className="form-group"><label>Requested commission %</label><input type="number" step="0.1" value={overrideForm.requestedPct} onChange={e=>setOverrideForm({...overrideForm,requestedPct:e.target.value})}/></div>
-            <div className="form-group"><label>Reason</label><textarea rows={3} value={overrideForm.reason} onChange={e=>setOverrideForm({...overrideForm,reason:e.target.value})} placeholder="Business justification (developer incentive, special launch, etc.)"/></div>
-          </div>
-          <div className="modal-footer">
-            <button className="btn btn-outline" onClick={()=>setOverrideFor(null)}>Cancel</button>
-            <button className="btn btn-brand" onClick={submitOverride}>Submit override request</button>
+      {/* ─── Override request modal ─── */}
+      {/* TL/Manager fills in the requested 4-persona split (Agent / TL /
+          Mgr / Dir % — Company auto-balances) plus the requested deal-side
+          rate and a reason. On submit, an override request is created in
+          status 'Pending Manager' (or 'Pending Director' if a Manager
+          initiated). The deal's commission + split don't change until a
+          Director final-approves through the chain. */}
+      {overrideFor && (() => {
+        // Resolve the active policy split for this deal so the SplitEditor
+        // pre-fills with the current configured breakdown — the TL edits
+        // away from there.
+        const activePolicy = (state.commissionPolicies || []).find(
+          p => p.developer === overrideFor.developer && p.project === overrideFor.project && p.status === 'Active'
+        );
+        const policySplit = activePolicy?.split || null;
+        return (
+        <div className="modal-overlay" onClick={()=>setOverrideFor(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+            <div className="modal-header"><h3>Request Commission Override · {overrideFor.id}</h3><button className="btn-icon" onClick={()=>setOverrideFor(null)}><X size={18}/></button></div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const data = {};
+                fd.forEach((v, k) => { data[k] = v; });
+                submitOverride(data);
+              }}
+            >
+              <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+                {/* Context strip — current rate + policy reference. */}
+                <div style={{padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,fontSize:12,lineHeight:1.6}}>
+                  <div><b>Current rate:</b> {overrideFor.commission}%{activePolicy ? <span style={{color:'var(--text-tertiary)'}}> · policy {activePolicy.id} · {activePolicy.developer} / {activePolicy.project}</span> : ''}</div>
+                  {policySplit && (
+                    <div style={{marginTop:4,color:'var(--text-secondary)',fontSize:11}}>
+                      <b>Policy split:</b> Agent {policySplit.agent}% · TL {policySplit.tl}% · Mgr {policySplit.manager}% · Dir {policySplit.director}% · Co {policySplit.company}%
+                    </div>
+                  )}
+                  <div style={{marginTop:4,color:'var(--text-secondary)',fontSize:11}}>
+                    Request will be reviewed by Sales Manager, then final-approved by Sales Director. The deal stays at the current rate until approved.
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Requested deal-side rate %</label>
+                  <input
+                    type="number" step="0.01" min="0" required
+                    name="requestedPct"
+                    defaultValue={overrideFor.commission}
+                  />
+                  <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>Rate paid by the developer on the deal value. The breakdown below splits the resulting pool.</div>
+                </div>
+
+                <div style={{margin:'4px 0 -4px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.08em'}}>
+                  Requested split · 100% breakdown (Company auto-balances)
+                </div>
+                <SplitEditor initial={policySplit} />
+
+                <div className="form-group">
+                  <label>Reason</label>
+                  <textarea
+                    rows={3} required
+                    name="reason"
+                    placeholder="Business justification (developer incentive, special launch, VIP retention, etc.)"
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={()=>setOverrideFor(null)}>Cancel</button>
+                <button type="submit" className="btn btn-brand">Submit override request</button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>}
+        );
+      })()}
     </div>
   );
 };
