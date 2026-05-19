@@ -60,14 +60,32 @@ const STAGE_COLORS = {
 };
 const stageColor = (s) => STAGE_COLORS[s] || '#64748b';
 
-// Override approval chain (BRD §6.2.4).
-const overrideApprover = (delta) => delta <= 0.5 ? 'Team Leader' : delta <= 1.0 ? 'Sales Manager' : 'Sales Director';
-const personaCanApprove = (personaKey, approver) => {
-  if (personaKey === 'salesDirector') return true;
-  if (personaKey === 'salesManager') return approver !== 'Sales Director';
-  if (personaKey === 'teamLeader')   return approver === 'Team Leader';
+// Override approval chain (BRD §6.2.4, revised May 2026):
+//   TL requests  →  Sales Manager accepts  →  Sales Director final-approves
+// The chain runs always — no delta-based short-circuit — so every override
+// gets two human eyes before it touches the deal's commission. Director
+// can also bypass the chain with a Direct Override that applies immediately
+// AND optionally overrides the per-deal commission split.
+//
+// Override status state machine:
+//   'Pending Manager'   — TL requested, Sales Manager next
+//   'Pending Director'  — Manager accepted, Sales Director next
+//   'Approved'          — Director approved, deal.commission patched
+//   'Rejected'          — rejected at any stage; deal.commission unchanged
+//
+// Persona gates by stage:
+const canActOnOverride = (personaKey, status) => {
+  if (personaKey === 'systemAdmin' || personaKey === 'backofficeAdmin') return true; // admin override always allowed
+  if (status === 'Pending Manager')  return personaKey === 'salesManager' || personaKey === 'salesDirector';
+  if (status === 'Pending Director') return personaKey === 'salesDirector';
   return false;
 };
+// Who is allowed to INITIATE an override request? TL is the canonical
+// initiator; Manager / Director can also initiate (their request just
+// short-circuits the first stage when they're the one signing off).
+const canRequestOverride = (personaKey) => ['teamLeader','salesManager','salesDirector','backofficeAdmin','systemAdmin'].includes(personaKey);
+// Director or admins can do a direct override that bypasses the chain.
+const canDirectOverride = (personaKey) => ['salesDirector','systemAdmin','backofficeAdmin'].includes(personaKey);
 
 // Apply lifecycle side-effects when a deal moves to a stage.
 const lifecyclePatch = (deal, newStage) => {
@@ -150,7 +168,10 @@ export const CrmDeals = () => {
   }, [deals, stages]);
 
   const totalPipeline = dealsAll.filter(d => d.status === 'Active').reduce((s,d) => s + (d.value||0), 0);
-  const pendingOverrides = dealsAll.filter(d => d.commissionOverride?.status === 'Pending');
+  const pendingOverrides = dealsAll.filter(d =>
+    d.commissionOverride?.status === 'Pending Manager' ||
+    d.commissionOverride?.status === 'Pending Director'
+  );
   const revenueRecognised = dealsAll.filter(d => d.revenueRecognised).reduce((s,d) => s + ((d.value||0) * (d.commission||0) / 100), 0);
   const homesAdvanceEligible = dealsAll.filter(d => d.homesAdvanceAvailable && !d.revenueRecognised).length;
 
@@ -227,27 +248,48 @@ export const CrmDeals = () => {
   };
 
   // Commission override flow (BRD §6.2.4).
-  const openOverride = (d) => { setOverrideFor(d); setOverrideForm({ requestedPct: '', reason: '' }); };
+  const openOverride = (d) => {
+    if (!canRequestOverride(personaKey)) { toast('Only Team Leader and above can request a commission override', 'error'); return; }
+    setOverrideFor(d);
+    setOverrideForm({ requestedPct: '', reason: '' });
+  };
   const submitOverride = () => {
     const requestedPct = Number(overrideForm.requestedPct);
     if (!requestedPct || requestedPct <= overrideFor.commission) { toast('Override must be higher than current commission','error'); return; }
     if (!overrideForm.reason.trim()) { toast('Reason required','error'); return; }
     const delta = requestedPct - overrideFor.commission;
-    const approver = overrideApprover(delta);
+    const at = new Date().toISOString();
+    // Initial stage depends on who's requesting. TL starts at the bottom
+    // of the chain; Manager skips their own review; Director's request is
+    // effectively a direct override (handled separately).
+    const initialStatus = personaKey === 'salesManager' ? 'Pending Director' : 'Pending Manager';
+    const nextActor      = initialStatus === 'Pending Manager' ? 'Sales Manager' : 'Sales Director';
     updateItem('deals', overrideFor.id, {
-      commissionOverride: { requestedPct, currentPct: overrideFor.commission, delta: Number(delta.toFixed(2)), reason: overrideForm.reason, requestedBy: persona.label, requestedAt: new Date().toISOString(), approver, status: 'Pending' },
+      commissionOverride: {
+        requestedPct,
+        currentPct: overrideFor.commission,
+        delta: Number(delta.toFixed(2)),
+        reason: overrideForm.reason,
+        requestedBy: persona.label,
+        requestedAt: at,
+        status: initialStatus,
+        history: [{ at, actor: persona.label, action: 'Requested', stage: initialStatus, comment: overrideForm.reason }],
+      },
     });
-    writeAudit('Commission Override Requested', `${overrideFor.id}: ${overrideFor.commission}% → ${requestedPct}% (Δ ${delta.toFixed(2)}%)`, 'CRM', `Routed to ${approver}`);
-    toast(`Override submitted — pending ${approver} approval`,'success');
+    writeAudit('Commission Override Requested', `${overrideFor.id}: ${overrideFor.commission}% → ${requestedPct}% (Δ ${delta.toFixed(2)}%)`, 'CRM', `By ${persona.label} · awaiting ${nextActor}`);
+    toast(`Override submitted — awaiting ${nextActor} review`, 'success');
     setOverrideFor(null);
   };
   // Open the approve/reject modal that captures the required decision comment
   // and appends an entry to commissionOverride.history[].
-  // Audit-finding fix (May 2026): approvals used to be binary. Director now
-  // sees full history and must enter a comment when approving or rejecting.
+  // Two-stage approval (revised May 2026):
+  //   'Pending Manager'  → Manager accepts → 'Pending Director'  OR  rejects → 'Rejected'
+  //   'Pending Director' → Director approves → 'Approved' (deal patched)  OR  rejects → 'Rejected'
   const openOverrideDecision = (d, decision) => {
-    if (!personaCanApprove(personaKey, d.commissionOverride.approver)) {
-      toast(`Only ${d.commissionOverride.approver} can ${decision} this override`, 'error');
+    const status = d.commissionOverride.status;
+    if (!canActOnOverride(personaKey, status)) {
+      const need = status === 'Pending Manager' ? 'Sales Manager' : 'Sales Director';
+      toast(`Only ${need} can ${decision} this override (currently ${status})`, 'error');
       return;
     }
     let comment = '';
@@ -306,9 +348,28 @@ export const CrmDeals = () => {
           return false; // prevent close
         }
         const at = new Date().toISOString();
-        const historyEntry = { actor: persona.label, decision, comment: comment.trim(), at };
         const prevHistory = d.commissionOverride.history || [];
+        const currentStatus = d.commissionOverride.status;
         if (decision === 'approve') {
+          // Manager stage: accept and forward to Director (deal NOT yet patched).
+          if (currentStatus === 'Pending Manager') {
+            const entry = { at, actor: persona.label, action: 'Manager Accepted', stage: 'Pending Director', decision: 'approve', comment: comment.trim() };
+            updateItem('deals', d.id, {
+              commissionOverride: {
+                ...d.commissionOverride,
+                status: 'Pending Director',
+                managerAcceptedBy: persona.label,
+                managerAcceptedAt: at,
+                managerComment: comment.trim(),
+                history: [...prevHistory, entry],
+              },
+            });
+            writeAudit('Commission Override · Manager Accepted', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `By ${persona.label} · forwarded to Sales Director · "${comment.trim()}"`);
+            toast('Accepted — forwarded to Sales Director for final approval', 'success');
+            return;
+          }
+          // Director stage: final approve — patch the deal.
+          const entry = { at, actor: persona.label, action: 'Director Approved', stage: 'Approved', decision: 'approve', comment: comment.trim() };
           updateItem('deals', d.id, {
             commission: d.commissionOverride.requestedPct,
             commissionOverride: {
@@ -317,28 +378,117 @@ export const CrmDeals = () => {
               decidedBy: persona.label,
               decidedAt: at,
               decisionComment: comment.trim(),
-              history: [...prevHistory, historyEntry],
+              history: [...prevHistory, entry],
             },
           });
-          writeAudit('Commission Override Approved', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `By ${persona.label} · "${comment.trim()}"`);
-          toast('Override approved & applied', 'success');
+          writeAudit('Commission Override Approved', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `Final approval by ${persona.label} · "${comment.trim()}"`);
+          toast('Override approved & applied to the deal', 'success');
         } else {
           updateItem('deals', d.id, {
             commissionOverride: {
               ...d.commissionOverride,
               status: 'Rejected',
+              rejectedBy: persona.label,
+              rejectedAt: at,
+              rejectionComment: comment.trim(),
               decidedBy: persona.label,
               decidedAt: at,
               decisionComment: comment.trim(),
-              history: [...prevHistory, historyEntry],
+              history: [...prevHistory, { at, actor: persona.label, action: 'Rejected', stage: 'Rejected', decision: 'reject', comment: comment.trim(), fromStage: currentStatus }],
             },
           });
-          writeAudit('Commission Override Rejected', d.id, 'CRM', `By ${persona.label} · "${comment.trim()}"`);
+          writeAudit('Commission Override Rejected', d.id, 'CRM', `Rejected at ${currentStatus} by ${persona.label} · "${comment.trim()}"`);
           toast('Override rejected', 'info');
         }
       },
     });
   };
+
+  // Director direct override — bypasses the TL→Manager→Director chain.
+  // Director (or admin) can apply a one-off rate AND optionally override
+  // the per-deal commission split (4-persona breakdown) in a single step.
+  // Lands on the deal with status: 'Approved' and bypassedApproval: true
+  // so the audit trail clearly distinguishes 'went through the chain' from
+  // 'Director applied directly'.
+  const directOverride = (d) => {
+    if (!canDirectOverride(personaKey)) { toast('Only Sales Director can apply a direct override', 'error'); return; }
+    openModal({
+      title: `Director direct override · ${d.id}`,
+      subtitle: `Bypass the TL → Manager → Director chain. Sets the rate (and optionally the split) on this deal only.`,
+      submitLabel: 'Apply direct override',
+      danger: true,
+      body: (
+        <>
+          <FieldRow>
+            <Field label="New Rate %" name="rate" type="number" step="0.01" required defaultValue={(d.commission + 0.5).toFixed(2)} />
+            <Field label="Reason" name="reason" required placeholder="e.g. Strategic close, VIP retention" />
+          </FieldRow>
+          <div style={{margin:'12px 0 6px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+            Optional · per-deal split override (leave blank to use the policy split)
+          </div>
+          <FieldRow>
+            <Field label="Agent %" name="splitAgent" type="number" step="0.01" placeholder="e.g. 35" />
+            <Field label="TL %" name="splitTl" type="number" step="0.01" placeholder="e.g. 12" />
+          </FieldRow>
+          <FieldRow>
+            <Field label="Manager %" name="splitManager" type="number" step="0.01" placeholder="e.g. 6" />
+            <Field label="Director %" name="splitDirector" type="number" step="0.01" placeholder="e.g. 4" />
+          </FieldRow>
+          <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6,padding:'8px 12px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:6,lineHeight:1.5}}>
+            Direct overrides are logged with <b>bypassedApproval: true</b> so auditors can see they didn't go through the chain.
+          </div>
+        </>
+      ),
+      onSubmit: ({ rate, reason, splitAgent, splitTl, splitManager, splitDirector }) => {
+        if (!reason?.trim()) { toast('Reason is required', 'error'); return false; }
+        const newRate = Number(rate);
+        if (!Number.isFinite(newRate) || newRate <= 0) { toast('New rate must be a positive number', 'error'); return false; }
+        // Optional split override — only saved if at least one persona % was filled in.
+        let splitOverride = null;
+        const hasSplit = [splitAgent, splitTl, splitManager, splitDirector].some(v => v !== '' && v != null);
+        if (hasSplit) {
+          const a = Number(splitAgent || 0);
+          const t = Number(splitTl || 0);
+          const m = Number(splitManager || 0);
+          const dr = Number(splitDirector || 0);
+          const sum = a + t + m + dr;
+          if (sum > 100) { toast(`Agent + TL + Manager + Director total ${sum.toFixed(2)}% — must stay ≤ 100`, 'error'); return false; }
+          splitOverride = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
+        }
+        const at = new Date().toISOString();
+        const entry = {
+          at,
+          actor: persona.label,
+          action: 'Director Direct Override',
+          stage: 'Approved',
+          decision: 'approve',
+          comment: `Direct: ${reason.trim()}${splitOverride ? ` · split: A${splitOverride.agent}/T${splitOverride.tl}/M${splitOverride.manager}/D${splitOverride.director}/C${splitOverride.company}` : ''}`,
+        };
+        updateItem('deals', d.id, {
+          commission: newRate,
+          commissionOverride: {
+            ...(d.commissionOverride || {}),
+            currentPct: d.commission,
+            requestedPct: newRate,
+            delta: Number((newRate - d.commission).toFixed(2)),
+            reason: reason.trim(),
+            requestedBy: persona.label,
+            requestedAt: at,
+            decidedBy: persona.label,
+            decidedAt: at,
+            decisionComment: reason.trim(),
+            status: 'Approved',
+            bypassedApproval: true,
+            splitOverride,
+            history: [...(d.commissionOverride?.history || []), entry],
+          },
+        });
+        writeAudit('Commission Direct Override', `${d.id}: ${d.commission}% → ${newRate}%${splitOverride ? ' + split override' : ''}`, 'CRM', `Direct by ${persona.label} · "${reason.trim()}"`);
+        toast(`Direct override applied to ${d.id}`, 'warning');
+      },
+    });
+  };
+
   // Legacy alias — keeps existing call sites working but routes through the
   // new modal that captures the comment.
   const approveOverride = (d, decision) => openOverrideDecision(d, decision);
@@ -491,10 +641,24 @@ export const CrmDeals = () => {
                 </div>
               )}
 
-              {d.commissionOverride.status === 'Pending' && personaCanApprove(personaKey, d.commissionOverride.approver) && (
-                <div style={{display:'flex',gap:8,marginTop:10}}>
-                  <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}><Check size={13}/> Approve…</button>
-                  <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>approveOverride(d, 'reject')}><X size={13}/> Reject…</button>
+              {(d.commissionOverride.status === 'Pending Manager' || d.commissionOverride.status === 'Pending Director') && canActOnOverride(personaKey, d.commissionOverride.status) && (
+                <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+                  {d.commissionOverride.status === 'Pending Manager' ? (
+                    <>
+                      <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}><Check size={13}/> Accept · forward to Director</button>
+                      <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>approveOverride(d, 'reject')}><X size={13}/> Reject</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}><Check size={13}/> Final approve & apply</button>
+                      <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>approveOverride(d, 'reject')}><X size={13}/> Reject</button>
+                    </>
+                  )}
+                </div>
+              )}
+              {(d.commissionOverride.status === 'Pending Manager' || d.commissionOverride.status === 'Pending Director') && !canActOnOverride(personaKey, d.commissionOverride.status) && (
+                <div style={{marginTop:10,fontSize:11,color:'var(--text-tertiary)'}}>
+                  Awaiting {d.commissionOverride.status === 'Pending Manager' ? 'Sales Manager' : 'Sales Director'} review.
                 </div>
               )}
             </div>
@@ -513,7 +677,8 @@ export const CrmDeals = () => {
           {/* Actions */}
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {!readOnly && <button className="btn btn-sm btn-brand" onClick={()=>openEdit(d)}><Edit size={13}/> Edit</button>}
-            {!readOnly && !d.commissionLocked && (!d.commissionOverride || d.commissionOverride.status === 'Rejected') && <button className="btn btn-sm btn-outline" onClick={()=>openOverride(d)}><Percent size={13}/> Request commission override</button>}
+            {!readOnly && !d.commissionLocked && (!d.commissionOverride || d.commissionOverride.status === 'Rejected') && canRequestOverride(personaKey) && <button className="btn btn-sm btn-outline" onClick={()=>openOverride(d)}><Percent size={13}/> Request commission override</button>}
+            {!readOnly && !d.commissionLocked && canDirectOverride(personaKey) && <button className="btn btn-sm btn-warning" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>directOverride(d)}><Percent size={13}/> Director direct override</button>}
             {!readOnly && <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>handleDel(d.id)}><Trash2 size={13}/> Delete</button>}
           </div>
         </div>
@@ -593,12 +758,17 @@ export const CrmDeals = () => {
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {pendingOverrides.map(d => (
                 <div key={d.id} style={{padding:12,border:'1px solid var(--border)',borderRadius:10}}>
-                  <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
-                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:4}}>{d.commissionOverride.currentPct}% → {d.commissionOverride.requestedPct}% · approver: {d.commissionOverride.approver}</div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                    <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
+                    <span className="badge badge-warning" style={{fontSize:10}}>{d.commissionOverride.status}</span>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:4}}>{d.commissionOverride.currentPct}% → {d.commissionOverride.requestedPct}% · requested by {d.commissionOverride.requestedBy}</div>
                   <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>{d.commissionOverride.reason}</div>
-                  {personaCanApprove(personaKey, d.commissionOverride.approver) && (
+                  {canActOnOverride(personaKey, d.commissionOverride.status) && (
                     <div style={{display:'flex',gap:6,marginTop:8}}>
-                      <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}><Check size={13}/> Approve</button>
+                      <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}>
+                        <Check size={13}/> {d.commissionOverride.status === 'Pending Manager' ? 'Accept · forward' : 'Final approve'}
+                      </button>
                       <button className="btn btn-sm btn-outline" onClick={()=>approveOverride(d, 'reject')}>Reject</button>
                     </div>
                   )}

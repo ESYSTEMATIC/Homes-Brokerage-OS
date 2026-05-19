@@ -197,92 +197,12 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
     },
   });
 
-  // Override = per-deal exception. The policy's deal-side rate stays put;
-  // a specific deal gets a one-off rate that the Finance Officer / System
-  // Admin signed off on. The policy's history records the override so
-  // auditors can see 'this policy had N exceptions' without the policy
-  // itself drifting away from its configured rate.
-  const requestOverride = (p) => {
-    // Only deals tied to this policy's developer × project are eligible,
-    // and only those that don't already carry an active override.
-    const eligibleDeals = (state.deals || []).filter(d =>
-      d.developer === p.developer &&
-      d.project === p.project &&
-      (!d.commissionOverride || d.commissionOverride.status === 'Rejected')
-    );
-    if (eligibleDeals.length === 0) {
-      toast(`No deals on ${p.project} available for override (every deal already has one or none exist).`, 'info');
-      return;
-    }
-    openModal({
-      title: `Override commission for one deal — ${p.project}`,
-      subtitle: `Policy rate is ${p.rate}%. The override applies to the picked deal only; the policy stays unchanged.`,
-      submitLabel: 'Apply override',
-      danger: true,
-      body: (
-        <>
-          <Field label="Deal" name="dealId" type="select" required
-            options={eligibleDeals.map(d => ({
-              value: d.id,
-              label: `${d.id} — ${d.leadName || d.lead || '—'} — ${fmt(d.value)} @ ${d.commission}%`,
-            }))} />
-          <FieldRow>
-            <Field label="New Rate %" name="rate" type="number" step="0.01" required defaultValue={(p.rate + 0.2).toFixed(2)} />
-            <Field label="Approver" name="approver" type="select" required
-              options={state.staff.filter(s => s.type.includes('Manager') || s.type === 'Sales Director').map(s => s.name)} />
-          </FieldRow>
-          <Field label="Reason" name="overrideReason" type="textarea" required placeholder="e.g. Premium launch incentive · loyal-buyer discount · strategic close" />
-          <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6,padding:'8px 12px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:6,lineHeight:1.5}}>
-            <b>This will not change policy {p.id}.</b> Only the picked deal's commission rate is overridden. Other deals on {p.project} continue to use the {p.rate}% policy rate.
-          </div>
-        </>
-      ),
-      onSubmit: ({ dealId, rate, approver, overrideReason }) => {
-        if (!dealId) { toast('Pick a deal to override', 'error'); return false; }
-        const deal = (state.deals || []).find(d => d.id === dealId);
-        if (!deal) { toast('Deal not found', 'error'); return false; }
-        const newRate = Number(rate);
-        if (!Number.isFinite(newRate) || newRate <= 0) { toast('New rate must be a positive number', 'error'); return false; }
-        const at = new Date().toISOString();
-        const actor = persona?.label || 'System Admin';
-
-        // 1. Patch the deal — new commission rate + override metadata.
-        //    Status is 'Approved' because System Admin / Finance Officer
-        //    is directly applying (not requesting via Director Inbox).
-        updateItem('deals', deal.id, {
-          commission: newRate,
-          commissionOverride: {
-            policyId: p.id,
-            currentPct: deal.commission,
-            requestedPct: newRate,
-            delta: Number((newRate - deal.commission).toFixed(2)),
-            reason: overrideReason,
-            approver,
-            requestedBy: actor,
-            requestedAt: at,
-            decidedBy: actor,
-            decidedAt: at,
-            status: 'Approved',
-            history: [{ actor, decision: 'approve', comment: `Direct override from policy ${p.id}: ${overrideReason}`, at }],
-          },
-        }, { action: 'Deal Commission Override', module: 'Finance', target: deal.id, detail: `${deal.commission}% → ${newRate}% on ${deal.id} — ${overrideReason}` });
-
-        // 2. Append a non-mutating entry to the policy's history so the
-        //    audit log shows the override happened against this policy
-        //    without the policy itself drifting.
-        const policyEntry = {
-          at,
-          actor,
-          action: 'Deal Override',
-          detail: `Deal ${deal.id} (${deal.leadName || deal.lead || '—'}): ${deal.commission}% → ${newRate}% — ${overrideReason} · approver ${approver}`,
-          dealId: deal.id,
-        };
-        updateItem('commissionPolicies', p.id, { history: [...(p.history || []), policyEntry] }, { action: 'Policy Override Logged', module: 'Finance', target: p.id, detail: policyEntry.detail });
-
-        toast(`Override applied to ${deal.id} only · policy ${p.id} unchanged`, 'warning');
-      },
-    });
-  };
+  // Note: commission overrides are NOT initiated from the policy table —
+  // they're a per-deal action that belongs on the Deal record itself.
+  // See CrmDeals.jsx for the request → Manager accept → Director approve
+  // workflow (and the Director's direct-override bypass). The policy
+  // page now only configures the global rate + 4-persona split; the
+  // 'Deal Overrides' column here is purely informational.
 
   // Per-policy action log drawer — opens from the History icon on every
   // policy row. Renders the policy.history[] timeline so an auditor can
@@ -390,7 +310,6 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
                   </td>
                   <td style={{textAlign:'right'}}><div className="row-actions">
                     <button className="btn btn-outline btn-sm" onClick={()=>openPolicyForm(p)}><Pencil size={13}/></button>
-                    <button className="btn btn-warning btn-sm" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>requestOverride(p)} title="Apply a one-off rate to a specific deal — policy stays at its configured rate">Override deal</button>
                   </div></td>
                 </tr>
               );

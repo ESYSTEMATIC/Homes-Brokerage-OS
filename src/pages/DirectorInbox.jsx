@@ -64,8 +64,10 @@ export const DirectorInbox = () => {
       });
     });
 
-    // 3) Deal commission overrides
-    (state.deals || []).filter(d => d.commissionOverride?.status === 'Pending').forEach(d => {
+    // 3) Deal commission overrides — Director only sees the ones that
+    //    cleared the Manager stage. Pending-Manager rows stay in the
+    //    Sales Manager's queue (or the CrmDeals override queue button).
+    (state.deals || []).filter(d => d.commissionOverride?.status === 'Pending Director').forEach(d => {
       rows.push({
         kind: 'override',
         id: d.id,
