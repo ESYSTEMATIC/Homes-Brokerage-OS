@@ -185,7 +185,18 @@ export const BackofficeLayout = ({ children }) => {
           </div>
         </nav>
         <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <button className="sidebar-link" onClick={() => logout()} style={{ color: 'var(--text-tertiary)' }}>
+          {/* Sign Out — calls signOut() from useApp(). The previous `logout()`
+              reference was undefined which made this button silently crash.
+              The redundant topbar Sign Out was also removed in the same
+              pass (May 2026 review) — sidebar is the single source of truth. */}
+          <button
+            className="sidebar-link"
+            style={{ color: 'var(--text-tertiary)' }}
+            onClick={() => {
+              toast('Signing out…', 'info');
+              writeAudit('SSO Logout', persona.label, 'Security');
+              setTimeout(() => signOut(), 350);
+            }}>
             <LogOut size={16} /> Sign Out
           </button>
         </div>
@@ -203,7 +214,8 @@ export const BackofficeLayout = ({ children }) => {
               <div className="topbar-user-info"><div className="topbar-user-name">{persona.label}</div><div className="topbar-user-email">{persona.scope}</div></div>
               <NavLink to="/backoffice/profile" className="topbar-avatar">{persona.label.substring(0,2).toUpperCase()}</NavLink>
             </div>
-            <button className="topbar-action" onClick={()=>{toast('Signing out…','info'); writeAudit('SSO Logout', persona.label, 'Security'); setTimeout(()=>signOut(),350);}}><LogOut size={13}/> Sign Out</button>
+            {/* Topbar Sign Out removed (May 2026 review) — the sidebar Sign
+                Out is the canonical exit; one button, one place. */}
           </div>
         </header>
         <div className="page-content"><div className="page-inner animate-fade-in" key={location.pathname}>{children}</div></div>
