@@ -828,50 +828,93 @@ export const CrmDeals = () => {
                 const ov = d.commissionOverride || {};
                 const rateChanged = Number(ov.currentPct) !== Number(ov.requestedPct);
                 const reqSplit = ov.requestedSplit;
-                // Resolve the policy split for this deal so we can show
-                // 'Agent 33.33% → 40%' style diffs (current policy → requested).
+                // Resolve the policy split for this deal so the side-by-side
+                // comparison can show 'current policy → requested'.
                 const pol = (state.commissionPolicies || []).find(p =>
                   p.developer === d.developer && p.project === d.project && p.status === 'Active'
                 );
                 const polSplit = pol?.split || null;
-                const splitChanges = reqSplit && polSplit
-                  ? ['agent','tl','manager','director','company']
-                      .filter(k => Number(polSplit[k] || 0) !== Number(reqSplit[k] || 0))
-                      .map(k => ({ key: k, label: k === 'tl' ? 'TL' : k.charAt(0).toUpperCase() + k.slice(1), from: polSplit[k], to: reqSplit[k] }))
-                  : [];
+                const rows = [
+                  { key: 'rate',     label: 'Deal-side rate',   from: ov.currentPct,        to: ov.requestedPct,       suffix: '%' },
+                  { key: 'agent',    label: 'Agent share',      from: polSplit?.agent,      to: reqSplit?.agent,       suffix: '%' },
+                  { key: 'tl',       label: 'Team Leader share',from: polSplit?.tl,         to: reqSplit?.tl,          suffix: '%' },
+                  { key: 'manager',  label: 'Sales Manager',    from: polSplit?.manager,    to: reqSplit?.manager,     suffix: '%' },
+                  { key: 'director', label: 'Sales Director',   from: polSplit?.director,   to: reqSplit?.director,    suffix: '%' },
+                  { key: 'company',  label: 'Company',          from: polSplit?.company,    to: reqSplit?.company,     suffix: '%' },
+                ];
+                const anyChange = rows.some(r => r.from != null && r.to != null && Number(r.from) !== Number(r.to));
+                // Pretty 'when' label: relative time + absolute.
+                const requestedWhen = ov.requestedAt
+                  ? `${new Date(ov.requestedAt).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}`
+                  : '—';
+                // Pool preview at requested rate, if the deal carries a value.
+                const reqPool = d.value && ov.requestedPct ? Math.round((d.value || 0) * (ov.requestedPct || 0) / 100) : null;
+                const curPool = d.value && ov.currentPct   ? Math.round((d.value || 0) * (ov.currentPct   || 0) / 100) : null;
                 return (
-                  <div key={d.id} style={{padding:12,border:'1px solid var(--border)',borderRadius:10}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-                      <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
+                  <div key={d.id} style={{padding:14,border:'1px solid var(--border)',borderRadius:10,background:'#fff'}}>
+                    {/* Header — deal + status */}
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:8}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
+                        <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:2}}>{d.id} · {d.developer || '—'} · EGP {(d.value || 0).toLocaleString('en-EG')}</div>
+                      </div>
                       <span className="badge badge-warning" style={{fontSize:10}}>{ov.status}</span>
                     </div>
-                    <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:4}}>
-                      {rateChanged
-                        ? <><b>Rate:</b> {ov.currentPct}% → {ov.requestedPct}%</>
-                        : <><b>Rate:</b> {ov.currentPct}% <span style={{color:'var(--text-tertiary)'}}>(unchanged)</span></>}
-                      <span style={{color:'var(--text-tertiary)'}}> · requested by {ov.requestedBy}</span>
+
+                    {/* Requestor strip */}
+                    <div style={{padding:'8px 10px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:6,fontSize:11,marginBottom:8}}>
+                      <b>Requested by</b> {ov.requestedBy || '—'}
+                      <span style={{color:'var(--text-tertiary)'}}> · {requestedWhen}</span>
+                      {pol && <span style={{color:'var(--text-tertiary)'}}> · against policy {pol.id}</span>}
                     </div>
-                    {splitChanges.length > 0 && (
-                      <div style={{marginTop:6,padding:'6px 8px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:6,fontSize:11}}>
-                        <div style={{fontWeight:700,color:'var(--text-secondary)',marginBottom:3}}>Split changes</div>
-                        {splitChanges.map(c => (
-                          <div key={c.key} style={{display:'flex',justifyContent:'space-between',gap:6,fontFamily:'ui-monospace,monospace'}}>
-                            <span>{c.label}</span>
-                            <span>{c.from}% → <b style={{color:'var(--brand)'}}>{c.to}%</b></span>
-                          </div>
-                        ))}
+
+                    {/* Reason — prominent, in its own block. */}
+                    {ov.reason && (
+                      <div style={{padding:'8px 12px',background:'var(--brand-tint)',border:'1px solid rgba(232,103,42,.25)',borderLeft:'3px solid var(--brand)',borderRadius:6,fontSize:12,lineHeight:1.5,marginBottom:8}}>
+                        <div style={{fontSize:10,fontWeight:700,color:'var(--brand)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:2}}>Business justification</div>
+                        <div style={{whiteSpace:'pre-wrap'}}>{ov.reason}</div>
                       </div>
                     )}
-                    {reqSplit && splitChanges.length === 0 && (
-                      <div style={{marginTop:6,fontSize:11,color:'var(--text-tertiary)'}}>Split: same as current policy</div>
+
+                    {/* Side-by-side current vs requested. Each row tinted when
+                        it's a real change so reviewers see at a glance what
+                        actually moves. */}
+                    <div style={{border:'1px solid var(--border)',borderRadius:6,overflow:'hidden',marginBottom:8}}>
+                      <div style={{display:'grid',gridTemplateColumns:'1.4fr 1fr 1fr',gap:0,fontSize:11,fontWeight:700,background:'#f1f5f9',padding:'6px 10px',color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.04em'}}>
+                        <div>Field</div><div style={{textAlign:'right'}}>Current</div><div style={{textAlign:'right'}}>Requested</div>
+                      </div>
+                      {rows.map(r => {
+                        const fromVal = r.from == null ? '—' : `${r.from}${r.suffix}`;
+                        const toVal   = r.to   == null ? '—' : `${r.to}${r.suffix}`;
+                        const changed = r.from != null && r.to != null && Number(r.from) !== Number(r.to);
+                        return (
+                          <div key={r.key} style={{display:'grid',gridTemplateColumns:'1.4fr 1fr 1fr',gap:0,fontSize:11,padding:'6px 10px',background: changed ? '#fff7ed' : '#fff',borderTop:'1px solid var(--border)'}}>
+                            <div style={{color:'var(--text-secondary)'}}>{r.label}</div>
+                            <div style={{textAlign:'right',fontFamily:'ui-monospace,monospace',color:'var(--text-tertiary)'}}>{fromVal}</div>
+                            <div style={{textAlign:'right',fontFamily:'ui-monospace,monospace',fontWeight:changed ? 700 : 500,color: changed ? 'var(--brand)' : 'var(--text-primary)'}}>{toVal}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pool impact preview (rate change × deal value). Skip
+                        if both pools are null/equal. */}
+                    {curPool != null && reqPool != null && curPool !== reqPool && (
+                      <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:8}}>
+                        <b>Pool impact:</b> EGP {curPool.toLocaleString('en-EG')} → <b style={{color:'var(--brand)'}}>EGP {reqPool.toLocaleString('en-EG')}</b> ({reqPool > curPool ? '+' : ''}{(reqPool - curPool).toLocaleString('en-EG')})
+                      </div>
                     )}
-                    {ov.reason && (
-                      <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6,fontStyle:'italic'}}>"{ov.reason}"</div>
+
+                    {!anyChange && (
+                      <div style={{fontSize:11,color:'#b45309',padding:'6px 10px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:6,marginBottom:8}}>
+                        Request carries no rate or split changes — likely submitted in error. Reject and ask the requestor to resubmit.
+                      </div>
                     )}
+
                     {canActOnOverride(personaKey, ov.status) && (
                       <div style={{display:'flex',gap:6,marginTop:8}}>
                         <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}>
-                          <Check size={13}/> {ov.status === 'Pending Manager' ? 'Accept · forward' : 'Final approve'}
+                          <Check size={13}/> {ov.status === 'Pending Manager' ? 'Accept · forward to Director' : 'Final approve & apply'}
                         </button>
                         <button className="btn btn-sm btn-outline" onClick={()=>approveOverride(d, 'reject')}>Reject</button>
                       </div>
