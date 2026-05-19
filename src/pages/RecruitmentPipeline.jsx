@@ -273,7 +273,41 @@ export const RecruitmentPipeline = () => {
           target: offer.candidateId,
           detail: `Auto-spawned from accepted offer ${offer.id}`,
         });
-        toast(`${offer.candidateName} accepted — Onboarding application ${newApp.id} created`);
+
+        // ─── Auto-spawn intro call ──────────────────────────────────
+        // The new agent's manager (offer.reportingTo) owns the call.
+        // We default it to T+3 business days at 10:30 AM Cairo time so
+        // it lands on the manager's calendar with room to prepare. The
+        // hire can see the schedule on their dashboard immediately.
+        const ownerName = (offer.reportingTo || job?.hiringManager || 'TBD').replace(/\s*\(.*\)\s*$/, '');
+        const callAt = (() => {
+          const d = new Date(); d.setDate(d.getDate() + 3); d.setHours(10, 30, 0, 0);
+          return d.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+        })();
+        const introCall = addItem('introCalls', {
+          applicantId: newApp.id,
+          candidateName: offer.candidateName,
+          owner: ownerName,
+          salesManager: (job?.department === 'Sales') ? 'Nour El-Din' : null,
+          location: 'Microsoft Teams',
+          scheduledAt: callAt,
+          durationMinutes: 30,
+          status: 'Scheduled',
+          notes: 'Walk through CRM, MLS access, KPIs, and first-week plan.',
+          createdAt: now,
+          createdBy: `Auto · Offer accepted (${offer.id})`,
+          completedAt: null,
+          history: [
+            { at: now, actor: 'System', action: `Auto-scheduled from accepted offer ${offer.id}` },
+          ],
+        }, 'IC', {
+          action: 'Intro Call Scheduled',
+          module: 'Backoffice',
+          target: offer.candidateId,
+          detail: `${ownerName} · ${callAt.replace('T', ' ')}`,
+        });
+
+        toast(`${offer.candidateName} accepted — Onboarding ${newApp.id} + Intro call ${introCall.id} (${ownerName}) created`);
       } else {
         toast(`${offer.candidateName} declined the offer`, 'warning');
       }

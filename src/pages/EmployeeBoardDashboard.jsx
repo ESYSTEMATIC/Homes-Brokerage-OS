@@ -15,8 +15,152 @@ import { RoleDashboard } from '../components/RoleDashboard';
 // App.jsx for the authoritative table.
 
 export const EmployeeBoardDashboard = () => {
-  const { persona, personaKey, state, toast, openDrawer } = useApp();
+  const { persona, personaKey, state, toast, openDrawer, openModal, updateItem, writeAudit } = useApp();
   const navigate = useNavigate();
+
+  // Intro call drawer — shows scheduled datetime, owner, location, history.
+  // The owner can mark Complete / No-Show / Cancelled. Reschedule opens a
+  // mini form. The agent (whose call it is) sees the drawer as read-only.
+  const openIntroCallDrawer = (call) => {
+    if (!call) return;
+    const isOwner = call.owner === persona.label;
+    const dt = call.scheduledAt ? new Date(call.scheduledAt) : null;
+    const dateLabel = dt ? dt.toLocaleString('en-GB', { weekday:'long', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Not yet scheduled';
+
+    const writeStatus = (next, extraNote = '') => {
+      if (!call.id) return;
+      const nowIso = new Date().toISOString();
+      const patch = {
+        status: next,
+        completedAt: next === 'Completed' ? nowIso : call.completedAt,
+        history: [
+          ...(call.history || []),
+          { at: nowIso, actor: persona.label, action: `Status → ${next}${extraNote ? ` — ${extraNote}` : ''}` },
+        ],
+      };
+      updateItem('introCalls', call.id, patch, { action: `Intro Call ${next}`, module: 'Backoffice', target: call.id, detail: `${call.candidateName} · ${extraNote || ''}`.trim() });
+      toast(`Intro call ${next.toLowerCase()}`, next === 'Completed' ? 'success' : next === 'Cancelled' ? 'warning' : 'info');
+    };
+
+    const reschedule = () => {
+      let newAt = call.scheduledAt || '';
+      openModal({
+        title: `Reschedule intro call · ${call.candidateName}`,
+        subtitle: `Current: ${dateLabel}`,
+        submitLabel: 'Reschedule',
+        body: (
+          <div style={{display:'flex', flexDirection:'column', gap:14}}>
+            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>New date & time</label>
+            <input
+              type="datetime-local"
+              defaultValue={newAt}
+              onChange={e => { newAt = e.target.value; }}
+              style={{padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}
+            />
+            <div style={{fontSize:11, color:'var(--text-tertiary)'}}>Cairo time (Africa/Cairo · UTC+2). The candidate will see the new time on their dashboard.</div>
+          </div>
+        ),
+        onSubmit: () => {
+          if (!newAt) { toast('Pick a date & time', 'error'); return false; }
+          const nowIso = new Date().toISOString();
+          updateItem('introCalls', call.id, {
+            scheduledAt: newAt,
+            status: 'Scheduled',
+            history: [
+              ...(call.history || []),
+              { at: nowIso, actor: persona.label, action: `Rescheduled to ${newAt.replace('T', ' ')}` },
+            ],
+          }, { action: 'Intro Call Rescheduled', module: 'Backoffice', target: call.id, detail: `${call.candidateName} → ${newAt.replace('T', ' ')}` });
+          toast(`Rescheduled to ${newAt.replace('T', ' ')}`, 'success');
+        },
+      });
+    };
+
+    openDrawer({
+      title: `Intro call · ${call.candidateName}`,
+      subtitle: call.id ? `${call.id} · owned by ${call.owner}` : `Owned by ${call.owner || '—'}`,
+      content: (
+        <div style={{display:'flex', flexDirection:'column', gap:16}}>
+          {/* Scheduled status banner */}
+          <div style={{
+            padding:'14px 16px',
+            background: call.status === 'Completed' ? '#dcfce7'
+              : call.status === 'Scheduled' ? 'var(--brand-tint)'
+              : call.status === 'Cancelled' || call.status === 'No-Show' ? '#fee2e2'
+              : '#f1f5f9',
+            border: `1px solid ${call.status === 'Completed' ? '#86efac' : call.status === 'Scheduled' ? 'rgba(232,103,42,0.25)' : '#fca5a5'}`,
+            borderRadius:10,
+          }}>
+            <div style={{fontSize:10, fontWeight:800, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.08em'}}>{call.status}</div>
+            <div style={{fontSize:15, fontWeight:700, marginTop:4}}>{dateLabel}</div>
+            {call.durationMinutes && <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:3}}>{call.durationMinutes} minutes</div>}
+          </div>
+
+          {/* Details */}
+          <div className="detail-grid">
+            {[
+              ['Candidate', call.candidateName],
+              ['Owner', call.owner || '—'],
+              ['Sales Manager', call.salesManager || '—'],
+              ['Location', call.location || 'Microsoft Teams'],
+              ['Linked onboarding', call.applicantId || '—'],
+              ['Created by', call.createdBy || '—'],
+            ].map(([k, v]) => (
+              <div key={k}><label>{k}</label><div className="v">{v}</div></div>
+            ))}
+          </div>
+
+          {/* Agenda / notes */}
+          {call.notes && (
+            <div>
+              <div style={{fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6}}>Agenda / notes</div>
+              <div style={{padding:'10px 12px', background:'#fafbfc', border:'1px solid var(--border)', borderRadius:8, fontSize:13, lineHeight:1.55, color:'var(--text-primary)'}}>{call.notes}</div>
+            </div>
+          )}
+
+          {/* Owner actions */}
+          {isOwner && call.id && call.status === 'Scheduled' && (
+            <div style={{display:'flex', gap:8, flexWrap:'wrap', paddingTop:12, borderTop:'1px solid var(--border)'}}>
+              <a className="btn btn-brand btn-sm" href="https://teams.microsoft.com/" target="_blank" rel="noopener noreferrer">
+                Join call (Teams)
+              </a>
+              <button className="btn btn-success btn-sm" onClick={() => writeStatus('Completed')}>Mark Completed</button>
+              <button className="btn btn-outline btn-sm" onClick={reschedule}>Reschedule</button>
+              <button className="btn btn-outline btn-sm" style={{color:'#b45309'}} onClick={() => writeStatus('No-Show')}>No-show</button>
+              <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => writeStatus('Cancelled')}>Cancel</button>
+            </div>
+          )}
+          {!isOwner && call.status === 'Scheduled' && call.id && (
+            <div style={{display:'flex', gap:8, paddingTop:12, borderTop:'1px solid var(--border)'}}>
+              <a className="btn btn-brand btn-sm" href="https://teams.microsoft.com/" target="_blank" rel="noopener noreferrer">Join call (Teams)</a>
+              <span style={{fontSize:11, color:'var(--text-tertiary)', alignSelf:'center'}}>Only {call.owner} can reschedule or close this call.</span>
+            </div>
+          )}
+
+          {/* History */}
+          {Array.isArray(call.history) && call.history.length > 0 && (
+            <div>
+              <div style={{fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6}}>History</div>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {[...call.history].reverse().map((h, i) => (
+                  <div key={i} style={{display:'flex', gap:8, alignItems:'flex-start', fontSize:11, padding:'6px 8px', background:'#fafbfc', borderRadius:6, borderLeft:'2px solid var(--brand)'}}>
+                    <span style={{color:'var(--text-tertiary)', flexShrink:0, fontFamily:'monospace'}}>{(h.at || '').slice(0,16).replace('T',' ')}</span>
+                    <span style={{flex:1}}><b>{h.actor}</b> — {h.action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {call.synthetic && (
+            <div style={{padding:'10px 12px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:8, fontSize:11, color:'#92400e'}}>
+              <b>Pending real record:</b> this entry is derived from your onboarding state. A real intro call will be auto-created the moment your offer is accepted in the system. Until then, only your Team Leader can schedule manually.
+            </div>
+          )}
+        </div>
+      ),
+    });
+  };
   // "isAgent" gates the sales-track UI: onboarding journey, training compliance,
   // MLS, team assignment, agent score, Viva Learning, Performance metrics.
   // Marketing has hub='agent' for layout chrome but salesTrack=false so it
@@ -43,6 +187,39 @@ export const EmployeeBoardDashboard = () => {
     / Math.max(1, state.training.filter(c=>c.required && c.score).length);
   const agentScore = Math.round(trainingAvg || 0);
 
+  // Intro call — real domain record auto-spawned on offer accept. Read
+  // by matching the candidate name to the persona label. If no record
+  // exists (older personas, demo edge cases), fall back to a synthetic
+  // entry derived from onboarding completion so the dashboard never
+  // shows an empty slot.
+  const myIntroCall = useMemo(() => {
+    const real = (state.introCalls || []).find(c => c.candidateName === persona.label);
+    if (real) return real;
+    return {
+      id: null,
+      candidateName: persona.label,
+      owner: 'Omar Sherif',
+      scheduledAt: onboardingComplete ? '2024-01-12T11:00' : null,
+      status: onboardingComplete ? 'Completed' : 'Pending schedule',
+      synthetic: true,
+    };
+  }, [state.introCalls, persona.label, onboardingComplete]);
+
+  // Format intro-call summary for the Team Assignment row.
+  const formatIntroCall = (c) => {
+    if (!c) return '—';
+    if (c.status === 'Completed' && c.completedAt) return `Completed ${c.completedAt.slice(0,10)}`;
+    if (c.status === 'Completed' && c.scheduledAt) return `Completed ${c.scheduledAt.slice(0,10)}`;
+    if (c.status === 'Cancelled') return 'Cancelled — reschedule pending';
+    if (c.status === 'No-Show')   return 'No-show — reschedule pending';
+    if (c.status === 'Pending schedule' || !c.scheduledAt) return 'Pending schedule';
+    // Scheduled in the future
+    const dt = new Date(c.scheduledAt);
+    const dateStr = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    const timeStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return `Scheduled · ${dateStr} ${timeStr}`;
+  };
+
   // Team Assignment (Platform §2.4) — derive from persona context.
   const teamAssignment = isAgent ? {
     team: personaKey === 'teamLeader' ? 'Alpha (Lead)' : 'Alpha',
@@ -50,7 +227,9 @@ export const EmployeeBoardDashboard = () => {
     salesManager: 'Sales Manager',
     salesDirector: 'Tarek Amin',
     branch: persona.scope.includes('New Cairo') ? 'New Cairo' : '6th October',
-    introCall: onboardingComplete ? 'Completed 2024-01-12' : 'Scheduled · Tomorrow 10:30 AM',
+    introCall: formatIntroCall(myIntroCall),
+    introCallOwner: myIntroCall?.owner,
+    introCallRecord: myIntroCall,
     crmAccount: onboardingComplete ? `${persona.email.split('@')[0]}.crm` : 'Will be issued on activation',
     mlsId: persona.mls === 'Pending' ? 'Pending EGMLS verification (2-3 days)' : persona.mls,
   } : null;
@@ -244,10 +423,29 @@ export const EmployeeBoardDashboard = () => {
                   </div>
                 ))}
               </div>
-              <div style={{marginTop:14,padding:'10px 12px',background:'var(--brand-tint)',borderRadius:8,display:'flex',alignItems:'center',gap:8,fontSize:12}}>
+              <button
+                onClick={() => openIntroCallDrawer(teamAssignment.introCallRecord)}
+                style={{
+                  marginTop:14, padding:'10px 12px',
+                  background:'var(--brand-tint)', border:'1px solid rgba(232,103,42,0.18)',
+                  borderRadius:8,
+                  display:'flex', alignItems:'center', gap:8, fontSize:12,
+                  width:'100%', textAlign:'left', cursor:'pointer',
+                  transition:'background .12s, border-color .12s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,103,42,0.12)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--brand-tint)'; e.currentTarget.style.borderColor = 'rgba(232,103,42,0.18)'; }}
+                title="Open intro call details"
+              >
                 <CalendarClock size={14} color="var(--brand)"/>
-                <span><b>Intro call:</b> {teamAssignment.introCall}</span>
-              </div>
+                <span style={{flex:1}}>
+                  <b>Intro call:</b> {teamAssignment.introCall}
+                  {teamAssignment.introCallOwner && (
+                    <span style={{color:'var(--text-tertiary)', marginLeft:6}}>· with {teamAssignment.introCallOwner}</span>
+                  )}
+                </span>
+                <ChevronRight size={13} color="var(--text-tertiary)"/>
+              </button>
             </div>
 
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'20px 22px'}}>

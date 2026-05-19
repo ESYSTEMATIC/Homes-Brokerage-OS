@@ -1358,6 +1358,79 @@ export const LISTING_SHARES = [
   { id:'SHR-025', listingId:'LST-025', property:'Madinaty Townhouse MD-TW-302',    leadId:'L-1022', leadName:'Mariam Fathy',    channel:'Email',    agent:'Omar Sherif',   timestamp:'2026-05-07 11:30', response:'Interested' },
 ];
 
+// ── INTRO CALLS ──
+// Real domain record auto-spawned when an offer is accepted. The new
+// agent's Team Leader owns the call. Lifecycle: Scheduled → Completed
+// (or No-Show / Cancelled). HR + the agent see the record but only the
+// owner can reschedule or close it out.
+//
+// Each row links to the onboarding application (applicantId) created
+// from the offer accept, plus the underlying candidateId / offerId.
+export const INTRO_CALL_STATUS = ['Scheduled','Completed','No-Show','Cancelled'];
+
+export const INTRO_CALLS = [
+  // Karim Mahmoud (APP004, agent persona Sarah's onboarding hasn't finished)
+  // — call is upcoming.
+  {
+    id: 'IC-001',
+    applicantId: 'APP005',
+    candidateName: 'Sarah El-Masry',
+    owner: 'Omar Sherif',               // Team Leader
+    salesManager: 'Nour El-Din',
+    location: 'Microsoft Teams',
+    scheduledAt: '2026-05-19T10:30',    // demo "tomorrow" relative to 18-May
+    durationMinutes: 30,
+    status: 'Scheduled',
+    notes: 'First touch — walk through CRM, KPIs, expectations.',
+    createdAt: '2026-05-15T09:00',
+    createdBy: 'Auto · Offer accepted (OFR-001)',
+    completedAt: null,
+    history: [
+      { at: '2026-05-15T09:00', actor: 'System', action: 'Auto-scheduled from accepted offer OFR-001' },
+    ],
+  },
+  // Fatma Ibrahim — onboarding complete; call done.
+  {
+    id: 'IC-002',
+    applicantId: 'APP002',
+    candidateName: 'Fatma Ibrahim',
+    owner: 'Omar Sherif',
+    salesManager: 'Nour El-Din',
+    location: 'Microsoft Teams',
+    scheduledAt: '2026-02-12T11:00',
+    durationMinutes: 30,
+    status: 'Completed',
+    notes: 'Covered: CRM walkthrough, MLS access, first-week lead plan. Fatma asked great questions.',
+    createdAt: '2026-02-08T14:00',
+    createdBy: 'Auto · Offer accepted (OFR-002)',
+    completedAt: '2026-02-12T11:34',
+    history: [
+      { at: '2026-02-08T14:00', actor: 'System',       action: 'Auto-scheduled from accepted offer OFR-002' },
+      { at: '2026-02-12T11:34', actor: 'Omar Sherif',  action: 'Marked Completed — strong fit' },
+    ],
+  },
+  // Aya Magdy (Finance Analyst — different department, owner=Khaled Magdy)
+  // shows the same mechanism works for non-sales hires.
+  {
+    id: 'IC-003',
+    applicantId: 'APP008',
+    candidateName: 'Aya Magdy',
+    owner: 'Khaled Magdy',              // Finance Manager
+    salesManager: null,
+    location: 'New Cairo HQ · Floor 4 Conference Room',
+    scheduledAt: '2026-05-21T14:00',
+    durationMinutes: 45,
+    status: 'Scheduled',
+    notes: 'Finance onboarding — walk through commission engine + payout cycle.',
+    createdAt: '2026-05-13T10:00',
+    createdBy: 'Auto · Offer accepted (OFR-004)',
+    completedAt: null,
+    history: [
+      { at: '2026-05-13T10:00', actor: 'System', action: 'Auto-scheduled from accepted offer OFR-004' },
+    ],
+  },
+];
+
 // ── BUYER PREFERENCES (per lead) ──
 // `inferred: true` rows are pre-filled from the lead's campaign signal
 // (CAMPAIGN_INFERENCE above) — the agent didn't capture them on a call.
