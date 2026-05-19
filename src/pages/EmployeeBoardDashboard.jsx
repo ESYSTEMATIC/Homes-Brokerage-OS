@@ -73,22 +73,21 @@ export const EmployeeBoardDashboard = () => {
 
   // ── Post-onboarding CRM operations data ──
   // When an agent has finished onboarding, the dashboard pivots from "journey"
-  // to "operations": live leads / tasks / tours / pipeline KPIs, target
-  // progress, recent activity, announcements, and next training reminder.
+  // to "operations": live leads / tasks / pipeline KPIs, target progress,
+  // recent activity, announcements, and next training reminder.
+  // Tours are a lead treatment (May 2026 review) — counted via lead stage,
+  // not a separate metric.
   const ownerName = personaOwnerName(personaKey);
   const todayIso = new Date().toISOString().slice(0,10);
-  const startOfWeek = (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0,10); })();
-  const endOfWeek = (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 7); return d.toISOString().slice(0,10); })();
-  const isThisWeek = (iso) => iso && iso >= startOfWeek && iso < endOfWeek;
 
   const myLeads = useMemo(() => (state.leads || []).filter(l => l.owner === ownerName), [state.leads, ownerName]);
   const myOpenLeads = myLeads.filter(l => l.stage !== 'Closed Won' && l.stage !== 'Closed Lost');
+  const myLeadsAtTour = myLeads.filter(l => l.stage === 'Tour Scheduled').length;
   const myDeals = useMemo(() => (state.deals || []).filter(d => d.owner === ownerName), [state.deals, ownerName]);
   const myActivePipeline = myDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s, d) => s + (d.value || 0), 0);
   const myClosedWon = myDeals.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
   const myTasksDueToday = (state.tasks || []).filter(t => t.owner === ownerName && t.due === todayIso && t.status !== 'Completed').length;
   const myTasksOverdue = (state.tasks || []).filter(t => t.owner === ownerName && t.due < todayIso && t.status !== 'Completed').length;
-  const myToursThisWeek = (state.tours || []).filter(t => t.agent === ownerName && isThisWeek(t.date)).length;
 
   const myTarget = state.targets?.[personaKey];
   const targetProgress = myTarget ? {

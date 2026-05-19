@@ -18,7 +18,6 @@ export const CrmReports = () => {
   // downstream aggregations run.
   const leads = useMemo(() => (state.leads || []).filter(l => inRange(l.created, range)), [state.leads, range]);
   const deals = useMemo(() => (state.deals || []).filter(d => inRange(d.created, range)), [state.deals, range]);
-  const tours = useMemo(() => (state.tours || []).filter(t => inRange(t.date, range)), [state.tours, range]);
   const listingShares = useMemo(() => (state.listingShares || []).filter(s => inRange((s.timestamp || '').slice(0,10), range)), [state.listingShares, range]);
 
   // Funnel data
@@ -35,28 +34,16 @@ export const CrmReports = () => {
     return { source:s, leads:lds, deals:dls, revenue, conversion: lds?((dls/lds)*100).toFixed(1):0 };
   });
 
-  // Agent Leaderboard
+  // Agent Leaderboard — tours column removed (May 2026 review); tour
+  // outcomes live on the Lead detail page, not as a per-agent metric.
   const agents = ['Ahmed Hassan','Fatma Ibrahim','Hana Mahmoud','Omar Sherif'];
   const agentData = agents.map(a => {
     const lds = leads.filter(l=>l.owner===a).length;
     const dls = deals.filter(d=>d.owner===a&&d.status==='Active').length;
     const revenue = deals.filter(d=>d.owner===a).reduce((sum,d)=>sum+d.value,0);
-    const trs = tours.filter(t=>t.agent===a).length;
     const shares = listingShares.filter(s=>s.agent===a).length;
-    return { agent:a, leads:lds, deals:dls, revenue, tours:trs, shares, conversion: lds?((dls/lds)*100).toFixed(0):0 };
+    return { agent:a, leads:lds, deals:dls, revenue, shares, conversion: lds?((dls/lds)*100).toFixed(0):0 };
   }).sort((a,b)=>b.revenue-a.revenue);
-
-  // Tour Analytics
-  const tourStats = {
-    total: tours.length,
-    completed: tours.filter(t=>t.status==='Completed').length,
-    scheduled: tours.filter(t=>t.status==='Scheduled').length,
-    noShow: tours.filter(t=>t.status==='No-Show').length,
-    cancelled: tours.filter(t=>t.status==='Cancelled').length,
-    avgRating: (tours.filter(t=>t.rating).reduce((s,t)=>s+t.rating,0)/(tours.filter(t=>t.rating).length||1)).toFixed(1),
-    completionRate: tours.length ? ((tours.filter(t=>t.status==='Completed').length/tours.length)*100).toFixed(0) : 0,
-    noShowRate: tours.length ? ((tours.filter(t=>t.status==='No-Show').length/tours.length)*100).toFixed(0) : 0,
-  };
 
   // Listing Performance
   const listingPerf = [...new Set(listingShares.map(s=>s.property))].map(p=>{
@@ -198,12 +185,14 @@ export const CrmReports = () => {
     });
   };
 
+  // Tour Analytics tab removed (May 2026 review) — tours are not a
+  // standalone module. Tour outcomes surface inside Lead detail and the
+  // 'Tour Scheduled' stage feeds the conversion funnel above.
   const reports = [
     {id:'warnings',label:`Team Warnings${warningCount > 0 ? ` (${warningCount})` : ''}`,icon:<AlertTriangle size={16}/>},
     {id:'funnel',label:'Conversion Funnel',icon:<Target size={16}/>},
     {id:'source',label:'Source ROI',icon:<TrendingUp size={16}/>},
     {id:'agents',label:'Agent Leaderboard',icon:<Users size={16}/>},
-    {id:'tours',label:'Tour Analytics',icon:<Calendar size={16}/>},
     {id:'listings',label:'Listing Performance',icon:<Share2 size={16}/>},
   ];
 
@@ -341,7 +330,7 @@ export const CrmReports = () => {
 
       {/* Agent Leaderboard — rows deep-link into per-agent drill-down */}
       {activeReport==='agents'&&(
-        <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th>#</th><th>Agent</th><th>Leads</th><th>Deals</th><th>Revenue</th><th>Tours</th><th>Shares</th><th>Conversion</th><th></th></tr></thead>
+        <div className="data-panel"><div className="data-scroll"><table className="data-table"><thead><tr><th>#</th><th>Agent</th><th>Leads</th><th>Deals</th><th>Revenue</th><th>Shares</th><th>Conversion</th><th></th></tr></thead>
           <tbody>{agentData.map((a,i)=>{
             const agentStaff = (state.staff || []).find(s => s.name === a.agent);
             const openAgentDrawer = () => openDrawer({
@@ -367,7 +356,6 @@ export const CrmReports = () => {
                       ['Leads',      a.leads,        '#3b82f6'],
                       ['Active deals', a.deals,      '#8b5cf6'],
                       ['Revenue',    `EGP ${(a.revenue/1e6).toFixed(1)}M`, '#E8672A'],
-                      ['Tours',      a.tours,        '#10b981'],
                       ['Shares',     a.shares,       '#0ea5e9'],
                       ['Conversion', `${a.conversion}%`, '#f59e0b'],
                     ].map(([k,v,c]) => (
@@ -398,7 +386,6 @@ export const CrmReports = () => {
               <td>{a.leads}</td>
               <td>{a.deals}</td>
               <td className="bold">EGP {fmt(a.revenue)}</td>
-              <td>{a.tours}</td>
               <td>{a.shares}</td>
               <td><span className={`badge ${Number(a.conversion)>=50?'badge-success':Number(a.conversion)>=25?'badge-warning':'badge-info'}`}>{a.conversion}%</span></td>
               <td><ChevronRight size={14} color="var(--text-tertiary)"/></td>
@@ -406,27 +393,10 @@ export const CrmReports = () => {
           );})}</tbody></table></div></div>
       )}
 
-      {/* Tour Analytics */}
-      {activeReport==='tours'&&(
-        <div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:20}}>
-            {[['Completion Rate',tourStats.completionRate+'%','var(--success)'],['No-Show Rate',tourStats.noShowRate+'%','var(--danger)'],['Avg Rating',tourStats.avgRating+' ★','#f59e0b'],['Total Tours',tourStats.total,'var(--info)']].map(([l,v,c])=>(
-              <div key={l} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'16px 20px',borderTop:`3px solid ${c}`}}><div style={{fontSize:12,color:'var(--text-secondary)',fontWeight:600}}>{l}</div><div style={{fontSize:22,fontWeight:800,marginTop:4}}>{v}</div></div>
-            ))}
-          </div>
-          <div className="data-panel" style={{padding:24}}>
-            <h3 style={{fontSize:14,fontWeight:700,marginBottom:16}}>Tour Status Distribution</h3>
-            <div style={{display:'flex',gap:8,marginBottom:20}}>
-              {[['Completed',tourStats.completed,'var(--success)'],['Scheduled',tourStats.scheduled,'var(--brand)'],['No-Show',tourStats.noShow,'var(--danger)'],['Cancelled',tourStats.cancelled,'var(--text-tertiary)']].map(([l,v,c])=>(
-                <div key={l} style={{flex:1,padding:'12px 16px',background:`${c}10`,borderRadius:10,borderLeft:`3px solid ${c}`}}>
-                  <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
-                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:2}}>{l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Tour Analytics tab removed (May 2026 review) — tours are a lead
+          treatment, not a standalone module. Tour outcomes are visible on
+          each Lead detail page; the 'Tour Scheduled' stage in the
+          Conversion Funnel above is the cross-team rollup. */}
 
       {/* Listing Performance */}
       {activeReport==='listings'&&(

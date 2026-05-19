@@ -42,7 +42,6 @@ import { CrmDashboard } from './pages/crm/CrmDashboard';
 import { CrmLeads } from './pages/crm/CrmLeads';
 import { CrmLeadDetail } from './pages/crm/CrmLeadDetail';
 import { CrmListings } from './pages/crm/CrmListings';
-import { CrmTours } from './pages/crm/CrmTours';
 import { CrmDeals } from './pages/crm/CrmDeals';
 // Contracts module retired — contract lifecycle tracked through Deals.
 import { CrmTasks } from './pages/crm/CrmTasks';

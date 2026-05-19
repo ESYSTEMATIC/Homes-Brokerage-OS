@@ -87,12 +87,13 @@ export const AgentPerformance = () => {
   const ownerName = personaOwnerName(personaKey);
 
   // ── Sales analytics — sourced from real CRM state for THIS agent ──
+  // Tours stats removed (May 2026 review) — tours are a lead treatment, not
+  // a separate metric. Leads at 'Tour Scheduled' stage replace the KPI.
   const myLeads = (state.leads || []).filter(l => l.owner === ownerName);
   const myDeals = (state.deals || []).filter(d => d.owner === ownerName);
-  const myTours = (state.tours || []).filter(t => t.agent === ownerName);
 
   const leadsCount = myLeads.length;
-  const toursCompleted = myTours.filter(t => t.status === 'Completed').length;
+  const leadsAtTour = myLeads.filter(l => l.stage === 'Tour Scheduled').length;
   const dealsClosed = myDeals.filter(d => d.status === 'Closed Won' || d.stage === 'Standard Collection (10%)' || d.stage === 'Contract Signed & Payment').length;
   const conversion = leadsCount ? Math.round((dealsClosed / leadsCount) * 100) : 0;
   const myActivePipeline = myDeals.filter(d => d.status === 'Active' || d.status === undefined).reduce((s,d) => s + (d.value || 0), 0);
@@ -123,7 +124,7 @@ export const AgentPerformance = () => {
       <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--text-secondary)',marginBottom:12}}>My Sales Analytics</h3>
       <div className="kpi-grid kpi-grid-4" style={{marginBottom:16}}>
         <div className="kpi-card"><div><div className="kpi-label">My Leads</div><div className="kpi-value">{leadsCount}</div><div className="kpi-change">owned by you</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📋</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Tours Completed</div><div className="kpi-value">{toursCompleted}</div><div className="kpi-change">{myTours.length} scheduled</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🏠</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Tours Scheduled</div><div className="kpi-value">{leadsAtTour}</div><div className="kpi-change">leads at this stage</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>🏠</span></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Deals Closed</div><div className="kpi-value">{dealsClosed}</div><div className="kpi-change">{myDeals.length} total</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💼</span></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Conversion Rate</div><div className="kpi-value">{conversion}%</div><div className="kpi-change">deals / leads</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📈</span></div></div>
       </div>
