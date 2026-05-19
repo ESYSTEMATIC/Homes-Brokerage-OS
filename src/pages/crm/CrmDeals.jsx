@@ -117,7 +117,7 @@ const lifecyclePatch = (deal, newStage) => {
 };
 
 export const CrmDeals = () => {
-  const { state, addItem, updateItem, removeItem, toast, openDrawer, persona, personaKey, writeAudit } = useApp();
+  const { state, addItem, updateItem, removeItem, toast, openDrawer, closeDrawer, openModal, persona, personaKey, writeAudit } = useApp();
   const allDeals = state.deals || [];
   const listings = state.listings || [];
   const readOnly = isReadOnly(personaKey);
@@ -136,6 +136,10 @@ export const CrmDeals = () => {
   const [editDeal, setEditDeal] = useState(null);
   const [overrideFor, setOverrideFor] = useState(null);
   const [overrideForm, setOverrideForm] = useState({ requestedPct: '', reason: '' });
+  // Approval/rejection modal state — replaces the closure-based modal
+  // that wasn't reliably submitting comments.
+  const [decisionFor, setDecisionFor] = useState(null); // { deal, decision }
+  const [decisionComment, setDecisionComment] = useState('');
 
   const defForm = (type='OffPlan') => ({
     type, lead:'', leadName:'', project:'', developer:'', propertyId:'',
@@ -327,6 +331,9 @@ export const CrmDeals = () => {
   // Two-stage approval (revised May 2026):
   //   'Pending Manager'  → Manager accepts → 'Pending Director'  OR  rejects → 'Rejected'
   //   'Pending Director' → Director approves → 'Approved' (deal patched)  OR  rejects → 'Rejected'
+  // Open the dedicated decision modal — this is a self-contained component
+  // with its own React state, so the comment textarea is fully controlled
+  // and never gets lost in closure / re-render races.
   const openOverrideDecision = (d, decision) => {
     const status = d.commissionOverride.status;
     if (!canActOnOverride(personaKey, status)) {
@@ -334,119 +341,73 @@ export const CrmDeals = () => {
       toast(`Only ${need} can ${decision} this override (currently ${status})`, 'error');
       return;
     }
-    openModal({
-      title: `${decision === 'approve' ? 'Approve' : 'Reject'} commission override · ${d.id}`,
-      subtitle: `${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}% (Δ ${d.commissionOverride.delta}%) · requested by ${d.commissionOverride.requestedBy}`,
-      submitLabel: decision === 'approve' ? 'Approve & apply' : 'Reject',
-      body: (
-        <div style={{display:'flex', flexDirection:'column', gap:14}}>
-          {/* Requestor justification (read-only) */}
-          <div>
-            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Requestor justification</label>
-            <div style={{padding:'10px 12px', background:'#f8fafc', borderRadius:8, border:'1px solid var(--border)', fontSize:13, marginTop:6, color:'var(--text-primary)'}}>
-              {d.commissionOverride.reason || '—'}
-            </div>
-          </div>
+    closeDrawer?.(); // dismiss the queue drawer if it's open behind us
+    setDecisionComment('');
+    setDecisionFor({ deal: d, decision });
+  };
 
-          {/* Decision history (if any prior decisions) */}
-          {(d.commissionOverride.history || []).length > 0 && (
-            <div>
-              <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Decision history</label>
-              <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:6}}>
-                {d.commissionOverride.history.map((h, i) => (
-                  <div key={i} style={{padding:'8px 10px', background: h.decision === 'approve' ? '#dcfce7' : '#fee2e2', borderRadius:6, fontSize:12, borderLeft:`3px solid ${h.decision === 'approve' ? '#16a34a' : '#dc2626'}`}}>
-                    <div style={{fontWeight:700, color: h.decision === 'approve' ? '#166534' : '#991b1b'}}>
-                      {h.decision === 'approve' ? '✓ Approved' : '✗ Rejected'} by {h.actor}
-                    </div>
-                    <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>{new Date(h.at).toLocaleString()}</div>
-                    {h.comment && <div style={{fontSize:11, color:'var(--text-secondary)', marginTop:4, fontStyle:'italic'}}>"{h.comment}"</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Required decision comment — name="comment" so the Modal's
-              FormData picks it up reliably (no closure variable). */}
-          <div>
-            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>
-              Your comment <span style={{color:'var(--danger)'}}>*</span>
-            </label>
-            <textarea
-              name="comment"
-              defaultValue=""
-              placeholder={decision === 'approve'
-                ? 'Why are you approving? (e.g. VIP referral retention, performance-based exception)'
-                : 'Why are you rejecting? (e.g. exceeds policy band, insufficient justification)'}
-              style={{width:'100%', minHeight:90, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit', marginTop:6, resize:'vertical'}}
-            />
-            <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:4}}>Required for audit trail · BRD §9 governance</div>
-          </div>
-        </div>
-      ),
-      onSubmit: (formData) => {
-        const comment = (formData?.comment || '').toString();
-        if (!comment.trim()) {
-          toast('Comment is required for audit trail', 'error');
-          return false; // prevent close
-        }
-        const at = new Date().toISOString();
-        const prevHistory = d.commissionOverride.history || [];
-        const currentStatus = d.commissionOverride.status;
-        if (decision === 'approve') {
-          // Manager stage: accept and forward to Director (deal NOT yet patched).
-          if (currentStatus === 'Pending Manager') {
-            const entry = { at, actor: persona.label, action: 'Manager Accepted', stage: 'Pending Director', decision: 'approve', comment: comment.trim() };
-            updateItem('deals', d.id, {
-              commissionOverride: {
-                ...d.commissionOverride,
-                status: 'Pending Director',
-                managerAcceptedBy: persona.label,
-                managerAcceptedAt: at,
-                managerComment: comment.trim(),
-                history: [...prevHistory, entry],
-              },
-            });
-            writeAudit('Commission Override · Manager Accepted', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `By ${persona.label} · forwarded to Sales Director · "${comment.trim()}"`);
-            toast('Accepted — forwarded to Sales Director for final approval', 'success');
-            return;
-          }
-          // Director stage: final approve — patch the deal (rate + the
-          // per-deal split override the requestor asked for).
-          const entry = { at, actor: persona.label, action: 'Director Approved', stage: 'Approved', decision: 'approve', comment: comment.trim() };
-          updateItem('deals', d.id, {
-            commission: d.commissionOverride.requestedPct,
-            commissionOverride: {
-              ...d.commissionOverride,
-              status: 'Approved',
-              splitOverride: d.commissionOverride.requestedSplit || d.commissionOverride.splitOverride || null,
-              decidedBy: persona.label,
-              decidedAt: at,
-              decisionComment: comment.trim(),
-              history: [...prevHistory, entry],
-            },
-          });
-          writeAudit('Commission Override Approved', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `Final approval by ${persona.label} · "${comment.trim()}"`);
-          toast('Override approved & applied to the deal', 'success');
-        } else {
-          updateItem('deals', d.id, {
-            commissionOverride: {
-              ...d.commissionOverride,
-              status: 'Rejected',
-              rejectedBy: persona.label,
-              rejectedAt: at,
-              rejectionComment: comment.trim(),
-              decidedBy: persona.label,
-              decidedAt: at,
-              decisionComment: comment.trim(),
-              history: [...prevHistory, { at, actor: persona.label, action: 'Rejected', stage: 'Rejected', decision: 'reject', comment: comment.trim(), fromStage: currentStatus }],
-            },
-          });
-          writeAudit('Commission Override Rejected', d.id, 'CRM', `Rejected at ${currentStatus} by ${persona.label} · "${comment.trim()}"`);
-          toast('Override rejected', 'info');
-        }
-      },
-    });
+  // Submit the decision — called by the modal's form onSubmit handler.
+  // Comment lives in React state so it's bulletproof.
+  const submitDecision = () => {
+    if (!decisionFor) return;
+    const { deal: d, decision } = decisionFor;
+    const comment = decisionComment.trim();
+    if (!comment) { toast('Comment is required for audit trail', 'error'); return; }
+    const at = new Date().toISOString();
+    const prevHistory = d.commissionOverride.history || [];
+    const currentStatus = d.commissionOverride.status;
+    if (decision === 'approve') {
+      if (currentStatus === 'Pending Manager') {
+        const entry = { at, actor: persona.label, action: 'Manager Accepted', stage: 'Pending Director', decision: 'approve', comment };
+        updateItem('deals', d.id, {
+          commissionOverride: {
+            ...d.commissionOverride,
+            status: 'Pending Director',
+            managerAcceptedBy: persona.label,
+            managerAcceptedAt: at,
+            managerComment: comment,
+            history: [...prevHistory, entry],
+          },
+        });
+        writeAudit('Commission Override · Manager Accepted', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `By ${persona.label} · forwarded to Sales Director · "${comment}"`);
+        toast('Accepted — forwarded to Sales Director for final approval', 'success');
+      } else {
+        // Director final approve — patch the deal.
+        const entry = { at, actor: persona.label, action: 'Director Approved', stage: 'Approved', decision: 'approve', comment };
+        updateItem('deals', d.id, {
+          commission: d.commissionOverride.requestedPct,
+          commissionOverride: {
+            ...d.commissionOverride,
+            status: 'Approved',
+            splitOverride: d.commissionOverride.requestedSplit || d.commissionOverride.splitOverride || null,
+            decidedBy: persona.label,
+            decidedAt: at,
+            decisionComment: comment,
+            history: [...prevHistory, entry],
+          },
+        });
+        writeAudit('Commission Override Approved', `${d.id}: ${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}%`, 'CRM', `Final approval by ${persona.label} · "${comment}"`);
+        toast('Override approved & applied to the deal', 'success');
+      }
+    } else {
+      updateItem('deals', d.id, {
+        commissionOverride: {
+          ...d.commissionOverride,
+          status: 'Rejected',
+          rejectedBy: persona.label,
+          rejectedAt: at,
+          rejectionComment: comment,
+          decidedBy: persona.label,
+          decidedAt: at,
+          decisionComment: comment,
+          history: [...prevHistory, { at, actor: persona.label, action: 'Rejected', stage: 'Rejected', decision: 'reject', comment, fromStage: currentStatus }],
+        },
+      });
+      writeAudit('Commission Override Rejected', d.id, 'CRM', `Rejected at ${currentStatus} by ${persona.label} · "${comment}"`);
+      toast('Override rejected', 'info');
+    }
+    setDecisionFor(null);
+    setDecisionComment('');
   };
 
   // Director direct override — bypasses the TL→Manager→Director chain.
@@ -1154,6 +1115,89 @@ export const CrmDeals = () => {
             </form>
           </div>
         </div>
+        );
+      })()}
+
+      {/* ─── Decision modal (Manager Accept / Director Final Approve / Reject)
+            Self-contained controlled component — the comment textarea binds
+            to React state, no closures involved. */}
+      {decisionFor && (() => {
+        const d = decisionFor.deal;
+        const decision = decisionFor.decision;
+        const ov = d.commissionOverride || {};
+        const isApprove = decision === 'approve';
+        const isManagerStage = ov.status === 'Pending Manager';
+        const headerTitle = isApprove
+          ? (isManagerStage ? 'Accept · forward to Director' : 'Final approve & apply')
+          : 'Reject override';
+        const submitLabel = isApprove
+          ? (isManagerStage ? 'Accept & forward' : 'Approve & apply')
+          : 'Reject';
+        return (
+          <div className="modal-overlay" onClick={() => setDecisionFor(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:560}}>
+              <div className="modal-header">
+                <h3>{headerTitle} · {d.id}</h3>
+                <button className="btn-icon" onClick={() => setDecisionFor(null)}><X size={18}/></button>
+              </div>
+              <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div style={{padding:'10px 12px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:8,fontSize:12,lineHeight:1.6}}>
+                  <div><b>{d.leadName || d.lead} · {d.project}</b></div>
+                  <div style={{color:'var(--text-secondary)',marginTop:2}}>
+                    Rate: {ov.currentPct}% → {ov.requestedPct}% · Δ {ov.delta}%
+                  </div>
+                  <div style={{color:'var(--text-tertiary)',marginTop:2,fontSize:11}}>Requested by {ov.requestedBy} · status: {ov.status}</div>
+                </div>
+
+                {ov.reason && (
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Requestor justification</div>
+                    <div style={{padding:'10px 12px',background:'#fff',border:'1px solid var(--border)',borderRadius:8,fontSize:13,whiteSpace:'pre-wrap'}}>{ov.reason}</div>
+                  </div>
+                )}
+
+                {Array.isArray(ov.history) && ov.history.length > 0 && (
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Decision history</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      {ov.history.map((h, i) => (
+                        <div key={i} style={{padding:'6px 10px',background: h.decision === 'reject' ? '#fee2e2' : '#dcfce7',borderRadius:6,fontSize:11,borderLeft:`3px solid ${h.decision === 'reject' ? '#dc2626' : '#16a34a'}`}}>
+                          <b>{h.action || (h.decision === 'reject' ? 'Rejected' : 'Approved')}</b> by {h.actor} · {(h.at || '').slice(0,16).replace('T',' ')}
+                          {h.comment && <div style={{fontStyle:'italic',color:'var(--text-secondary)',marginTop:2}}>"{h.comment}"</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>
+                    Your comment <span style={{color:'var(--danger)'}}>*</span>
+                  </label>
+                  <textarea
+                    value={decisionComment}
+                    onChange={e => setDecisionComment(e.target.value)}
+                    placeholder={isApprove
+                      ? 'Why are you approving? (e.g. VIP retention, performance-based exception)'
+                      : 'Why are you rejecting? (e.g. exceeds policy band, insufficient justification)'}
+                    style={{width:'100%',minHeight:90,padding:'10px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',resize:'vertical'}}
+                    autoFocus
+                  />
+                  <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>Required for audit trail</div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-outline" onClick={() => setDecisionFor(null)}>Cancel</button>
+                <button
+                  className={`btn ${isApprove ? 'btn-brand' : 'btn-danger'}`}
+                  disabled={!decisionComment.trim()}
+                  onClick={submitDecision}
+                >
+                  {submitLabel}
+                </button>
+              </div>
+            </div>
+          </div>
         );
       })()}
     </div>
