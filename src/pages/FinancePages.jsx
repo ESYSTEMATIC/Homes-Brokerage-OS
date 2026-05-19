@@ -43,11 +43,10 @@ export const FinanceOverview = () => {
 };
 
 export const DealsRevenue = () => {
-  const { state, openDrawer, toast, writeAudit } = useApp();
+  const { state, openDrawer } = useApp();
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.dealsRev, {
     searchKeys:['unit','developer','agent','id'], filters:{ status:'status' },
   });
-  const today = () => new Date().toISOString().split('T')[0];
 
   const view = (d) => openDrawer({
     title: `Deal ${d.id}`, subtitle: `${d.unit} · ${d.agent}`,
@@ -69,7 +68,21 @@ export const DealsRevenue = () => {
               <option value="">All Statuses</option>{['Approved','Pending','Paid'].map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
-          <button className="btn btn-outline" onClick={()=>{exportCSV(`deals_revenue_${today()}`,filtered); toast(`Exported ${filtered.length}`); writeAudit('Export','Deals Revenue CSV','Finance');}}><Download size={14}/> Export</button>
+          <ExportMenu
+            rows={filtered}
+            columns={[
+              { key: 'id',        label: 'Deal ID' },
+              { key: 'unit',      label: 'Unit' },
+              { key: 'developer', label: 'Developer' },
+              { key: 'agent',     label: 'Agent' },
+              { key: 'price',     label: 'Unit Price (EGP)',     format: v => fmt(v) },
+              { key: 'revenue',   label: 'Company Revenue (EGP)',format: v => fmt(v) },
+              { key: 'status',    label: 'Status' },
+            ]}
+            filename="deals_revenue"
+            title="Deals & Revenue Export"
+            subtitle={`Filtered view · ${filtered.length} deal${filtered.length === 1 ? '' : 's'}`}
+          />
         </div>
         <div className="data-scroll">
           <table className="data-table">
