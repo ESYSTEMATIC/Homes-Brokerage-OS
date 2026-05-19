@@ -163,8 +163,11 @@ const CHECKLIST_STEPS = [
   { key: 'welcome',     label: 'Welcome kit delivered',        icon: Mail,         owner: 'HR' },
 ];
 
-// Bands used by the Source-of-Hire view.
-const SOURCES = ['Careers Page', 'Referral', 'LinkedIn', 'Direct outreach', 'Recruiter', 'Other'];
+// Onboarding-record provenance — where the onboarding application
+// originated (NOT the candidate sourcing channel; that concept was
+// removed from the system per May 2026 business review). Used by the
+// Onboarding intake stub and the source column on the pipeline table.
+const SOURCES = ['Careers Page', 'Direct Hire', 'Offer (auto-spawned)', 'Internal Transfer', 'Other'];
 
 // ═══════════════════════════════════════════════════════════════════════
 // Main Onboarding page

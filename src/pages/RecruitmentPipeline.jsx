@@ -440,21 +440,11 @@ export const RecruitmentPipeline = () => {
   })();
   const conversionPct = funnelStats.total === 0 ? 0 : Math.round(((funnelStats.counts['Offer'] || 0) / funnelStats.total) * 100);
 
-  // Vacancy-of-hire ROI — replaces the old Source ROI per business
-  // feedback. Hires made = candidates that reached Offer stage, grouped by
-  // the vacancy they applied to.
-  const sourceROI = (() => {
-    const groups = {};
-    state.candidates.forEach(c => {
-      const key = c.vacancyId ? `${c.vacancyId} · ${vacancyById[c.vacancyId]?.title || ''}` : (c.job || 'Other');
-      groups[key] = groups[key] || { applied: 0, offers: 0 };
-      groups[key].applied += 1;
-      if (c.stage === 'Offer') groups[key].offers += 1;
-    });
-    return Object.entries(groups).map(([source, g]) => ({
-      source, ...g, pct: g.applied ? Math.round((g.offers / g.applied) * 100) : 0,
-    })).sort((a, b) => b.pct - a.pct);
-  })();
+  // Source / Vacancy-of-Hire ROI was removed per business review (May 2026).
+  // Since the vacancy IS the source, grouping candidates by vacancy only
+  // restates information already visible on the vacancy detail page (the
+  // X/Y FILLED badge and per-stage KPI strip). Funnel + time-to-fill are
+  // the analytics that add value here.
 
   // Time-to-fill: average days from applied → offer per role.
   const timeToFill = (() => {
@@ -508,7 +498,6 @@ export const RecruitmentPipeline = () => {
       <RecruitmentAnalytics
         funnel={funnelStats}
         conversionPct={conversionPct}
-        sourceROI={sourceROI}
         timeToFill={timeToFill}
         diversity={diversity}
       />
@@ -814,7 +803,7 @@ const stageColors = {
   Rejected:  '#94a3b8',
 };
 
-const RecruitmentAnalytics = ({ funnel, conversionPct, sourceROI, timeToFill, diversity }) => {
+const RecruitmentAnalytics = ({ funnel, conversionPct, timeToFill, diversity }) => {
   const maxFunnel = Math.max(...Object.values(funnel.counts), 1);
   return (
     <div style={{
@@ -827,7 +816,7 @@ const RecruitmentAnalytics = ({ funnel, conversionPct, sourceROI, timeToFill, di
             <Award size={18} color="var(--brand)"/> Recruitment Funnel Analytics
           </h3>
           <p style={{fontSize:11, color:'var(--text-tertiary)', marginTop:4}}>
-            Funnel · source ROI · time-to-fill · diversity — derived from the live candidate pool.
+            Funnel · time-to-fill · diversity — derived from the live candidate pool.
           </p>
         </div>
         <div style={{display:'flex', gap:18, alignItems:'center'}}>
@@ -836,7 +825,7 @@ const RecruitmentAnalytics = ({ funnel, conversionPct, sourceROI, timeToFill, di
         </div>
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr', gap:18}}>
+      <div style={{display:'grid', gridTemplateColumns:'1.6fr 1fr', gap:18}}>
         {/* Funnel bars */}
         <div>
           <h4 style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Funnel</h4>
@@ -857,30 +846,10 @@ const RecruitmentAnalytics = ({ funnel, conversionPct, sourceROI, timeToFill, di
           </div>
         </div>
 
-        {/* Vacancy-of-hire ROI — was Source ROI, renamed to reflect that
-            the vacancy is the source per business review. */}
-        <div>
-          <h4 style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Vacancy-of-Hire ROI</h4>
-          <table style={{width:'100%', fontSize:11, borderCollapse:'collapse'}}>
-            <thead><tr style={{color:'var(--text-tertiary)'}}>
-              <th style={{textAlign:'left', padding:'4px 0', fontWeight:500}}>Vacancy</th>
-              <th style={{textAlign:'right', padding:'4px 0', fontWeight:500}}>Applied</th>
-              <th style={{textAlign:'right', padding:'4px 0', fontWeight:500}}>Offers</th>
-              <th style={{textAlign:'right', padding:'4px 0', fontWeight:500}}>%</th>
-            </tr></thead>
-            <tbody>
-              {sourceROI.map(s => (
-                <tr key={s.source} style={{borderTop:'1px solid #f1f5f9'}}>
-                  <td style={{padding:'5px 0', fontWeight:600, fontSize:11}}>{s.source}</td>
-                  <td style={{textAlign:'right', padding:'5px 0'}}>{s.applied}</td>
-                  <td style={{textAlign:'right', padding:'5px 0', fontWeight:700, color: s.offers > 0 ? '#10b981' : 'var(--text-tertiary)'}}>{s.offers}</td>
-                  <td style={{textAlign:'right', padding:'5px 0', fontWeight:700, color: s.pct >= 30 ? '#10b981' : s.pct >= 15 ? '#f59e0b' : '#94a3b8'}}>{s.pct}%</td>
-                </tr>
-              ))}
-              {sourceROI.length === 0 && <tr><td colSpan={4} style={{textAlign:'center', color:'var(--text-tertiary)', padding:8}}>No applications yet</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        {/* Source / Vacancy-of-Hire ROI panel removed (May 2026 review).
+            Since the vacancy IS the source, grouping candidates by vacancy
+            duplicated information already on the vacancy detail page
+            (X/Y FILLED + per-stage KPI strip). */}
 
         {/* Time to fill + Diversity */}
         <div>
