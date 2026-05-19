@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Heart, GitCompare, Share2, BedDouble, Bath, Maximize2, MapPin, Phone,
   Calendar, MessageCircle, ChevronLeft, ChevronRight, Calculator, CheckCircle2, X, Send,
+  ShieldCheck, Check,
 } from 'lucide-react';
 import { PM_LISTINGS } from '../../data/publicMarketplaceData';
 import { Breadcrumb } from '../../components/Breadcrumb';
@@ -459,36 +460,102 @@ export const ListingDetail = () => {
           )}
         </div>
 
-        {/* Right rail — agent contact */}
+        {/* ─── Right rail — agent contact card (redesigned May 2026) ──
+            Hero CTA gets full width and a brand-gradient with shadow.
+            Secondary actions are split into Call / WhatsApp / Inquiry on
+            a 3-column row. Trust pulse + response-time + verified badge
+            sit at the top of the card. */}
         <aside className="pm-detail-aside">
-          <div className="pm-agent-card">
+          <div className="pm-agent-card pm-agent-card-v2">
+            {/* Top — live status + verified badge */}
+            <div className="pm-agent-status">
+              <span className="pm-status-dot"/>
+              <span className="pm-status-label">Available now · responds in ~15 min</span>
+              <span className="pm-verified-pill" title="MLS-verified · brokerage-tagged">
+                <CheckCircle2 size={11}/> MLS Verified
+              </span>
+            </div>
+
+            {/* Agent identity */}
             <div className="pm-agent-head">
-              <div className="pm-agent-avatar">HM</div>
+              <div className="pm-agent-avatar-v2">
+                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=faces&auto=format&q=80" alt="" />
+                <span className="pm-agent-online-dot" title="Online"/>
+              </div>
               <div>
                 <div className="name">Homes Specialist</div>
                 <div className="role">Licensed agent · {listing.city}</div>
+                <div className="pm-agent-rating" aria-label="4.9 out of 5 from 132 buyers">
+                  <span style={{color:'#f59e0b'}}>★★★★★</span>
+                  <span className="pm-agent-rating-num">4.9</span>
+                  <span className="pm-agent-rating-count">(132 buyers)</span>
+                </div>
               </div>
             </div>
-            <div className="pm-agent-body">
-              <button type="button" className="pm-btn-primary" onClick={() => setShowTour(true)}><Calendar size={14}/> Schedule a tour</button>
-              <button type="button" className="pm-btn-outline" onClick={() => setShowInquiry(true)}><Send size={14}/> I'm interested</button>
-              <a className="pm-btn-outline" href={`tel:${phoneLink}`} onClick={() => onPhoneCall({ listing: listing.id })}><Phone size={14}/> Call agent</a>
-              <a className="pm-btn-whatsapp" href={buildWhatsAppUrl({ listing, message: `I'm interested in ${listing.compound}.` })} target="_blank" rel="noopener noreferrer" onClick={() => onWhatsApp({ listing: listing.id })}>
-                <MessageCircle size={14}/> WhatsApp
+
+            {/* Hero CTA — Schedule a tour gets the gradient treatment */}
+            <button
+              type="button"
+              className="pm-cta-hero"
+              onClick={() => setShowTour(true)}
+            >
+              <Calendar size={16}/>
+              <span>
+                <span className="cta-title">Schedule a tour</span>
+                <span className="cta-sub">Free · usually within 24 hours</span>
+              </span>
+            </button>
+
+            {/* Secondary CTAs — 3-up grid: WhatsApp / Call / Message */}
+            <div className="pm-cta-row">
+              <a
+                className="pm-cta-mini pm-cta-whatsapp"
+                href={buildWhatsAppUrl({ listing, message: `I'm interested in ${listing.compound}.` })}
+                target="_blank" rel="noopener noreferrer"
+                onClick={() => onWhatsApp({ listing: listing.id })}
+                title="Chat on WhatsApp"
+              >
+                <MessageCircle size={18}/>
+                <span>WhatsApp</span>
               </a>
+              <a
+                className="pm-cta-mini pm-cta-call"
+                href={`tel:${phoneLink}`}
+                onClick={() => onPhoneCall({ listing: listing.id })}
+                title="Call the agent"
+              >
+                <Phone size={18}/>
+                <span>Call</span>
+              </a>
+              <button
+                type="button"
+                className="pm-cta-mini pm-cta-message"
+                onClick={() => setShowInquiry(true)}
+                title="Send a written inquiry"
+              >
+                <Send size={18}/>
+                <span>Message</span>
+              </button>
             </div>
-            <div className="pm-agent-foot">
-              <span>{phoneLink} · 24h response</span>
+
+            <div className="pm-agent-foot pm-agent-foot-v2">
+              <Phone size={11}/>
+              <span>{phoneLink}</span>
+              <span className="pm-foot-sep">·</span>
+              <span>No obligation</span>
             </div>
           </div>
 
-          <div className="pm-agent-card pm-agent-trust">
-            <h4>Why Homes</h4>
+          {/* Trust card — restyled */}
+          <div className="pm-agent-card pm-agent-trust pm-agent-trust-v2">
+            <h4>
+              <ShieldCheck size={14}/> Why Homes
+            </h4>
             <ul>
-              <li>Verified MLS-tagged listings only</li>
-              <li>Direct line to a licensed agent — no middlemen</li>
-              <li>Free mortgage pre-qualification</li>
-              <li>Saved searches + favorites synced on this device</li>
+              <li><Check size={11}/> Verified MLS-tagged listings only</li>
+              <li><Check size={11}/> Direct line to a licensed agent — no middlemen</li>
+              <li><Check size={11}/> Free mortgage pre-qualification</li>
+              <li><Check size={11}/> Saved searches + favorites synced on this device</li>
             </ul>
           </div>
         </aside>
