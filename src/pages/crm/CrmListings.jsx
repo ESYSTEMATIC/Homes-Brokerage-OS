@@ -7,45 +7,109 @@ import { Search, Eye, X, LayoutGrid, List, Home, Bed, Bath, Maximize, Share2, Bu
 const fmt = n => new Intl.NumberFormat('en-EG').format(n);
 const statusColor = s => s==='Available'?'badge-success':s==='Reserved'?'badge-warning':'badge-danger';
 
-// Multi-select Lead picker + channel selector for the Share modal.
-// Uses local component state because the Modal's submit collects FormData,
-// and we need a set + a string (not flat form fields).
-const ShareBody = ({ leads, channels, onLeadsChange, onChannelChange }) => {
+// Phone normalisation for deep links — wa.me / sms: / tel: schemes want
+// digits-only (with country code, no '+').
+const cleanPhone = (raw) => (raw || '').replace(/[^0-9]/g, '');
+
+// Default message template used by every channel — listing label + lead
+// first name + agent signature. The agent can override it in the modal.
+const buildShareMessage = ({ listingLabel, leadName, agentName }) => {
+  const greeting = leadName ? `Hi ${leadName.split(' ')[0]},` : 'Hi,';
+  return `${greeting}
+
+I have a listing that might match what you're looking for — ${listingLabel}.
+
+Can I share more details and arrange a viewing?
+
+— ${agentName || 'Your Homes agent'}`;
+};
+
+// Multi-select Lead picker + editable message + per-channel send buttons.
+// The channel buttons ARE the action: each one opens the right native app
+// (WhatsApp Web, SMS, email client, dialer) with the message pre-filled
+// AND writes one listingShares row per (listing × lead) so tracking and
+// analytics still work without a separate "log" step.
+const ShareBody = ({ listing, leads, agentName, onSent }) => {
   const [picked, setPicked] = useState(() => new Set());
-  const [channel, setChannel] = useState(channels[0]);
   const [q, setQ] = useState('');
+  const listingLabel = `${listing.project}${listing.unitCode ? ' · ' + listing.unitCode : ''}${listing.price ? ' — EGP ' + (listing.price/1e6).toFixed(1) + 'M' : ''}`;
+  // Build a default message; once the user starts typing we stop
+  // auto-overwriting it (touched flag).
+  const [touched, setTouched] = useState(false);
+  const [message, setMessage] = useState(() => buildShareMessage({ listingLabel, leadName: '', agentName }));
+  const [subject, setSubject] = useState(`Listing: ${listingLabel}`);
+
+  // When the picked set changes to a single lead, refresh the template
+  // with their first name — unless the agent already edited the message.
+  useEffect(() => {
+    if (touched) return;
+    const ids = Array.from(picked);
+    const firstLead = ids.length === 1 ? leads.find(l => l.id === ids[0]) : null;
+    setMessage(buildShareMessage({ listingLabel, leadName: firstLead?.name || '', agentName }));
+  }, [picked, touched, listingLabel, leads, agentName]);
 
   const filtered = leads.filter(l =>
     !q || l.name.toLowerCase().includes(q.toLowerCase()) || l.phone?.includes(q) || l.id.toLowerCase().includes(q.toLowerCase())
   );
-
   const toggle = (id) => {
     const next = new Set(picked);
     if (next.has(id)) next.delete(id); else next.add(id);
     setPicked(next);
-    onLeadsChange(next);
+  };
+
+  // Resolve the selected leads to their records — used by the channel
+  // handlers to look up phone / email per lead.
+  const selectedLeads = Array.from(picked).map(id => leads.find(l => l.id === id)).filter(Boolean);
+  const someoneSelected = selectedLeads.length > 0;
+  const missingPhone   = selectedLeads.filter(l => !cleanPhone(l.phone)).length;
+  const missingEmail   = selectedLeads.filter(l => !l.email).length;
+
+  // Each channel handler loops the picked leads, opens the native app
+  // per lead (or once for email/SMS where comma-list works), and calls
+  // onSent so the parent can record each share row + close the modal.
+  const sendWhatsApp = () => {
+    if (!someoneSelected) return;
+    const withPhone = selectedLeads.filter(l => cleanPhone(l.phone));
+    if (withPhone.length === 0) { onSent('error', 'Selected leads have no phone numbers on file'); return; }
+    // Open one wa.me tab per lead, slightly staggered so popup blockers
+    // don't swallow the later ones.
+    withPhone.forEach((l, i) => {
+      const url = `https://wa.me/${cleanPhone(l.phone)}?text=${encodeURIComponent(message)}`;
+      setTimeout(() => window.open(url, '_blank', 'noopener'), i * 150);
+    });
+    onSent('WhatsApp', { leads: withPhone, message, skipped: selectedLeads.length - withPhone.length });
+  };
+  const sendSMS = () => {
+    if (!someoneSelected) return;
+    const withPhone = selectedLeads.filter(l => cleanPhone(l.phone));
+    if (withPhone.length === 0) { onSent('error', 'Selected leads have no phone numbers on file'); return; }
+    // Native SMS supports comma-joined numbers in iOS / many Android clients.
+    const numbers = withPhone.map(l => `+${cleanPhone(l.phone)}`).join(',');
+    window.location.href = `sms:${numbers}?body=${encodeURIComponent(message)}`;
+    onSent('SMS', { leads: withPhone, message, skipped: selectedLeads.length - withPhone.length });
+  };
+  const sendEmail = () => {
+    if (!someoneSelected) return;
+    const withEmail = selectedLeads.filter(l => l.email);
+    if (withEmail.length === 0) { onSent('error', 'Selected leads have no email on file'); return; }
+    const to = withEmail.map(l => l.email).join(',');
+    window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    onSent('Email', { leads: withEmail, message, subject, skipped: selectedLeads.length - withEmail.length });
+  };
+  const startCall = () => {
+    if (selectedLeads.length !== 1) { onSent('error', 'Call is one-lead-at-a-time. Pick exactly one lead.'); return; }
+    const l = selectedLeads[0];
+    const phone = cleanPhone(l.phone);
+    if (!phone) { onSent('error', 'This lead has no phone number on file'); return; }
+    try { navigator.clipboard?.writeText(message); } catch (e) { void e; }
+    window.location.href = `tel:+${phone}`;
+    onSent('Call', { leads: [l], message });
   };
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div>
-        <label style={{fontSize:12,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:6}}>Channel</label>
-        <div style={{display:'flex',gap:8}}>
-          {channels.map(c => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => { setChannel(c); onChannelChange(c); }}
-              style={{
-                padding:'8px 14px', borderRadius:8, cursor:'pointer',
-                fontSize:12, fontWeight:600,
-                border: channel === c ? '1px solid var(--brand)' : '1px solid var(--border)',
-                background: channel === c ? 'var(--brand-tint)' : '#fff',
-                color: channel === c ? 'var(--brand)' : 'var(--text-primary)',
-              }}
-            >{c}</button>
-          ))}
-        </div>
+      <div style={{padding:'10px 12px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}>
+        <b>Listing:</b> {listingLabel}
       </div>
 
       <div>
@@ -59,7 +123,7 @@ const ShareBody = ({ leads, channels, onLeadsChange, onChannelChange }) => {
           onChange={e=>setQ(e.target.value)}
           style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',marginBottom:8}}
         />
-        <div style={{maxHeight:280,overflowY:'auto',border:'1px solid var(--border)',borderRadius:8}}>
+        <div style={{maxHeight:200,overflowY:'auto',border:'1px solid var(--border)',borderRadius:8}}>
           {filtered.map(l => (
             <label
               key={l.id}
@@ -68,12 +132,55 @@ const ShareBody = ({ leads, channels, onLeadsChange, onChannelChange }) => {
               <input type="checkbox" checked={picked.has(l.id)} onChange={()=>toggle(l.id)} />
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{l.name}</div>
-                <div style={{fontSize:11,color:'var(--text-tertiary)'}}>{l.id} · {l.phone} · {l.stage}</div>
+                <div style={{fontSize:11,color:'var(--text-tertiary)'}}>{l.id} · {l.phone || <i>no phone</i>} · {l.email || <i>no email</i>} · {l.stage}</div>
               </div>
             </label>
           ))}
           {filtered.length === 0 && <div style={{padding:'20px',textAlign:'center',color:'var(--text-tertiary)',fontSize:12}}>No leads match.</div>}
         </div>
+        {someoneSelected && (missingPhone > 0 || missingEmail > 0) && (
+          <div style={{marginTop:6,fontSize:11,color:'#b45309'}}>
+            {missingPhone > 0 && <span>{missingPhone} selected lead{missingPhone===1?'':'s'} have no phone (WhatsApp/SMS/Call will skip them). </span>}
+            {missingEmail > 0 && <span>{missingEmail} selected lead{missingEmail===1?'':'s'} have no email (Email will skip them).</span>}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label style={{fontSize:12,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:6}}>Email subject</label>
+        <input
+          type="text"
+          value={subject}
+          onChange={e=>setSubject(e.target.value)}
+          style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit'}}
+        />
+      </div>
+
+      <div>
+        <label style={{fontSize:12,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:6}}>Message / talking points</label>
+        <textarea
+          rows={6}
+          value={message}
+          onChange={e=>{ setTouched(true); setMessage(e.target.value); }}
+          style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',lineHeight:1.5,resize:'vertical'}}
+        />
+        <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>Used as the WhatsApp / SMS / Email body. Copied to the clipboard before a call.</div>
+      </div>
+
+      {/* Channel CTAs — each one is the real action. */}
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',paddingTop:8,borderTop:'1px solid var(--border)'}}>
+        <button type="button" className="btn btn-sm" onClick={sendWhatsApp} disabled={!someoneSelected} style={{background:'#25d366',color:'#fff',border:'1px solid #25d366'}}>
+          WhatsApp <span style={{opacity:.85,fontSize:10}}>↗</span>
+        </button>
+        <button type="button" className="btn btn-sm" onClick={sendSMS} disabled={!someoneSelected} style={{background:'#8b5cf6',color:'#fff',border:'1px solid #8b5cf6'}}>
+          SMS <span style={{opacity:.85,fontSize:10}}>↗</span>
+        </button>
+        <button type="button" className="btn btn-sm" onClick={sendEmail} disabled={!someoneSelected} style={{background:'#3b82f6',color:'#fff',border:'1px solid #3b82f6'}}>
+          Email <span style={{opacity:.85,fontSize:10}}>↗</span>
+        </button>
+        <button type="button" className="btn btn-sm" onClick={startCall} disabled={selectedLeads.length !== 1} title={selectedLeads.length !== 1 ? 'Call is one lead at a time' : 'Start dialer'} style={{background:'var(--brand)',color:'#fff',border:'1px solid var(--brand)'}}>
+          Call <span style={{opacity:.85,fontSize:10}}>↗</span>
+        </button>
       </div>
     </div>
   );
@@ -166,7 +273,7 @@ const ListingsMap = ({ listings, onMarkerClick }) => {
 };
 
 export const CrmListings = () => {
-  const { state, addItem, toast, openDrawer, openModal, persona } = useApp();
+  const { state, addItem, toast, openDrawer, openModal, closeModal, persona } = useApp();
   const [view, setView] = useState('grid');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -206,17 +313,15 @@ export const CrmListings = () => {
   const shareCountFor = (listingId) => listingShares.filter(s => s.listingId === listingId).length;
 
   const shareListing = (l) => {
-    const SHARE_CHANNELS = ['WhatsApp','Email','SMS','Call'];
-    let selectedLeads = new Set();
-    let channel = 'WhatsApp';
-
-    const submit = () => {
-      const picked = Array.from(selectedLeads);
-      if (picked.length === 0) { toast('Pick at least one lead to share with','warning'); return; }
+    // onSent fires whenever a channel CTA inside the modal actually opens
+    // a native app. It writes one listingShares row per (listing × lead)
+    // with the message body persisted, and closes the modal with a
+    // confirmation toast. 'error' is a sentinel for missing-contact cases.
+    const onSent = (channel, payload) => {
+      if (channel === 'error') { toast(payload || 'Could not send', 'error'); return; }
+      const { leads: picked, message, subject, skipped = 0 } = payload;
       const ts = new Date().toISOString().slice(0,16).replace('T',' ');
-      picked.forEach(leadId => {
-        const lead = leads.find(x => x.id === leadId);
-        if (!lead) return;
+      picked.forEach(lead => {
         addItem('listingShares', {
           listingId: l.id,
           property: `${l.project} ${l.unitCode}`,
@@ -226,6 +331,8 @@ export const CrmListings = () => {
           agent: persona?.label || 'Fatma Ibrahim',
           timestamp: ts,
           response: 'No Response',
+          message,
+          subject: channel === 'Email' ? subject : undefined,
         }, 'SHR', {
           action: 'Listing Shared',
           module: 'CRM',
@@ -233,22 +340,30 @@ export const CrmListings = () => {
           detail: `${l.project} ${l.unitCode} → ${lead.name} via ${channel}`,
         });
       });
-      toast(`Shared "${l.project} ${l.unitCode}" with ${picked.length} lead${picked.length===1?'':'s'} via ${channel}`,'success');
+      const where = channel === 'WhatsApp' ? 'WhatsApp Web'
+                  : channel === 'SMS'      ? 'your SMS app'
+                  : channel === 'Email'    ? 'your email client'
+                  :                          'your dialer';
+      toast(
+        `Opened ${where} for ${picked.length} lead${picked.length===1?'':'s'} · share logged${skipped > 0 ? ` · ${skipped} skipped (missing contact)` : ''}`,
+        'success'
+      );
+      closeModal();
     };
 
     openModal({
       title: `Share — ${l.project} ${l.unitCode}`,
-      subtitle: `Pick one or more leads and a channel`,
-      submitLabel: 'Share',
+      subtitle: `Pick lead(s), edit the message, then choose how to send`,
+      // Hide the default Submit — channel CTAs inside the body are the action.
+      submitLabel: null,
       body: (
         <ShareBody
+          listing={l}
           leads={leads}
-          channels={SHARE_CHANNELS}
-          onLeadsChange={(set) => { selectedLeads = set; }}
-          onChannelChange={(ch) => { channel = ch; }}
+          agentName={persona?.label}
+          onSent={onSent}
         />
       ),
-      onSubmit: submit,
     });
   };
 
