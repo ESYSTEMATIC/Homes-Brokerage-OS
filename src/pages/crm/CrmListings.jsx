@@ -11,17 +11,24 @@ const statusColor = s => s==='Available'?'badge-success':s==='Reserved'?'badge-w
 // digits-only (with country code, no '+').
 const cleanPhone = (raw) => (raw || '').replace(/[^0-9]/g, '');
 
-// Default message template used by every channel — listing label + lead
-// first name + agent signature. The agent can override it in the modal.
-const buildShareMessage = ({ listingLabel, leadName, agentName }) => {
-  const greeting = leadName ? `Hi ${leadName.split(' ')[0]},` : 'Hi,';
-  return `${greeting}
+// Default message template used by every channel — uses {firstName} as a
+// placeholder so the same message can be personalized per recipient when
+// sending to multiple leads at once. Substituted at send time.
+const buildShareMessage = ({ listingLabel, agentName }) =>
+  `Hi {firstName},
 
 I have a listing that might match what you're looking for — ${listingLabel}.
 
 Can I share more details and arrange a viewing?
 
 — ${agentName || 'Your Homes agent'}`;
+
+// Per-recipient personalization — swap {firstName} for the lead's first name
+// (or "there" if we don't have a name). Called once per lead when the deep
+// link is built for WhatsApp / SMS / Email / Call.
+const personalize = (template, lead) => {
+  const first = lead?.name ? lead.name.split(' ')[0] : 'there';
+  return (template || '').replace(/\{firstName\}/g, first);
 };
 
 // Multi-select Lead picker + editable message + per-channel send buttons.
@@ -33,20 +40,11 @@ const ShareBody = ({ listing, leads, agentName, onSent }) => {
   const [picked, setPicked] = useState(() => new Set());
   const [q, setQ] = useState('');
   const listingLabel = `${listing.project}${listing.unitCode ? ' · ' + listing.unitCode : ''}${listing.price ? ' — EGP ' + (listing.price/1e6).toFixed(1) + 'M' : ''}`;
-  // Build a default message; once the user starts typing we stop
-  // auto-overwriting it (touched flag).
-  const [touched, setTouched] = useState(false);
-  const [message, setMessage] = useState(() => buildShareMessage({ listingLabel, leadName: '', agentName }));
+  // Template uses {firstName} placeholder — personalized per-recipient at
+  // send time. No re-rendering needed when the picked set changes; the
+  // same template works for 1 lead or 10.
+  const [message, setMessage] = useState(() => buildShareMessage({ listingLabel, agentName }));
   const [subject, setSubject] = useState(`Listing: ${listingLabel}`);
-
-  // When the picked set changes to a single lead, refresh the template
-  // with their first name — unless the agent already edited the message.
-  useEffect(() => {
-    if (touched) return;
-    const ids = Array.from(picked);
-    const firstLead = ids.length === 1 ? leads.find(l => l.id === ids[0]) : null;
-    setMessage(buildShareMessage({ listingLabel, leadName: firstLead?.name || '', agentName }));
-  }, [picked, touched, listingLabel, leads, agentName]);
 
   const filtered = leads.filter(l =>
     !q || l.name.toLowerCase().includes(q.toLowerCase()) || l.phone?.includes(q) || l.id.toLowerCase().includes(q.toLowerCase())
@@ -71,10 +69,12 @@ const ShareBody = ({ listing, leads, agentName, onSent }) => {
     if (!someoneSelected) return;
     const withPhone = selectedLeads.filter(l => cleanPhone(l.phone));
     if (withPhone.length === 0) { onSent('error', 'Selected leads have no phone numbers on file'); return; }
-    // Open one wa.me tab per lead, slightly staggered so popup blockers
-    // don't swallow the later ones.
+    // One wa.me tab per lead with the message PERSONALIZED for that lead
+    // (the {firstName} placeholder gets replaced with the lead's first name).
+    // Tabs are staggered 150ms apart so popup blockers don't swallow them.
     withPhone.forEach((l, i) => {
-      const url = `https://wa.me/${cleanPhone(l.phone)}?text=${encodeURIComponent(message)}`;
+      const text = personalize(message, l);
+      const url = `https://wa.me/${cleanPhone(l.phone)}?text=${encodeURIComponent(text)}`;
       setTimeout(() => window.open(url, '_blank', 'noopener'), i * 150);
     });
     onSent('WhatsApp', { leads: withPhone, message, skipped: selectedLeads.length - withPhone.length });
@@ -83,17 +83,38 @@ const ShareBody = ({ listing, leads, agentName, onSent }) => {
     if (!someoneSelected) return;
     const withPhone = selectedLeads.filter(l => cleanPhone(l.phone));
     if (withPhone.length === 0) { onSent('error', 'Selected leads have no phone numbers on file'); return; }
-    // Native SMS supports comma-joined numbers in iOS / many Android clients.
-    const numbers = withPhone.map(l => `+${cleanPhone(l.phone)}`).join(',');
-    window.location.href = `sms:${numbers}?body=${encodeURIComponent(message)}`;
+    if (withPhone.length === 1) {
+      // Single recipient — personalize the body.
+      const l = withPhone[0];
+      window.location.href = `sms:+${cleanPhone(l.phone)}?body=${encodeURIComponent(personalize(message, l))}`;
+    } else {
+      // Multiple recipients — sms: with comma-joined recipients can't carry
+      // a personalized body. Open ONE sms: per lead, staggered, each
+      // personalized. Falls back gracefully if the device opens only the
+      // first one (mobile native behaviour).
+      withPhone.forEach((l, i) => {
+        const url = `sms:+${cleanPhone(l.phone)}?body=${encodeURIComponent(personalize(message, l))}`;
+        setTimeout(() => { window.location.href = url; }, i * 200);
+      });
+    }
     onSent('SMS', { leads: withPhone, message, skipped: selectedLeads.length - withPhone.length });
   };
   const sendEmail = () => {
     if (!someoneSelected) return;
     const withEmail = selectedLeads.filter(l => l.email);
     if (withEmail.length === 0) { onSent('error', 'Selected leads have no email on file'); return; }
-    const to = withEmail.map(l => l.email).join(',');
-    window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    if (withEmail.length === 1) {
+      // Single recipient — personalize.
+      const l = withEmail[0];
+      window.location.href = `mailto:${l.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(personalize(message, l))}`;
+    } else {
+      // Multiple recipients — open ONE mailto: per lead so each one is
+      // personalized. The agent sends each draft.
+      withEmail.forEach((l, i) => {
+        const url = `mailto:${l.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(personalize(message, l))}`;
+        setTimeout(() => { window.location.href = url; }, i * 250);
+      });
+    }
     onSent('Email', { leads: withEmail, message, subject, skipped: selectedLeads.length - withEmail.length });
   };
   const startCall = () => {
@@ -101,7 +122,7 @@ const ShareBody = ({ listing, leads, agentName, onSent }) => {
     const l = selectedLeads[0];
     const phone = cleanPhone(l.phone);
     if (!phone) { onSent('error', 'This lead has no phone number on file'); return; }
-    try { navigator.clipboard?.writeText(message); } catch (e) { void e; }
+    try { navigator.clipboard?.writeText(personalize(message, l)); } catch (e) { void e; }
     window.location.href = `tel:+${phone}`;
     onSent('Call', { leads: [l], message });
   };
@@ -161,10 +182,15 @@ const ShareBody = ({ listing, leads, agentName, onSent }) => {
         <textarea
           rows={6}
           value={message}
-          onChange={e=>{ setTouched(true); setMessage(e.target.value); }}
+          onChange={e=>setMessage(e.target.value)}
           style={{width:'100%',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',lineHeight:1.5,resize:'vertical'}}
         />
-        <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>Used as the WhatsApp / SMS / Email body. Copied to the clipboard before a call.</div>
+        <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+          <span><b>Tip:</b> use <code style={{padding:'1px 5px',background:'#f1f5f9',borderRadius:3,fontFamily:'ui-monospace,monospace'}}>{`{firstName}`}</code> — it gets replaced per recipient.</span>
+          {someoneSelected && (
+            <span style={{color:'var(--brand)',fontWeight:600}}>· will be sent to {selectedLeads.length} lead{selectedLeads.length===1?'':'s'}, each personalized</span>
+          )}
+        </div>
       </div>
 
       {/* Channel CTAs — each one is the real action. */}
