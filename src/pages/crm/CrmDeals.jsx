@@ -334,7 +334,6 @@ export const CrmDeals = () => {
       toast(`Only ${need} can ${decision} this override (currently ${status})`, 'error');
       return;
     }
-    let comment = '';
     openModal({
       title: `${decision === 'approve' ? 'Approve' : 'Reject'} commission override · ${d.id}`,
       subtitle: `${d.commissionOverride.currentPct}% → ${d.commissionOverride.requestedPct}% (Δ ${d.commissionOverride.delta}%) · requested by ${d.commissionOverride.requestedBy}`,
@@ -367,24 +366,26 @@ export const CrmDeals = () => {
             </div>
           )}
 
-          {/* Required decision comment */}
+          {/* Required decision comment — name="comment" so the Modal's
+              FormData picks it up reliably (no closure variable). */}
           <div>
             <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>
               Your comment <span style={{color:'var(--danger)'}}>*</span>
             </label>
             <textarea
+              name="comment"
               defaultValue=""
               placeholder={decision === 'approve'
                 ? 'Why are you approving? (e.g. VIP referral retention, performance-based exception)'
                 : 'Why are you rejecting? (e.g. exceeds policy band, insufficient justification)'}
-              onChange={e => { comment = e.target.value; }}
               style={{width:'100%', minHeight:90, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit', marginTop:6, resize:'vertical'}}
             />
             <div style={{fontSize:10, color:'var(--text-tertiary)', marginTop:4}}>Required for audit trail · BRD §9 governance</div>
           </div>
         </div>
       ),
-      onSubmit: () => {
+      onSubmit: (formData) => {
+        const comment = (formData?.comment || '').toString();
         if (!comment.trim()) {
           toast('Comment is required for audit trail', 'error');
           return false; // prevent close
