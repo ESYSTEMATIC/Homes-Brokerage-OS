@@ -197,26 +197,92 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
     },
   });
 
-  const requestOverride = (p) => openModal({
-    title: `Override — ${p.project}`,
-    subtitle: 'DEAL-004: override requires reason and hierarchy approval',
-    submitLabel: 'Submit for approval', danger: true,
-    body: (
-      <>
-        <FieldRow>
-          <Field label="New Rate %" name="rate" type="number" required defaultValue={p.rate + 0.2} />
-          <Field label="Approver" name="approver" type="select" required options={state.staff.filter(s=>s.type.includes('Manager')||s.type==='Sales Director').map(s=>s.name)} />
-        </FieldRow>
-        <Field label="Reason" name="overrideReason" type="textarea" required placeholder="e.g. Premium launch incentive" />
-      </>
-    ),
-    onSubmit: ({ rate, approver, overrideReason }) => {
-      const after = { ...p, rate: Number(rate), override: true, overrideReason, approver };
-      const entry = buildPolicyHistoryEntry({ existing: p, before: p, after, action: 'Override', note: `${overrideReason} · approved by ${approver}` });
-      updateItem('commissionPolicies', p.id, { rate: Number(rate), override: true, overrideReason, approver, history: [...(p.history || []), entry] }, { action: 'Commission Override', module: 'Finance', target: `${p.id} ${p.project}`, detail: `Rate → ${rate}% — ${overrideReason}` });
-      toast(`Override applied to ${p.project}`, 'warning');
-    },
-  });
+  // Override = per-deal exception. The policy's deal-side rate stays put;
+  // a specific deal gets a one-off rate that the Finance Officer / System
+  // Admin signed off on. The policy's history records the override so
+  // auditors can see 'this policy had N exceptions' without the policy
+  // itself drifting away from its configured rate.
+  const requestOverride = (p) => {
+    // Only deals tied to this policy's developer × project are eligible,
+    // and only those that don't already carry an active override.
+    const eligibleDeals = (state.deals || []).filter(d =>
+      d.developer === p.developer &&
+      d.project === p.project &&
+      (!d.commissionOverride || d.commissionOverride.status === 'Rejected')
+    );
+    if (eligibleDeals.length === 0) {
+      toast(`No deals on ${p.project} available for override (every deal already has one or none exist).`, 'info');
+      return;
+    }
+    openModal({
+      title: `Override commission for one deal — ${p.project}`,
+      subtitle: `Policy rate is ${p.rate}%. The override applies to the picked deal only; the policy stays unchanged.`,
+      submitLabel: 'Apply override',
+      danger: true,
+      body: (
+        <>
+          <Field label="Deal" name="dealId" type="select" required
+            options={eligibleDeals.map(d => ({
+              value: d.id,
+              label: `${d.id} — ${d.leadName || d.lead || '—'} — ${fmt(d.value)} @ ${d.commission}%`,
+            }))} />
+          <FieldRow>
+            <Field label="New Rate %" name="rate" type="number" step="0.01" required defaultValue={(p.rate + 0.2).toFixed(2)} />
+            <Field label="Approver" name="approver" type="select" required
+              options={state.staff.filter(s => s.type.includes('Manager') || s.type === 'Sales Director').map(s => s.name)} />
+          </FieldRow>
+          <Field label="Reason" name="overrideReason" type="textarea" required placeholder="e.g. Premium launch incentive · loyal-buyer discount · strategic close" />
+          <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6,padding:'8px 12px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:6,lineHeight:1.5}}>
+            <b>This will not change policy {p.id}.</b> Only the picked deal's commission rate is overridden. Other deals on {p.project} continue to use the {p.rate}% policy rate.
+          </div>
+        </>
+      ),
+      onSubmit: ({ dealId, rate, approver, overrideReason }) => {
+        if (!dealId) { toast('Pick a deal to override', 'error'); return false; }
+        const deal = (state.deals || []).find(d => d.id === dealId);
+        if (!deal) { toast('Deal not found', 'error'); return false; }
+        const newRate = Number(rate);
+        if (!Number.isFinite(newRate) || newRate <= 0) { toast('New rate must be a positive number', 'error'); return false; }
+        const at = new Date().toISOString();
+        const actor = persona?.label || 'System Admin';
+
+        // 1. Patch the deal — new commission rate + override metadata.
+        //    Status is 'Approved' because System Admin / Finance Officer
+        //    is directly applying (not requesting via Director Inbox).
+        updateItem('deals', deal.id, {
+          commission: newRate,
+          commissionOverride: {
+            policyId: p.id,
+            currentPct: deal.commission,
+            requestedPct: newRate,
+            delta: Number((newRate - deal.commission).toFixed(2)),
+            reason: overrideReason,
+            approver,
+            requestedBy: actor,
+            requestedAt: at,
+            decidedBy: actor,
+            decidedAt: at,
+            status: 'Approved',
+            history: [{ actor, decision: 'approve', comment: `Direct override from policy ${p.id}: ${overrideReason}`, at }],
+          },
+        }, { action: 'Deal Commission Override', module: 'Finance', target: deal.id, detail: `${deal.commission}% → ${newRate}% on ${deal.id} — ${overrideReason}` });
+
+        // 2. Append a non-mutating entry to the policy's history so the
+        //    audit log shows the override happened against this policy
+        //    without the policy itself drifting.
+        const policyEntry = {
+          at,
+          actor,
+          action: 'Deal Override',
+          detail: `Deal ${deal.id} (${deal.leadName || deal.lead || '—'}): ${deal.commission}% → ${newRate}% — ${overrideReason} · approver ${approver}`,
+          dealId: deal.id,
+        };
+        updateItem('commissionPolicies', p.id, { history: [...(p.history || []), policyEntry] }, { action: 'Policy Override Logged', module: 'Finance', target: p.id, detail: policyEntry.detail });
+
+        toast(`Override applied to ${deal.id} only · policy ${p.id} unchanged`, 'warning');
+      },
+    });
+  };
 
   // Per-policy action log drawer — opens from the History icon on every
   // policy row. Renders the policy.history[] timeline so an auditor can
@@ -230,7 +296,21 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
         <div style={{padding:'10px 12px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}>
           <div><b>Current rate:</b> {p.rate}%</div>
           <div style={{marginTop:4}}><b>Current split:</b> {splitStr(p.split || COMMISSION_SPLIT_DEFAULT)}</div>
-          {p.override && <div style={{marginTop:4,color:'#b45309'}}><b>Override active:</b> {p.overrideReason} — approver {p.approver}</div>}
+          {(() => {
+            const overrides = (state.deals || []).filter(d =>
+              d.developer === p.developer &&
+              d.project === p.project &&
+              d.commissionOverride &&
+              d.commissionOverride.status === 'Approved'
+            );
+            if (overrides.length === 0) return null;
+            return (
+              <div style={{marginTop:6,padding:'8px 10px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:6,color:'#92400e',fontSize:11}}>
+                <b>{overrides.length} deal-level override{overrides.length === 1 ? '' : 's'}:</b>{' '}
+                {overrides.map(d => `${d.id} @ ${d.commission}%`).join(' · ')}
+              </div>
+            );
+          })()}
         </div>
         <div>
           <div style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Action log · {(p.history || []).length} entr{(p.history || []).length === 1 ? 'y' : 'ies'}</div>
@@ -276,9 +356,18 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
         </div>
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>ID</th><th>Developer</th><th>Project</th><th>Rate</th><th>Agent</th><th>TL</th><th>Mgr</th><th>Dir</th><th>Co</th><th>Override</th><th>Status</th><th>Log</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <thead><tr><th>ID</th><th>Developer</th><th>Project</th><th>Rate</th><th>Agent</th><th>TL</th><th>Mgr</th><th>Dir</th><th>Co</th><th>Deal Overrides</th><th>Status</th><th>Log</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>{state.commissionPolicies.map(p => {
               const s = p.split || COMMISSION_SPLIT_DEFAULT;
+              // Count deal-level overrides linked to this policy. Overrides
+              // live on the DEAL (deal.commissionOverride) — the policy
+              // itself never carries a rate exception.
+              const dealOverrides = (state.deals || []).filter(d =>
+                d.developer === p.developer &&
+                d.project === p.project &&
+                d.commissionOverride &&
+                d.commissionOverride.status === 'Approved'
+              );
               return (
                 <tr key={p.id}>
                   <td className="muted">{p.id}</td>
@@ -290,9 +379,9 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
                   <td className="muted">{s.manager}%</td>
                   <td className="muted">{s.director}%</td>
                   <td className="muted">{s.company}%</td>
-                  <td>{p.override
-                    ? <span className="badge badge-warning" title={`${p.overrideReason || ''}${p.approver ? ' · approver ' + p.approver : ''}`}>Yes</span>
-                    : <span className="badge badge-gray">No</span>}</td>
+                  <td>{dealOverrides.length > 0
+                    ? <span className="badge badge-warning" title={dealOverrides.map(d => `${d.id} @ ${d.commission}% (was ${d.commissionOverride.currentPct}%)`).join('\n')}>{dealOverrides.length} deal{dealOverrides.length === 1 ? '' : 's'}</span>
+                    : <span className="badge badge-gray">None</span>}</td>
                   <td><span className="badge badge-success">{p.status}</span></td>
                   <td>
                     <button className="btn btn-outline btn-sm" onClick={()=>viewHistory(p)} title="Policy action log">
@@ -301,7 +390,7 @@ export const CommissionPoliciesSection = ({ embedded = false }) => {
                   </td>
                   <td style={{textAlign:'right'}}><div className="row-actions">
                     <button className="btn btn-outline btn-sm" onClick={()=>openPolicyForm(p)}><Pencil size={13}/></button>
-                    {!p.override && <button className="btn btn-warning btn-sm" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>requestOverride(p)}>Override</button>}
+                    <button className="btn btn-warning btn-sm" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>requestOverride(p)} title="Apply a one-off rate to a specific deal — policy stays at its configured rate">Override deal</button>
                   </div></td>
                 </tr>
               );
@@ -335,7 +424,7 @@ export const FinancialManagement = () => {
       <div className="kpi-grid kpi-grid-4">
         <div className="kpi-card"><div><div className="kpi-label">Total Commission Due</div><div className="kpi-value" style={{fontSize:20}}>{fmt(621000)}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>💰</span></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Pending Approval</div><div className="kpi-value" style={{fontSize:20}}>{fmt(273000)}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Overrides Active</div><div className="kpi-value">{state.commissionPolicies.filter(p=>p.override).length}</div></div><div className="kpi-icon red"><Zap size={20}/></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Deal Overrides Active</div><div className="kpi-value">{(state.deals || []).filter(d => d.commissionOverride && d.commissionOverride.status === 'Approved').length}</div></div><div className="kpi-icon red"><Zap size={20}/></div></div>
         <div className="kpi-card"><div><div className="kpi-label">Active Policies</div><div className="kpi-value">{state.commissionPolicies.length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📋</span></div></div>
       </div>
 
