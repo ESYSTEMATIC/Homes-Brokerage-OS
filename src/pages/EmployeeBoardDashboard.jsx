@@ -205,6 +205,26 @@ export const EmployeeBoardDashboard = () => {
     };
   }, [state.introCalls, persona.label, onboardingComplete]);
 
+  // Intro calls I OWN (Team Leaders, Sales Managers, Sales Directors,
+  // HR Recruiters, Backoffice Admins, etc.) — every record where the
+  // persona is the owner. Sorted with Scheduled first (upcoming first),
+  // then everything else by most-recent. This is what Omar Sherif sees:
+  // IC-001 (Sarah · Scheduled) and IC-002 (Fatma · Completed).
+  const myOwnedIntroCalls = useMemo(() => {
+    const all = (state.introCalls || []).filter(c => c.owner === persona.label);
+    const STATUS_ORDER = { 'Scheduled': 0, 'No-Show': 1, 'Cancelled': 2, 'Completed': 3 };
+    return [...all].sort((a, b) => {
+      const sa = STATUS_ORDER[a.status] ?? 9;
+      const sb = STATUS_ORDER[b.status] ?? 9;
+      if (sa !== sb) return sa - sb;
+      // Within group: Scheduled → soonest first, others → most recent first
+      const ta = a.scheduledAt || '';
+      const tb = b.scheduledAt || '';
+      if (a.status === 'Scheduled') return ta.localeCompare(tb);
+      return tb.localeCompare(ta);
+    });
+  }, [state.introCalls, persona.label]);
+
   // Format intro-call summary for the Team Assignment row.
   const formatIntroCall = (c) => {
     if (!c) return '—';
@@ -358,6 +378,70 @@ export const EmployeeBoardDashboard = () => {
           </div>
         );
       })()}
+
+      {/* ── Intro calls you own (Team Leaders, Managers, HR, Backoffice) ──
+          Surfaces every record where the signed-in user is the call owner —
+          i.e. the manager who'll run the intro call for a newly-hired agent.
+          Hidden when the persona has no owned calls. Each row opens the
+          existing intro-call drawer (Join Teams · Reschedule · Mark Done · …). */}
+      {myOwnedIntroCalls.length > 0 && (
+        <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'18px 22px',marginBottom:18}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,gap:10,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:36,height:36,borderRadius:10,background:'var(--brand-tint)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <CalendarClock size={18} color="var(--brand)"/>
+              </div>
+              <div>
+                <h3 style={{fontSize:14,fontWeight:700,margin:0}}>Intro calls you own</h3>
+                <p style={{fontSize:11,color:'var(--text-secondary)',marginTop:2}}>
+                  {myOwnedIntroCalls.filter(c=>c.status==='Scheduled').length} upcoming · auto-spawned the moment an offer is accepted
+                </p>
+              </div>
+            </div>
+            <span className="badge badge-gray" style={{fontFamily:'monospace'}}>{myOwnedIntroCalls.length} total</span>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {myOwnedIntroCalls.map(call => {
+              const dt = call.scheduledAt ? new Date(call.scheduledAt) : null;
+              const when = dt ? `${dt.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'})} · ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}` : 'Not scheduled';
+              const badgeKind = call.status === 'Completed' ? 'success' : call.status === 'Scheduled' ? 'brand' : 'warning';
+              const candidatePhoto = ((state.staff || []).find(s => s.name === call.candidateName) || {}).photoDataUrl;
+              const initials = (call.candidateName || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+              return (
+                <div
+                  key={call.id}
+                  onClick={() => openIntroCallDrawer(call)}
+                  style={{
+                    display:'flex',alignItems:'center',gap:12,
+                    padding:'12px 14px',
+                    background:'#fafbfc',border:'1px solid var(--border)',borderRadius:10,
+                    cursor:'pointer',transition:'background .12s, border-color .12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background='var(--brand-tint)'; e.currentTarget.style.borderColor='rgba(232,103,42,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background='#fafbfc'; e.currentTarget.style.borderColor='var(--border)'; }}
+                >
+                  <div style={{width:36,height:36,borderRadius:10,background:candidatePhoto?'transparent':'linear-gradient(135deg,#475569,#1e293b)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,overflow:'hidden',flexShrink:0}}>
+                    {candidatePhoto ? <img src={candidatePhoto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                      <span style={{fontWeight:700,fontSize:13}}>{call.candidateName}</span>
+                      <span className={`badge badge-${badgeKind}`} style={{fontSize:9}}>{call.status}</span>
+                      {call.applicantId && <span style={{fontSize:10,color:'var(--text-tertiary)',fontFamily:'monospace'}}>{call.applicantId}</span>}
+                    </div>
+                    <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:3,display:'flex',gap:10,flexWrap:'wrap'}}>
+                      <span>📅 {when}</span>
+                      {call.location && <span>📍 {call.location}</span>}
+                      {call.durationMinutes && <span>⏱ {call.durationMinutes}m</span>}
+                    </div>
+                  </div>
+                  <ChevronRight size={14} color="var(--text-tertiary)"/>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Agent-only onboarding journey + status (BRD §8.9) ── */}
       {/* Only show the onboarding journey for agents who haven't finished
