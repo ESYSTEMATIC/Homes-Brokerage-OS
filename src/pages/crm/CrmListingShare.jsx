@@ -242,14 +242,18 @@ export const CrmListingShare = () => {
                     onChange={e => {
                       const id = e.target.value;
                       const lst = listings.find(l => l.id === id);
-                      const label = lst ? `${lst.title || lst.name} — EGP ${(lst.price/1e6).toFixed(1)}M` : '';
+                      // Real LISTINGS shape: { project, unitCode, unitType, price, ... }
+                      // No `title` / `name` field — build the label from project + unitCode.
+                      const label = lst
+                        ? `${lst.project}${lst.unitCode ? ` · ${lst.unitCode}` : ''}${lst.price ? ` — EGP ${(lst.price/1e6).toFixed(1)}M` : ''}`
+                        : '';
                       refreshTemplate({ ...shareForm, listingId: id, listingLabel: label });
                     }}
                   >
                     <option value="">Choose listing…</option>
                     {listings.map(l => (
                       <option key={l.id} value={l.id}>
-                        {(l.title || l.name)}{l.price ? ` — EGP ${(l.price/1e6).toFixed(1)}M` : ''}
+                        {l.project}{l.unitCode ? ` · ${l.unitCode}` : ''}{l.unitType ? ` (${l.unitType})` : ''}{l.price ? ` — EGP ${(l.price/1e6).toFixed(1)}M` : ''}
                       </option>
                     ))}
                   </select>
