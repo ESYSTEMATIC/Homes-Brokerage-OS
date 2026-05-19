@@ -87,8 +87,9 @@ export const CrmLeads = () => {
       writeAudit('CRM Lead Updated', `${form.name} (${editLead.id})`, 'CRM');
       toast('Lead updated','success');
     }else{
-      // Policy guard (May 2026): only Sales Manager + up can mint leads.
-      if (!canCreate) { toast('Only Sales Manager + can create leads. Leads come from Marketplace CTA or get assigned.', 'error'); return; }
+      // Policy guard: audit-only / no-CRM-access roles cannot mint leads.
+      // Sales-track roles (agent, TL, manager, director) all can.
+      if (!canCreate) { toast('Your role cannot create leads.', 'error'); return; }
       addItem('leads',{...form,budget:form.budget?Number(form.budget):0,created:new Date().toISOString().split('T')[0],team: h.team || 'Alpha'},'L');
       writeAudit('CRM Lead Created', `${form.name} (manual entry by ${persona.label} — protected 6 months)`, 'CRM');
       toast('Lead created — protected from reassignment for 6 months','success');
@@ -324,11 +325,6 @@ export const CrmLeads = () => {
           )})}><History size={14}/> Audit trail</button>
           {canCreate && <button className="btn btn-brand" onClick={openAdd2}><Plus size={16}/> Add Lead</button>}
           {readOnly && <span className="badge badge-warning">Read-only · audit role</span>}
-          {!canCreate && !readOnly && (
-            <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',background:'#f1f5f9',border:'1px solid var(--border)',borderRadius:6,fontSize:11,color:'var(--text-secondary)'}} title="Sales Manager policy">
-              <Lock size={12}/> Leads arrive from Marketplace CTA · assigned by Sales Manager
-            </span>
-          )}
         </div>
         <div style={{marginTop:8,fontSize:12,color:'var(--text-tertiary)'}}>Showing {filtered.length} of {visible.length} leads</div>
       </div>

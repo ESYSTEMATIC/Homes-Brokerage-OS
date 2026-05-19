@@ -113,23 +113,28 @@ export const canImportColdCalls = (personaKey) =>
   canSeeCrmModule(personaKey, 'coldCallsImport') || canSeeCrmModule(personaKey, 'coldCalls');
 
 // Returns true if the user can MANUALLY CREATE a lead in the CRM.
-// Business-team policy (May 2026): agents cannot create leads — those flow
-// in automatically from the public Marketplace CTAs (Buy / Sell / Mortgage /
-// Tour-request / Inquiry forms) or from Cold-Call imports, and are assigned
-// by the Sales Manager / Sales Director. Manual creation is reserved for
-// Sales Manager and up so they can immediately set the owner.
+// Business-team policy (May 2026 — confirmed): every sales-track role can
+// add a lead. Agents who meet a walk-in / referral / cold-prospect at a
+// pop-up should be able to capture them directly. The auto-intake paths
+// (Marketplace CTAs · Cold-Call import) keep working in parallel. The
+// 6-month manual-lead protection (BRD §6.1.4) still applies to anyone's
+// manually-created lead so it can't be reassigned away from them.
 export const canCreateLead = (personaKey) => {
   const h = HIERARCHY[personaKey];
   if (!h) return false;
-  // 'cross' = Sales Manager, 'all' = Sales Director.
-  // Backoffice / System Admins keep mutate rights via 'audit' explicitly here.
-  return h.scope === 'cross' || h.scope === 'all' || personaKey === 'backofficeAdmin' || personaKey === 'systemAdmin';
+  // Anyone with sales-track CRM access can mint a lead; audit-only,
+  // marketing, and 'none' roles cannot.
+  return h.scope === 'self' || h.scope === 'team' || h.scope === 'cross' || h.scope === 'all';
 };
 
-// Returns true if the user can DELETE a lead. Same gate as create — only
-// Sales Manager and up. Agents can update stage / priority / notes on their
-// own leads but cannot remove them from the pipeline.
-export const canDeleteLead = (personaKey) => canCreateLead(personaKey);
+// Returns true if the user can DELETE a lead. Tighter than create — agents
+// keep their leads in the pipeline (use Closed Lost instead). Removal is
+// reserved for managers + audit-admins for data-hygiene operations.
+export const canDeleteLead = (personaKey) => {
+  const h = HIERARCHY[personaKey];
+  if (!h) return false;
+  return h.scope === 'cross' || h.scope === 'all' || personaKey === 'backofficeAdmin' || personaKey === 'systemAdmin';
+};
 
 // Returns true if the user can ASSIGN / REASSIGN a lead's owner.
 // Honors the 6-month manual-lead protection (BRD §6.1.4).
