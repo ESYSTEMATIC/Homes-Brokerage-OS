@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, Field, FieldRow, Empty } from '../components/UI';
 import { ExportMenu } from '../components/ExportMenu';
-import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar } from 'lucide-react';
+import { findCommissionPolicy, computeSplit, COMMISSION_SPLIT_DEFAULT } from '../data/staticData';
+import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
@@ -225,7 +226,30 @@ export const CommissionEngine = () => {
 
         {/* Four-persona breakdown — every commission row now splits across
             Agent / Team Leader / Sales Manager / Sales Director with the
-            company share as the remainder. */}
+            company share as the remainder. The percentages come from the
+            active Commission Policy (developer × project); fallback to the
+            system default when no policy matches. */}
+        {(() => {
+          // Resolve which policy governs this commission row by looking up
+          // the deal → project (via state.deals) → policy. If the deal isn't
+          // found we surface the system default with an explanation so the
+          // auditor never sees a 'unknown source' on a split.
+          const deal = (state.deals || []).find(d => d.id === c.deal || d.unitCode === c.deal || (d.leadName && d.project));
+          const policy = deal ? findCommissionPolicy(state.commissionPolicies || [], deal.developer, deal.project) : null;
+          const policyOrDefault = policy?.split || COMMISSION_SPLIT_DEFAULT;
+          return (
+            <div style={{padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,fontSize:11,display:'flex',gap:8,alignItems:'flex-start'}}>
+              <Settings size={12} color="var(--text-secondary)" style={{marginTop:2,flexShrink:0}}/>
+              <div>
+                <b>Split source:</b> {policy ? `${policy.id} · ${policy.developer} / ${policy.project}` : 'System default (no matching policy)'}
+                <div style={{color:'var(--text-tertiary)',marginTop:2,fontFamily:'ui-monospace,monospace'}}>
+                  Agent {policyOrDefault.agent}% · TL {policyOrDefault.tl}% · Mgr {policyOrDefault.manager}% · Dir {policyOrDefault.director}% · Co {policyOrDefault.company}%
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <div>
           <div style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Commission split</div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>

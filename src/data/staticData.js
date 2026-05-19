@@ -815,14 +815,68 @@ export const TRAINING = [
 ];
 
 // ── COMMISSION POLICIES ──
-export const COMMISSION_POLICIES = [
-  { id: "COM-001", developer: "Palm Hills", project: "Palm Hills New Cairo", rate: 2.0, override: false, status: "Active" },
-  { id: "COM-002", developer: "Ora", project: "ZED East", rate: 2.0, override: false, status: "Active" },
-  { id: "COM-003", developer: "Hyde Park", project: "Hyde Park New Cairo", rate: 1.8, override: false, status: "Active" },
-  { id: "COM-004", developer: "Palm Hills", project: "Hacienda Bay", rate: 2.2, override: true, overrideReason: "Premium launch incentive", approver: "Nour El-Din", status: "Active" },
-  { id: "COM-005", developer: "Talaat Moustafa", project: "Madinaty", rate: 1.5, override: false, status: "Active" },
-  { id: "COM-006", developer: "Sodic", project: "Sodic West", rate: 1.8, override: false, status: "Active" },
-];
+// Commission split defaults — used when a policy doesn't carry custom %s.
+// The 4-persona split is now part of the policy itself (per developer per
+// project) so the System Admin / Finance Officer can tune the breakdown
+// once and have every downstream deal use those numbers automatically.
+//   agent + tl + manager + director + company  MUST equal 100.
+export const COMMISSION_SPLIT_DEFAULT = { agent: 33.33, tl: 10, manager: 5, director: 3, company: 48.67 };
+
+// Pretty-format a split row for audit-log details.
+const _splitStr = (s) => `Agent ${s.agent}% · TL ${s.tl}% · Mgr ${s.manager}% · Dir ${s.director}% · Co ${s.company}%`;
+
+// Build the initial policyHistory[] entry — every policy starts with a
+// 'Created' row so the per-record action log is never empty.
+const _policySeedHistory = (p) => [{
+  at: '2024-01-05T09:00:00.000Z',
+  actor: 'System Admin',
+  action: 'Created',
+  detail: `Policy created for ${p.developer} / ${p.project} · rate ${p.rate}% · ${_splitStr(p.split)}`,
+}];
+
+const _withPolicyHistory = (rows) => rows.map(p => ({ ...p, history: _policySeedHistory(p) }));
+
+export const COMMISSION_POLICIES = _withPolicyHistory([
+  // Each policy carries the deal-side rate (commission % paid by developer
+  // on the deal value) AND the internal 4-persona split that decides how
+  // the resulting pool is divided across Agent / Team Leader / Sales
+  // Manager / Sales Director / Company. Every field is editable from
+  // System Admin → Financial Management → Commission Policies.
+  { id: "COM-001", developer: "Palm Hills",      project: "Palm Hills New Cairo", rate: 2.0, override: false, status: "Active",
+    split: { agent: 33.33, tl: 10, manager: 5, director: 3, company: 48.67 } },
+  { id: "COM-002", developer: "Ora",             project: "ZED East",             rate: 2.0, override: false, status: "Active",
+    split: { agent: 35,    tl: 10, manager: 5, director: 3, company: 47 } },
+  { id: "COM-003", developer: "Hyde Park",       project: "Hyde Park New Cairo",  rate: 1.8, override: false, status: "Active",
+    split: { agent: 33.33, tl: 10, manager: 5, director: 3, company: 48.67 } },
+  { id: "COM-004", developer: "Palm Hills",      project: "Hacienda Bay",         rate: 2.2, override: true,
+    overrideReason: "Premium launch incentive", approver: "Nour El-Din",          status: "Active",
+    split: { agent: 40,    tl: 12, manager: 6, director: 4, company: 38 } },
+  { id: "COM-005", developer: "Talaat Moustafa", project: "Madinaty",             rate: 1.5, override: false, status: "Active",
+    split: { agent: 30,    tl: 10, manager: 5, director: 3, company: 52 } },
+  { id: "COM-006", developer: "Sodic",           project: "Sodic West",           rate: 1.8, override: false, status: "Active",
+    split: { agent: 33.33, tl: 10, manager: 5, director: 3, company: 48.67 } },
+]);
+
+// Look up the active policy that should apply to a (developer, project)
+// pair. Returns null if there's no exact match — callers should fall back
+// to COMMISSION_SPLIT_DEFAULT. Used by the deal pipeline + commission
+// engine creation paths so every new pool is split per the configured
+// policy automatically.
+export const findCommissionPolicy = (policies, developer, project) =>
+  (policies || []).find(p => p.developer === developer && p.project === project && p.status === 'Active') || null;
+
+// Compute the per-persona split from a pool using a policy's percentages.
+// The company share is computed as the residual so any rounding error
+// lands on the company line (auditor-friendly: agent/TL/Mgr/Dir are exact).
+export const computeSplit = (pool, split = COMMISSION_SPLIT_DEFAULT) => {
+  const r = (pct) => Math.round((pool || 0) * (pct || 0) / 100);
+  const agentShare    = r(split.agent);
+  const tlShare       = r(split.tl);
+  const managerShare  = r(split.manager);
+  const directorShare = r(split.director);
+  const companyShare  = (pool || 0) - agentShare - tlShare - managerShare - directorShare;
+  return { agentShare, tlShare, managerShare, directorShare, companyShare };
+};
 
 // ── AUDIT LOGS ──
 export const AUDIT_LOGS = [
