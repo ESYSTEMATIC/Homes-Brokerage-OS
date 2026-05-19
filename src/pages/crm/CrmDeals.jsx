@@ -274,6 +274,22 @@ export const CrmDeals = () => {
     if (sum > 100) { toast(`Agent + TL + Manager + Director total ${sum.toFixed(2)}% — must stay ≤ 100`, 'error'); return false; }
     const requestedSplit = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
 
+    // No-op guard: the request must change at least one thing. Compare the
+    // requested rate + split against the deal's current rate + active
+    // policy split. If everything is identical, there's nothing to review.
+    const activePolicy = (state.commissionPolicies || []).find(
+      p => p.developer === overrideFor.developer && p.project === overrideFor.project && p.status === 'Active'
+    );
+    const policySplit = activePolicy?.split || null;
+    const rateChanged = Number(requestedPct) !== Number(overrideFor.commission);
+    const splitChanged = policySplit
+      ? ['agent','tl','manager','director','company'].some(k => Number(policySplit[k] || 0) !== Number(requestedSplit[k]))
+      : true; // if no policy split, any explicit split counts as a change
+    if (!rateChanged && !splitChanged) {
+      toast('Change the rate or at least one persona % before submitting — nothing to review.', 'error');
+      return false;
+    }
+
     const at = new Date().toISOString();
     // TL starts at the bottom of the chain; Sales Manager skips their own
     // review and goes straight to Director. Sales Director shouldn't be
@@ -808,24 +824,61 @@ export const CrmDeals = () => {
         {pendingOverrides.length > 0 && (
           <button className="btn btn-sm btn-outline" onClick={()=>openDrawer({ title: 'Pending Commission Overrides', subtitle: `${pendingOverrides.length} awaiting approval`, content: (
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              {pendingOverrides.map(d => (
-                <div key={d.id} style={{padding:12,border:'1px solid var(--border)',borderRadius:10}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-                    <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
-                    <span className="badge badge-warning" style={{fontSize:10}}>{d.commissionOverride.status}</span>
-                  </div>
-                  <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:4}}>{d.commissionOverride.currentPct}% → {d.commissionOverride.requestedPct}% · requested by {d.commissionOverride.requestedBy}</div>
-                  <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>{d.commissionOverride.reason}</div>
-                  {canActOnOverride(personaKey, d.commissionOverride.status) && (
-                    <div style={{display:'flex',gap:6,marginTop:8}}>
-                      <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}>
-                        <Check size={13}/> {d.commissionOverride.status === 'Pending Manager' ? 'Accept · forward' : 'Final approve'}
-                      </button>
-                      <button className="btn btn-sm btn-outline" onClick={()=>approveOverride(d, 'reject')}>Reject</button>
+              {pendingOverrides.map(d => {
+                const ov = d.commissionOverride || {};
+                const rateChanged = Number(ov.currentPct) !== Number(ov.requestedPct);
+                const reqSplit = ov.requestedSplit;
+                // Resolve the policy split for this deal so we can show
+                // 'Agent 33.33% → 40%' style diffs (current policy → requested).
+                const pol = (state.commissionPolicies || []).find(p =>
+                  p.developer === d.developer && p.project === d.project && p.status === 'Active'
+                );
+                const polSplit = pol?.split || null;
+                const splitChanges = reqSplit && polSplit
+                  ? ['agent','tl','manager','director','company']
+                      .filter(k => Number(polSplit[k] || 0) !== Number(reqSplit[k] || 0))
+                      .map(k => ({ key: k, label: k === 'tl' ? 'TL' : k.charAt(0).toUpperCase() + k.slice(1), from: polSplit[k], to: reqSplit[k] }))
+                  : [];
+                return (
+                  <div key={d.id} style={{padding:12,border:'1px solid var(--border)',borderRadius:10}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                      <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
+                      <span className="badge badge-warning" style={{fontSize:10}}>{ov.status}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:4}}>
+                      {rateChanged
+                        ? <><b>Rate:</b> {ov.currentPct}% → {ov.requestedPct}%</>
+                        : <><b>Rate:</b> {ov.currentPct}% <span style={{color:'var(--text-tertiary)'}}>(unchanged)</span></>}
+                      <span style={{color:'var(--text-tertiary)'}}> · requested by {ov.requestedBy}</span>
+                    </div>
+                    {splitChanges.length > 0 && (
+                      <div style={{marginTop:6,padding:'6px 8px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:6,fontSize:11}}>
+                        <div style={{fontWeight:700,color:'var(--text-secondary)',marginBottom:3}}>Split changes</div>
+                        {splitChanges.map(c => (
+                          <div key={c.key} style={{display:'flex',justifyContent:'space-between',gap:6,fontFamily:'ui-monospace,monospace'}}>
+                            <span>{c.label}</span>
+                            <span>{c.from}% → <b style={{color:'var(--brand)'}}>{c.to}%</b></span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {reqSplit && splitChanges.length === 0 && (
+                      <div style={{marginTop:6,fontSize:11,color:'var(--text-tertiary)'}}>Split: same as current policy</div>
+                    )}
+                    {ov.reason && (
+                      <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6,fontStyle:'italic'}}>"{ov.reason}"</div>
+                    )}
+                    {canActOnOverride(personaKey, ov.status) && (
+                      <div style={{display:'flex',gap:6,marginTop:8}}>
+                        <button className="btn btn-sm btn-brand" onClick={()=>approveOverride(d, 'approve')}>
+                          <Check size={13}/> {ov.status === 'Pending Manager' ? 'Accept · forward' : 'Final approve'}
+                        </button>
+                        <button className="btn btn-sm btn-outline" onClick={()=>approveOverride(d, 'reject')}>Reject</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )})}><Percent size={13}/> Override queue ({pendingOverrides.length})</button>
         )}
