@@ -36,11 +36,12 @@ export const EmployeeBoardDashboard = () => {
   const liveActive = onboardingComplete;
 
   // Agent score (Platform §2.3 — used for team allocation & performance benchmarking).
-  // Weighted: training avg 60% + interview/HR score 40%. For demo, derive from completed courses.
+  // Business-team review (May 2026): no interview/HR score is captured.
+  // Agent score now equals the training average — the only score in the
+  // system is the Homes Academy (training) score.
   const trainingAvg = state.training.filter(c=>c.required && c.score).reduce((s,c)=>s+c.score,0)
     / Math.max(1, state.training.filter(c=>c.required && c.score).length);
-  const interviewScore = onboardingComplete ? 88 : 82;
-  const agentScore = Math.round((trainingAvg || 0) * 0.6 + interviewScore * 0.4);
+  const agentScore = Math.round(trainingAvg || 0);
 
   // Team Assignment (Platform §2.4) — derive from persona context.
   const teamAssignment = isAgent ? {
@@ -269,10 +270,9 @@ export const EmployeeBoardDashboard = () => {
                   <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>Training Avg</div>
                   <div style={{fontWeight:500,marginTop:2}}>{Math.round(trainingAvg)}%</div>
                 </div>
-                <div>
-                  <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>Interview Score</div>
-                  <div style={{fontWeight:500,marginTop:2}}>{interviewScore}%</div>
-                </div>
+                {/* Interview Score card removed (May 2026 review) — no
+                    interview scoring is conducted; training is the only
+                    scored surface. */}
                 <div>
                   <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>Used For</div>
                   <div style={{fontWeight:500,marginTop:2,fontSize:11}}>Team allocation & benchmarking</div>

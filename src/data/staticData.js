@@ -665,7 +665,7 @@ export const OFFERS = [
     approvedAt: "2026-05-14",
     sentAt: "2026-05-15",
     expiresAt: "2026-05-22",
-    notes: "Score 92 from Omar's interview — fast-track. Junior band top-end."
+    notes: "Strong impression from Omar's interview — fast-track. Junior band top-end."
   },
   {
     id: "OFR-002", candidateId: "CAN-001", candidateName: "Amira El-Sayed",

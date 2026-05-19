@@ -227,8 +227,10 @@ export const AgentProfile = () => {
     state.training.filter(c=>c.required && c.score).reduce((s,c)=>s+c.score,0)
     / Math.max(1, state.training.filter(c=>c.required && c.score).length)
   );
-  const interviewScore = onboardingComplete ? 88 : 82;
-  const agentScore = Math.round(trainingAvg * 0.6 + interviewScore * 0.4);
+  // Business-team review (May 2026): no interview scoring is captured in
+  // the system. Agent score is the training average — training is the
+  // only scored surface.
+  const agentScore = Math.round(trainingAvg);
 
   const editProfile = () => openModal({
     title:'Edit Profile', submitLabel:'Save changes',
@@ -322,12 +324,13 @@ export const AgentProfile = () => {
             </div>
           </div>
 
-          {/* Score chip — sales-track only */}
+          {/* Score chip — sales-track only · training score is the only
+              scored surface (May 2026 business review). */}
           {isSalesTrack && (
             <div style={{textAlign:'center',padding:'14px 22px',background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:14,minWidth:130,position:'relative'}}>
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>Onboarding Score</div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:'.08em',color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>Training Score</div>
               <div style={{fontSize:32,fontWeight:800,marginTop:4,color: scoreColor === '#16a34a' ? '#86efac' : scoreColor === '#E8672A' ? '#FBBF24' : '#fde68a'}}>{agentScore}<span style={{fontSize:14,fontWeight:600,opacity:.6}}>/100</span></div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:2}}>Training {trainingAvg}% · Interview {interviewScore}%</div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:2}}>Homes Academy avg</div>
             </div>
           )}
 
@@ -335,15 +338,15 @@ export const AgentProfile = () => {
         </div>
       </div>
 
-      {/* ── Onboarding & Performance Score card — sales-track only ── */}
+      {/* ── Training Score card — sales-track only · Interview Score and
+          the 60/40 weighting were removed (May 2026 business review). ── */}
       {isSalesTrack && (
-        <Section title="Onboarding & HR Score" icon={<Award size={14}/>} accent="#8b5cf6">
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+        <Section title="Training Score" icon={<Award size={14}/>} accent="#8b5cf6">
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
             {[
-              { label:'Total Score',     value:`${agentScore}/100`, sub:'Used for team allocation', color: scoreColor },
-              { label:'Training Avg',    value:`${trainingAvg}%`,   sub:`${trainingCompleted}/${trainingTotal} required courses`, color:'#3b82f6' },
-              { label:'Interview Score', value:`${interviewScore}%`,sub:'HR-recorded',            color:'#16a34a' },
-              { label:'Weight',          value:'60% / 40%',          sub:'Training / Interview',   color:'#94a3b8' },
+              { label:'Total Score',  value:`${agentScore}/100`, sub:'Used for team allocation', color: scoreColor },
+              { label:'Training Avg', value:`${trainingAvg}%`,   sub:`${trainingCompleted}/${trainingTotal} required courses`, color:'#3b82f6' },
+              { label:'Source',       value:'Homes Academy',     sub:'Only scored surface',      color:'#94a3b8' },
             ].map(s => (
               <div key={s.label} style={{padding:'14px 16px',background:'#fafbfc',borderRadius:10,border:'1px solid var(--border)'}}>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>{s.label}</div>

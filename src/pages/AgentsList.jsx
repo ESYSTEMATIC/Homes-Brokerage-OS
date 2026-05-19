@@ -27,10 +27,10 @@ const AgentProfileDrawer = ({ a, state, onToggle, onEdit }) => {
   const docsTotal = Math.max(agentDocs.length, 5);
   const docsDone = docsApproved >= 4;
 
-  // Score (Platform §2.3) — same weighting as the agent's view.
+  // Score (Platform §2.3) — training average only. Business-team review
+  // (May 2026): interview scoring removed entirely.
   const trainingAvg = Math.round(60 + ((seed * 3) % 35));
-  const interviewScore = isApproved ? 88 : 78;
-  const score = Math.round(trainingAvg * 0.6 + interviewScore * 0.4);
+  const score = trainingAvg;
 
   // Onboarding journey state.
   const journeySteps = isApproved && !isPending && !isSuspended ? [
@@ -109,7 +109,7 @@ const AgentProfileDrawer = ({ a, state, onToggle, onEdit }) => {
           </div>
           <div style={{fontSize:24,fontWeight:800,color:score>=85?'var(--success)':score>=70?'var(--warning)':'var(--danger)'}}>{score}/100</div>
           <div style={{fontSize:10,color:'var(--text-secondary)',marginTop:6,lineHeight:1.5}}>
-            Training {trainingAvg}% · Interview {interviewScore}%<br/>
+            Training avg {trainingAvg}% · Homes Academy<br/>
             <span style={{color:'var(--text-tertiary)'}}>Used for team allocation (Platform §2.3)</span>
           </div>
         </div>

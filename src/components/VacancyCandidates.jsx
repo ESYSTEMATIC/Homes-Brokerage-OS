@@ -132,7 +132,7 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
         photoDataUrl, photoName,
         resumeDataUrl, resumeName,
         applied: new Date().toISOString().slice(0,10),
-        score: null, interviewer: null,
+        interviewer: null,
       }, 'CAN', {
         action: 'Candidate Added', module: 'Recruitment',
         target: vacancy.id,

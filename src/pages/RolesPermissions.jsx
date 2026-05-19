@@ -10,7 +10,7 @@ const PERMISSION_CATALOG = {
   'CRM (federated)': ['View Leads','Create Leads','Assign Leads','Reassign Leads','Approve Override','View Deals','Edit Deals','Approve Commission'],
   'Marketplace (federated)': ['Publish Project','Edit Inventory','Manage Source Mapping','View Marketplace Dashboard'],
   'Backoffice': ['Manage Departments','Manage Branches','Manage Roles','Approve Onboarding','Review Documents','View Audit Logs'],
-  'HR / Recruitment': ['Publish Vacancy','Manage Candidates','Schedule Interviews','Score Candidates','Process Onboarding','View Payroll'],
+  'HR / Recruitment': ['Publish Vacancy','Manage Candidates','Schedule Interviews','Process Onboarding','View Payroll'],
   'Finance': ['Manage Commission Policy','Approve Commission','Process Agent Dues','View Financial Reports'],
   'System': ['Manage SSO','Manage Integrations','Manage Settings','Configure Audit Retention'],
 };
