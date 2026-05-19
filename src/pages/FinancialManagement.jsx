@@ -1,8 +1,81 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Field, FieldRow, exportCSV } from '../components/UI';
 import { COMMISSION_SPLIT_DEFAULT } from '../data/staticData';
 import { Plus, Download, Pencil, Zap, History, Sliders } from 'lucide-react';
+
+// Controlled split editor — the Company % is computed live as (100 - sum
+// of the other 4) so the form can never get out of balance. If the four
+// agent-side percentages exceed 100, we show an inline warning and the
+// Company input goes negative (so the validation in onSubmit can catch it
+// before save). Renders four editable number inputs + a read-only
+// Company display + a total bar so the System Admin sees the maths add up.
+const SplitEditor = ({ initial }) => {
+  const seed = initial || COMMISSION_SPLIT_DEFAULT;
+  const [agent, setAgent]       = useState(String(seed.agent));
+  const [tl, setTl]             = useState(String(seed.tl));
+  const [manager, setManager]   = useState(String(seed.manager));
+  const [director, setDirector] = useState(String(seed.director));
+
+  const n = (v) => {
+    const num = Number(v);
+    return Number.isFinite(num) ? num : 0;
+  };
+  const sumOthers = n(agent) + n(tl) + n(manager) + n(director);
+  const company = Math.round((100 - sumOthers) * 100) / 100;
+  const valid = company >= 0;
+
+  return (
+    <>
+      <FieldRow>
+        <div className="ui-field">
+          <label>Agent %<span className="ui-required">*</span></label>
+          <input type="number" name="splitAgent" step="0.01" min="0" max="100" required value={agent} onChange={e => setAgent(e.target.value)} placeholder="33.33"/>
+        </div>
+        <div className="ui-field">
+          <label>Team Leader %<span className="ui-required">*</span></label>
+          <input type="number" name="splitTl" step="0.01" min="0" max="100" required value={tl} onChange={e => setTl(e.target.value)} placeholder="10"/>
+        </div>
+      </FieldRow>
+      <FieldRow>
+        <div className="ui-field">
+          <label>Sales Manager %<span className="ui-required">*</span></label>
+          <input type="number" name="splitManager" step="0.01" min="0" max="100" required value={manager} onChange={e => setManager(e.target.value)} placeholder="5"/>
+        </div>
+        <div className="ui-field">
+          <label>Sales Director %<span className="ui-required">*</span></label>
+          <input type="number" name="splitDirector" step="0.01" min="0" max="100" required value={director} onChange={e => setDirector(e.target.value)} placeholder="3"/>
+        </div>
+      </FieldRow>
+      <FieldRow>
+        <div className="ui-field">
+          <label>Company % <span style={{fontWeight:500,color:'var(--text-tertiary)',fontSize:11}}>(auto-balanced)</span></label>
+          <input type="number" name="splitCompany" readOnly tabIndex={-1} value={company} style={{background:'#f8fafc',color: valid ? 'var(--text-primary)' : 'var(--danger)'}}/>
+        </div>
+        <div className="ui-field">
+          <label>Total</label>
+          <div style={{
+            padding:'9px 12px',
+            border:`1px solid ${valid ? '#86efac' : '#fca5a5'}`,
+            background: valid ? '#dcfce7' : '#fee2e2',
+            color: valid ? '#166534' : '#991b1b',
+            borderRadius:8,
+            fontSize:13,
+            fontWeight:700,
+            fontFamily:'ui-monospace,monospace',
+          }}>
+            {(sumOthers + company).toFixed(2)}% {valid ? '✓' : '· over 100'}
+          </div>
+        </div>
+      </FieldRow>
+      {!valid && (
+        <div style={{fontSize:11,color:'#b45309',marginTop:6}}>
+          Agent + TL + Manager + Director total {sumOthers.toFixed(2)}% — must be ≤ 100% so the Company share stays non-negative. Reduce one of the persona shares.
+        </div>
+      )}
+    </>
+  );
+};
 
 const fmt = v => new Intl.NumberFormat('en-EG',{style:'currency',currency:'EGP',maximumFractionDigits:0}).format(v||0);
 // One-line pretty-printer for a split row — used in audit-log details and
@@ -63,40 +136,33 @@ export const FinancialManagement = () => {
         </FieldRow>
 
         <div style={{margin:'14px 0 6px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',gap:6}}>
-          <Sliders size={12}/> Internal commission split (must total 100%)
+          <Sliders size={12}/> Internal commission split — Company % auto-balances
         </div>
-        <FieldRow>
-          <Field label="Agent %"    name="splitAgent"    type="number" step="0.01" required defaultValue={existing?.split?.agent    ?? COMMISSION_SPLIT_DEFAULT.agent}    placeholder="33.33" />
-          <Field label="Team Leader %" name="splitTl"    type="number" step="0.01" required defaultValue={existing?.split?.tl       ?? COMMISSION_SPLIT_DEFAULT.tl}       placeholder="10" />
-        </FieldRow>
-        <FieldRow>
-          <Field label="Sales Manager %"  name="splitManager"  type="number" step="0.01" required defaultValue={existing?.split?.manager  ?? COMMISSION_SPLIT_DEFAULT.manager}  placeholder="5" />
-          <Field label="Sales Director %" name="splitDirector" type="number" step="0.01" required defaultValue={existing?.split?.director ?? COMMISSION_SPLIT_DEFAULT.director} placeholder="3" />
-        </FieldRow>
-        <FieldRow>
-          <Field label="Company %" name="splitCompany" type="number" step="0.01" required defaultValue={existing?.split?.company ?? COMMISSION_SPLIT_DEFAULT.company} placeholder="48.67" />
-        </FieldRow>
+        <SplitEditor initial={existing?.split} />
         <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:6}}>
           Existing commission rows are not retroactively re-split. New deals created against this policy will use these percentages automatically.
         </div>
       </>
     ),
     onSubmit: (data) => {
-      const split = {
-        agent:    Number(data.splitAgent),
-        tl:       Number(data.splitTl),
-        manager:  Number(data.splitManager),
-        director: Number(data.splitDirector),
-        company:  Number(data.splitCompany),
-      };
-      const sum = split.agent + split.tl + split.manager + split.director + split.company;
-      // Allow 0.01% rounding tolerance because percentages often come in
-      // as 33.33 / 10 / 5 / 3 / 48.67 which sums to 100 only at 2-decimal
-      // precision.
-      if (Math.abs(sum - 100) > 0.05) {
-        toast(`Split must total 100% — currently ${sum.toFixed(2)}%`, 'error');
+      const agent    = Number(data.splitAgent);
+      const tl       = Number(data.splitTl);
+      const manager  = Number(data.splitManager);
+      const director = Number(data.splitDirector);
+      const sumOthers = agent + tl + manager + director;
+      // Validate the 4 persona shares are non-negative and don't overflow.
+      // The Company share is computed as the remainder so the total always
+      // hits exactly 100% — no more 'must total 100%' confusion.
+      if ([agent, tl, manager, director].some(n => !Number.isFinite(n) || n < 0)) {
+        toast('Each persona % must be a positive number', 'error');
         return false;
       }
+      if (sumOthers > 100) {
+        toast(`Agent + TL + Manager + Director total ${sumOthers.toFixed(2)}% — reduce one share so Company stays ≥ 0%`, 'error');
+        return false;
+      }
+      const company = Math.round((100 - sumOthers) * 100) / 100;
+      const split = { agent, tl, manager, director, company };
       const patch = {
         developer: data.developer,
         project: data.project,

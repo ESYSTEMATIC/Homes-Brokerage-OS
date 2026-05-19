@@ -26,8 +26,11 @@ export const Modal = () => {
         const fd = new FormData(e.target);
         const data = {};
         fd.forEach((v, k) => { data[k] = v; });
-        await modal.onSubmit(data);
-        closeModal();
+        // Callers can return `false` from onSubmit to keep the modal
+        // open after a validation failure (the modal shouldn't disappear
+        // while a toast is telling the user what went wrong).
+        const result = await modal.onSubmit(data);
+        if (result !== false) closeModal();
       } finally {
         setSubmitting(false);
       }
@@ -130,7 +133,7 @@ export const Toaster = () => {
 };
 
 // ───────────── Form Fields ─────────────
-export const Field = ({ label, name, type = 'text', defaultValue = '', required, options, placeholder, rows, children }) => {
+export const Field = ({ label, name, type = 'text', defaultValue = '', required, options, placeholder, rows, step, min, max, children }) => {
   if (children) {
     return (
       <div className="ui-field">
@@ -154,7 +157,16 @@ export const Field = ({ label, name, type = 'text', defaultValue = '', required,
       ) : type === 'textarea' ? (
         <textarea name={name} defaultValue={defaultValue} required={required} rows={rows || 3} placeholder={placeholder} />
       ) : (
-        <input type={type} name={name} defaultValue={defaultValue} required={required} placeholder={placeholder} />
+        <input
+          type={type}
+          name={name}
+          defaultValue={defaultValue}
+          required={required}
+          placeholder={placeholder}
+          step={step}
+          min={min}
+          max={max}
+        />
       )}
     </div>
   );
