@@ -198,14 +198,9 @@ const HrDashboard = () => {
   });
   const hiresThisMonth = onboarding.filter(a => a.status === 'Approved').length;
 
-  // Source breakdown
-  const sourceCounts = {};
-  candidates.forEach(c => {
-    const s = c.source || 'Other';
-    sourceCounts[s] = (sourceCounts[s] || 0) + 1;
-  });
-  const sourceItems = Object.entries(sourceCounts).map(([label, value]) => ({ label, value }));
-  const maxSource = Math.max(...sourceItems.map(s => s.value), 1);
+  // Source breakdown removed (May 2026 review). Candidate `source` no
+  // longer exists — the vacancy IS the source. Per-vacancy applicant
+  // counts live on the Job Vacancies list and each vacancy detail page.
 
   // Stage funnel
   const stageOrder = ['Applied','Screening','Interview','Offer','Rejected'];
@@ -231,18 +226,15 @@ const HrDashboard = () => {
         <KpiCard label="Onboarding stalled" value={onboardingStalled.length} icon={AlertTriangle} color="#dc2626" footer={`${onboardingActive.length} active applicants`} onClick={() => navigate('/backoffice/onboarding')}/>
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+      {/* 'Source of hire' panel removed (May 2026 review) — the vacancy
+          IS the source, so per-source counts are not a meaningful metric
+          anymore. Candidate funnel takes the full row. */}
+      <div style={{marginBottom:18}}>
         <div style={{background:'#fff', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px'}}>
           <h3 style={{fontSize:14, fontWeight:800, marginBottom:14, display:'flex', alignItems:'center', gap:8}}>
             <BarChart3 size={16} color="var(--brand)"/> Candidate funnel
           </h3>
           <ChartBar items={stageCounts} max={maxStage}/>
-        </div>
-        <div style={{background:'#fff', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px'}}>
-          <h3 style={{fontSize:14, fontWeight:800, marginBottom:14, display:'flex', alignItems:'center', gap:8}}>
-            <PieChart size={16} color="var(--brand)"/> Source of hire
-          </h3>
-          <ChartBar items={sourceItems} max={maxSource} color="#8b5cf6"/>
         </div>
       </div>
 
