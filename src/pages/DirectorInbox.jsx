@@ -124,13 +124,45 @@ export const DirectorInbox = () => {
 
   const decideCommission = (row, decision) => {
     const c = row.record;
+    // Every commission-engine state change appends a transaction entry
+    // to the record's history[] so the per-record action log is complete.
+    const at = new Date().toISOString();
+    const baseEntry = {
+      at,
+      actor: persona.label,
+      fromStatus: c.status,
+      via: 'Director Inbox',
+    };
     if (decision === 'approve') {
-      updateItem('commEngine', c.id, { status: 'Approved' });
-      writeAudit('Commission Approved', `${c.deal}: ${fmt(c.pool)}`, 'Finance', `By ${persona.label}`);
+      const entry = {
+        ...baseEntry,
+        action: 'Approved',
+        toStatus: 'Approved',
+        amount: c.pool,
+        detail: `Pool locked at ${fmt(c.pool)} — Agent ${fmt(c.agentShare)} · TL ${fmt(c.tlShare)} · Company ${fmt(c.companyShare)}`,
+      };
+      updateItem('commEngine', c.id, {
+        status: 'Approved',
+        approvedAt: at,
+        approvedBy: persona.label,
+        history: [...(c.history || []), entry],
+      });
+      writeAudit('Commission Approved', `${c.deal}: ${fmt(c.pool)}`, 'Finance', `By ${persona.label} · via Director Inbox`);
       toast('Commission approved', 'success');
     } else {
-      updateItem('commEngine', c.id, { status: 'Rejected' });
-      writeAudit('Commission Rejected', c.deal, 'Finance', `By ${persona.label}`);
+      const entry = {
+        ...baseEntry,
+        action: 'Rejected',
+        toStatus: 'Rejected',
+        detail: 'Rejected from Director Inbox',
+      };
+      updateItem('commEngine', c.id, {
+        status: 'Rejected',
+        rejectedAt: at,
+        rejectedBy: persona.label,
+        history: [...(c.history || []), entry],
+      });
+      writeAudit('Commission Rejected', c.deal, 'Finance', `By ${persona.label} · via Director Inbox`);
       toast('Commission rejected', 'info');
     }
   };

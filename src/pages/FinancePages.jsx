@@ -108,24 +108,86 @@ export const DealsRevenue = () => {
 };
 
 export const CommissionEngine = () => {
-  const { state, updateItem, openConfirm, openDrawer, toast } = useApp();
+  const { state, updateItem, openConfirm, openDrawer, toast, persona } = useApp();
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.commEngine, {
     searchKeys:['deal','agent','id'], filters:{ status:'status' },
   });
 
+  // Append a transaction entry to the commission record's history array.
+  // Every state change on a commission row (approve, mark paid, reject,
+  // override) writes one of these entries IN ADDITION to the global
+  // audit log — auditors get a per-record timeline they can read at a
+  // glance without cross-joining the audit slice.
+  const appendCommHistory = (c, entry) => {
+    const stamped = {
+      at: new Date().toISOString(),
+      actor: persona?.label || 'Finance Officer',
+      ...entry,
+    };
+    return [...(c.history || []), stamped];
+  };
+
   const approve = (c) => openConfirm({
     title: `Approve commission for ${c.deal}?`, message: `Lock pool of ${fmt(c.pool)} (Agent: ${fmt(c.agentShare)}, TL: ${fmt(c.tlShare)}, Company: ${fmt(c.companyShare)}).`,
-    onConfirm: () => { updateItem('commEngine', c.id, { status: 'Approved' }, { action: 'Commission Approved', module: 'Finance', target: c.deal, detail: fmt(c.pool) }); toast(`${c.deal} approved`); },
+    onConfirm: () => {
+      const history = appendCommHistory(c, {
+        action: 'Approved',
+        fromStatus: c.status,
+        toStatus: 'Approved',
+        amount: c.pool,
+        detail: `Pool locked at ${fmt(c.pool)} — Agent ${fmt(c.agentShare)} · TL ${fmt(c.tlShare)} · Company ${fmt(c.companyShare)}`,
+      });
+      updateItem('commEngine', c.id, { status: 'Approved', approvedAt: new Date().toISOString(), approvedBy: persona?.label, history }, { action: 'Commission Approved', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
+      toast(`${c.deal} approved`);
+    },
   });
   const markPaid = (c) => openConfirm({
     title: `Mark ${c.deal} as paid?`, message: `Funds released to ${c.agent}. This is irreversible.`,
-    onConfirm: () => { updateItem('commEngine', c.id, { status: 'Paid' }, { action: 'Commission Paid', module: 'Finance', target: c.deal }); toast(`${c.deal} paid`); },
+    onConfirm: () => {
+      const history = appendCommHistory(c, {
+        action: 'Paid',
+        fromStatus: c.status,
+        toStatus: 'Paid',
+        amount: c.agentShare,
+        detail: `Disbursed ${fmt(c.agentShare)} to ${c.agent} · TL ${fmt(c.tlShare)} · Company ${fmt(c.companyShare)}`,
+      });
+      updateItem('commEngine', c.id, { status: 'Paid', paidAt: new Date().toISOString(), paidBy: persona?.label, history }, { action: 'Commission Paid', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
+      toast(`${c.deal} paid`);
+    },
   });
   const view = (c) => openDrawer({ title: `Commission · ${c.deal}`, subtitle: c.agent,
-    content: (<div className="detail-grid">
-      {[['Deal',c.deal],['Agent',c.agent],['Pool',fmt(c.pool)],['Agent Share',fmt(c.agentShare)],['TL Share',fmt(c.tlShare)],['Company Share',fmt(c.companyShare)],['Status',c.status]].map(([k,v])=>(
-        <div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
-    </div>),
+    content: (
+      <div style={{display:'flex', flexDirection:'column', gap:18}}>
+        <div className="detail-grid">
+          {[['Deal',c.deal],['Agent',c.agent],['Pool',fmt(c.pool)],['Agent Share',fmt(c.agentShare)],['TL Share',fmt(c.tlShare)],['Company Share',fmt(c.companyShare)],['Status',c.status],['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Paid' ? '—' : 'pending')],['Paid by', c.paidBy || (c.status === 'Paid' ? '—' : 'pending')]].map(([k,v])=>(
+            <div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
+        </div>
+
+        {/* Per-record transaction history — every state change appends
+            an entry here so auditors can read the timeline at a glance. */}
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Action log · {(c.history || []).length} entr{(c.history || []).length === 1 ? 'y' : 'ies'}</div>
+          {Array.isArray(c.history) && c.history.length > 0 ? (
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[...c.history].reverse().map((h, i) => (
+                <div key={i} style={{display:'flex',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`3px solid ${h.action === 'Paid' ? '#10b981' : h.action === 'Approved' ? 'var(--brand)' : h.action === 'Rejected' ? '#ef4444' : '#94a3b8'}`,fontSize:12,lineHeight:1.5}}>
+                  <div style={{minWidth:140}}>
+                    <div style={{fontWeight:700,color:'var(--text-primary)'}}>{h.action}</div>
+                    <div style={{fontSize:10,color:'var(--text-tertiary)',fontFamily:'ui-monospace,monospace'}}>{(h.at || '').slice(0,16).replace('T',' ')}</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div><b>{h.actor}</b>{h.fromStatus && h.toStatus ? ` · ${h.fromStatus} → ${h.toStatus}` : ''}{h.amount ? ` · ${fmt(h.amount)}` : ''}</div>
+                    {h.detail && <div style={{color:'var(--text-secondary)',marginTop:2}}>{h.detail}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{padding:'14px 16px',background:'#fafbfc',border:'1px dashed var(--border)',borderRadius:8,fontSize:12,color:'var(--text-tertiary)'}}>No transactions recorded yet. Approving or paying this commission will start the log.</div>
+          )}
+        </div>
+      </div>
+    ),
   });
 
   return (
@@ -185,7 +247,7 @@ export const CommissionEngine = () => {
 };
 
 export const AgentDues = () => {
-  const { state, updateItem, openModal, toast } = useApp();
+  const { state, updateItem, openModal, openDrawer, toast, persona } = useApp();
   const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.agentDues, {
     searchKeys:['agent','id'], filters:{ status:'status' },
   });
@@ -202,14 +264,65 @@ export const AgentDues = () => {
         <Field label="Reference" name="ref" placeholder="e.g. Wire reference / Cheque #" />
       </>
     ),
-    onSubmit: ({ amount, method }) => {
+    onSubmit: ({ amount, method, ref }) => {
       const amt = Number(amount);
       const newPaid = a.paid + amt;
       const newPending = Math.max(0, a.pending - amt);
       const newStatus = newPending === 0 ? 'Cleared' : 'Partial';
-      updateItem('agentDues', a.id, { paid: newPaid, pending: newPending, status: newStatus }, { action: 'Payment Processed', module: 'Finance', target: a.agent, detail: `${fmt(amt)} via ${method}` });
+      // Append a transaction entry to the agent dues record so each
+      // payment is visible on the per-record action log, not only on
+      // the global audit log.
+      const entry = {
+        at: new Date().toISOString(),
+        actor: persona?.label || 'Finance Officer',
+        action: 'Payment',
+        amount: amt,
+        method,
+        reference: ref || null,
+        balanceBefore: a.pending,
+        balanceAfter: newPending,
+        fromStatus: a.status,
+        toStatus: newStatus,
+      };
+      const history = [...(a.history || []), entry];
+      updateItem('agentDues', a.id, { paid: newPaid, pending: newPending, status: newStatus, history, lastPaidAt: entry.at, lastPaidBy: entry.actor }, { action: 'Payment Processed', module: 'Finance', target: a.agent, detail: `${fmt(amt)} via ${method}${ref ? ' · ref ' + ref : ''}` });
       toast(`Paid ${fmt(amt)} → ${a.agent}`);
     },
+  });
+
+  // Drawer surface for an agent dues row — shows the same per-record
+  // history so a finance officer can audit every payment to that agent.
+  const view = (a) => openDrawer({
+    title: `Agent dues · ${a.agent}`, subtitle: `${fmt(a.pending)} outstanding · ${fmt(a.paid)} paid`,
+    content: (
+      <div style={{display:'flex', flexDirection:'column', gap:18}}>
+        <div className="detail-grid">
+          {[['Agent',a.agent],['Paid', fmt(a.paid)],['Pending', fmt(a.pending)],['Status', a.status],['Last paid by', a.lastPaidBy || '—'],['Last paid at', a.lastPaidAt ? a.lastPaidAt.slice(0,16).replace('T',' ') : '—']].map(([k,v])=>(
+            <div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
+        </div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Action log · {(a.history || []).length} payment{(a.history || []).length === 1 ? '' : 's'}</div>
+          {Array.isArray(a.history) && a.history.length > 0 ? (
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[...a.history].reverse().map((h, i) => (
+                <div key={i} style={{display:'flex',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`3px solid ${h.toStatus === 'Cleared' ? '#10b981' : 'var(--brand)'}`,fontSize:12,lineHeight:1.5}}>
+                  <div style={{minWidth:140}}>
+                    <div style={{fontWeight:700,color:'var(--text-primary)'}}>{h.action} · {fmt(h.amount)}</div>
+                    <div style={{fontSize:10,color:'var(--text-tertiary)',fontFamily:'ui-monospace,monospace'}}>{(h.at || '').slice(0,16).replace('T',' ')}</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div><b>{h.actor}</b> · {h.method}{h.reference ? ` · ref ${h.reference}` : ''}</div>
+                    <div style={{color:'var(--text-secondary)',marginTop:2}}>{fmt(h.balanceBefore)} → {fmt(h.balanceAfter)} ({h.fromStatus} → {h.toStatus})</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{padding:'14px 16px',background:'#fafbfc',border:'1px dashed var(--border)',borderRadius:8,fontSize:12,color:'var(--text-tertiary)'}}>No payments processed yet.</div>
+          )}
+        </div>
+      </div>
+    ),
   });
 
   return (
@@ -234,7 +347,10 @@ export const AgentDues = () => {
                 <td className="muted">{fmt(a.paid)}</td>
                 <td className="bold">{fmt(a.pending)}</td>
                 <td><span className={`badge ${statusBadge(a.status)}`}>{a.status}</span></td>
-                <td style={{textAlign:'right'}}>{a.pending>0 && <button className="btn btn-primary btn-sm" onClick={()=>processPayment(a)}><DollarSign size={13}/> Process Payment</button>}</td>
+                <td style={{textAlign:'right'}}><div className="row-actions">
+                  <button className="btn btn-outline btn-sm" onClick={()=>view(a)} title="View action log"><Eye size={13}/></button>
+                  {a.pending>0 && <button className="btn btn-primary btn-sm" onClick={()=>processPayment(a)}><DollarSign size={13}/> Process Payment</button>}
+                </div></td>
               </tr>
             ))}</tbody>
           </table>
