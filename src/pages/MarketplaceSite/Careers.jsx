@@ -134,27 +134,8 @@ export const Careers = () => {
             platform — and where your career path is wired into the product itself.
           </p>
 
-          {/* Quick stats row */}
-          <div style={{marginTop:34, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:16, maxWidth:880}}>
-            {[
-              { label: 'Open roles',     value: publishedJobs.length, icon: <Briefcase size={20}/> },
-              { label: 'Total hires',    value: totalHeadcount,        icon: <Users size={20}/>     },
-              { label: 'Applicants',     value: totalApplicants,       icon: <Heart size={20}/>     },
-              { label: 'Departments',    value: departments.length-1,  icon: <Building2 size={20}/> },
-            ].map(s => (
-              <div key={s.label} style={{
-                background: 'rgba(255,255,255,0.06)', backdropFilter:'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14,
-                padding: '16px 18px', display:'flex', alignItems:'center', gap:12,
-              }}>
-                <div style={{width:40,height:40,borderRadius:10,background:'rgba(252,165,165,0.18)',color:'#fca5a5',display:'flex',alignItems:'center',justifyContent:'center'}}>{s.icon}</div>
-                <div>
-                  <div style={{fontSize:24, fontWeight:800, lineHeight:1}}>{s.value}</div>
-                  <div style={{fontSize:11, color:'#cbd5e1', textTransform:'uppercase', letterSpacing:'.05em', marginTop:4}}>{s.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Quick stats row removed per business review (May 2026) —
+              the hero CTA + scroll-to-roles is the primary action. */}
 
           {/* CTA row */}
           <div style={{marginTop:32, display:'flex', gap:12, flexWrap:'wrap'}}>
@@ -525,16 +506,8 @@ export const CareerDetail = () => {
               }}>
               {isClosed ? 'Role closed' : 'Apply for this role'} {!isClosed && <ArrowRight size={15}/>}
             </button>
-            <a
-              href={`mailto:careers@homes.com.eg?subject=Question about ${encodeURIComponent(job.title)}`}
-              style={{
-                background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.2)',
-                color:'#fff', padding:'13px 26px', borderRadius:10, fontWeight:600,
-                fontSize:14, textDecoration:'none', display:'inline-flex',
-                alignItems:'center', gap:8, backdropFilter:'blur(8px)',
-              }}>
-              <Send size={14}/> Ask a question
-            </a>
+            {/* Direct-email CTA removed per business review (May 2026) —
+                candidates apply through the form, not via mailto. */}
           </div>
         </div>
       </section>
