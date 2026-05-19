@@ -82,8 +82,12 @@ const fmt = v => new Intl.NumberFormat('en-EG',{style:'currency',currency:'EGP',
 // the toast confirmation.
 const splitStr = (s) => `Agent ${s.agent}% · TL ${s.tl}% · Mgr ${s.manager}% · Dir ${s.director}% · Co ${s.company}%`;
 
-export const FinancialManagement = () => {
-  const { state, addItem, updateItem, openModal, openConfirm, openDrawer, toast, writeAudit, persona } = useApp();
+// ─── Commission Policies section — shared between Financial Management
+//     (deeper finance surface) and the Master Data → Commission Policies
+//     route. Single implementation for both so Edit / View History / split
+//     editing behave the same wherever the user lands. ───────────────────
+export const CommissionPoliciesSection = ({ embedded = false }) => {
+  const { state, addItem, updateItem, openModal, openDrawer, toast, writeAudit, persona } = useApp();
   const today = () => new Date().toISOString().split('T')[0];
 
   // Build a `policyHistory` entry capturing what changed in this save.
@@ -253,27 +257,15 @@ export const FinancialManagement = () => {
     ),
   });
 
-  const approveDraft = (d) => openConfirm({
-    title: `Approve commission for ${d.id}?`,
-    message: `Lock commission at ${d.commission}% (${fmt(d.value*d.commission/100)}) for downstream payment processing.`,
-    onConfirm: () => { updateItem('deals', d.id, { commissionApproved: true }, { action: 'Commission Approved', module: 'Finance', target: d.id, detail: fmt(d.value*d.commission/100) }); toast(`${d.id} commission approved`); },
-  });
-
   return (
     <div>
-      <div className="page-header">
-        <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Financial Management</span></div>
-        <h1 className="page-title">Financial Management</h1>
-        <p className="page-subtitle">Commission policies, overrides, and forecasts</p>
-      </div>
-      <div className="kpi-grid kpi-grid-4">
-        <div className="kpi-card"><div><div className="kpi-label">Total Commission Due</div><div className="kpi-value" style={{fontSize:20}}>{fmt(621000)}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>💰</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Pending Approval</div><div className="kpi-value" style={{fontSize:20}}>{fmt(273000)}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Overrides Active</div><div className="kpi-value">{state.commissionPolicies.filter(p=>p.override).length}</div></div><div className="kpi-icon red"><Zap size={20}/></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Active Policies</div><div className="kpi-value">{state.commissionPolicies.length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📋</span></div></div>
-      </div>
-
-      <h2 className="section-title">Commission Policies</h2>
+      {!embedded && (
+        <div className="page-header">
+          <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Master Data</span><span>&gt;</span><span className="current">Policy</span></div>
+          <h1 className="page-title">Commission Policies</h1>
+          <p className="page-subtitle">Per developer × project · deal-side rate + internal 4-persona split. Every change is audit-logged.</p>
+        </div>
+      )}
       <div className="data-panel" style={{marginBottom:24}}>
         <div className="data-toolbar">
           <div className="data-toolbar-left" style={{color:'var(--text-secondary)',fontSize:13}}>{state.commissionPolicies.length} policy / policies configured</div>
@@ -317,6 +309,38 @@ export const FinancialManagement = () => {
           </table>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Top-level page that wraps the policy section with the broader Financial
+// Management chrome — KPI strip + Deal Commission Drafts table below the
+// policies.
+export const FinancialManagement = () => {
+  const { state, updateItem, openConfirm, toast } = useApp();
+
+  const approveDraft = (d) => openConfirm({
+    title: `Approve commission for ${d.id}?`,
+    message: `Lock commission at ${d.commission}% (${fmt(d.value*d.commission/100)}) for downstream payment processing.`,
+    onConfirm: () => { updateItem('deals', d.id, { commissionApproved: true }, { action: 'Commission Approved', module: 'Finance', target: d.id, detail: fmt(d.value*d.commission/100) }); toast(`${d.id} commission approved`); },
+  });
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span className="current">Financial Management</span></div>
+        <h1 className="page-title">Financial Management</h1>
+        <p className="page-subtitle">Commission policies, overrides, and forecasts</p>
+      </div>
+      <div className="kpi-grid kpi-grid-4">
+        <div className="kpi-card"><div><div className="kpi-label">Total Commission Due</div><div className="kpi-value" style={{fontSize:20}}>{fmt(621000)}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>💰</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Pending Approval</div><div className="kpi-value" style={{fontSize:20}}>{fmt(273000)}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Overrides Active</div><div className="kpi-value">{state.commissionPolicies.filter(p=>p.override).length}</div></div><div className="kpi-icon red"><Zap size={20}/></div></div>
+        <div className="kpi-card"><div><div className="kpi-label">Active Policies</div><div className="kpi-value">{state.commissionPolicies.length}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📋</span></div></div>
+      </div>
+
+      <h2 className="section-title">Commission Policies</h2>
+      <CommissionPoliciesSection embedded />
 
       <h2 className="section-title">Deal Commission Drafts</h2>
       <div className="data-panel">

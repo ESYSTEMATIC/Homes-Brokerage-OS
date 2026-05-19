@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
 import { Eye, Pencil, Trash2, Plus, Download } from 'lucide-react';
+import { CommissionPoliciesSection } from './FinancialManagement';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -265,12 +266,12 @@ export const EmploymentCategories = () => <MasterTable
   fields={[[{name:'name',label:'Name',required:true}],[{name:'desc',label:'Description',type:'textarea'}],[{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
 />;
 
-export const MasterCommPolicies = () => <MasterTable
-  title="Commission Policies" breadcrumb="Policy" subtitle="Manage commission rate policies — Finance & Sales"
-  slice="commissionPolicies" prefix="COM" module="Finance"
-  columns={[{key:'id',label:'ID'},{key:'developer',label:'Developer',bold:true},{key:'project',label:'Project'},{key:'rate',label:'Rate %'},{key:'override',label:'Override'},{key:'status',label:'Status'}]}
-  fields={[[{name:'developer',label:'Developer',required:true},{name:'project',label:'Project',required:true}],[{name:'rate',label:'Rate %',type:'number',default:2.0},{name:'status',label:'Status',type:'select',options:STATUS_OPTS,default:'Active'}]]}
-/>;
+// Commission Policies — the generic MasterTable can't handle the 4-persona
+// split editor (Agent / TL / Manager / Director %s + auto-balanced Company
+// share + per-policy action log). Render the dedicated section from
+// FinancialManagement instead so both routes share the same form, table,
+// and history drawer. Dashboard → Master Data → Policy lands here.
+export const MasterCommPolicies = () => <CommissionPoliciesSection />;
 
 export const PayoutCycles = () => <MasterTable
   title="Payout Cycles" breadcrumb="Cycle" subtitle="Manage payout schedule cycles — Finance & Sales"
