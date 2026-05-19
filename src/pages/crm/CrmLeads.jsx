@@ -50,7 +50,12 @@ export const CrmLeads = () => {
   // of unassigned marketplace leads.
   const [bulkRoundRobin, setBulkRoundRobin] = useState(false);
   const [bulkRRAgents, setBulkRRAgents] = useState([]); // string[] of staff names
-  const def = {name:'',phone:'',email:'',source:'Walk-in',project:'',developer:'',budget:'',stage:'New',priority:'Warm',owner:personaOwnerName(personaKey) || 'Fatma Ibrahim',notes:'',createdManually:true};
+  // Default owner on new-lead form:
+  //   - Sales Agent (scope: 'self')  → auto-assigned to themselves (persona.label).
+  //   - Team Leader / Manager / Director → default to themselves but they
+  //     can switch to any team member they're allowed to assign to. They
+  //     usually log walk-ins on behalf of an agent, so the picker stays open.
+  const def = {name:'',phone:'',email:'',source:'Walk-in',project:'',developer:'',budget:'',stage:'New',priority:'Warm',owner:persona.label || personaOwnerName(personaKey) || '',notes:'',createdManually:true};
   const [form, setForm] = useState(def);
   const allLeads = state.leads || [];
   const readOnly = isReadOnly(personaKey);
@@ -77,7 +82,7 @@ export const CrmLeads = () => {
     return true;
   }),[visible,search,fStage,fPrio,fSrc,fOwner]);
 
-  const openAdd2 = ()=>{setForm({...def, owner: personaOwnerName(personaKey) || def.owner});setEditLead(null);setShowAdd(true);};
+  const openAdd2 = ()=>{setForm({...def, owner: persona.label || personaOwnerName(personaKey) || def.owner});setEditLead(null);setShowAdd(true);};
   const openEdit = l=>{setForm({name:l.name,phone:l.phone||'',email:l.email||'',source:l.source||'Walk-in',project:l.project||'',developer:l.developer||'',budget:l.budget||'',stage:l.stage||'New',priority:l.priority||'Warm',owner:l.owner||'',notes:l.notes||'',createdManually:!!l.createdManually});setEditLead(l);setShowAdd(true);};
   const handleSubmit = e=>{
     e.preventDefault();
@@ -90,9 +95,27 @@ export const CrmLeads = () => {
       // Policy guard: audit-only / no-CRM-access roles cannot mint leads.
       // Sales-track roles (agent, TL, manager, director) all can.
       if (!canCreate) { toast('Your role cannot create leads.', 'error'); return; }
-      addItem('leads',{...form,budget:form.budget?Number(form.budget):0,created:new Date().toISOString().split('T')[0],team: h.team || 'Alpha'},'L');
-      writeAudit('CRM Lead Created', `${form.name} (manual entry by ${persona.label} — protected 6 months)`, 'CRM');
-      toast('Lead created — protected from reassignment for 6 months','success');
+      // Auto-assign rule (May 2026 — business team): if an Agent creates
+      // a lead, the system forces ownership to the agent themselves —
+      // their walk-in / referral / pop-up capture, their lead. Managers
+      // and Team Leaders can still pick any team member as the owner
+      // because they often log leads on behalf of an agent.
+      const finalOwner = h.scope === 'self' ? persona.label : (form.owner || '');
+      addItem('leads',{
+        ...form,
+        owner: finalOwner,
+        budget: form.budget?Number(form.budget):0,
+        created: new Date().toISOString().split('T')[0],
+        team: h.team || 'Alpha',
+        createdBy: persona.label,
+      },'L');
+      const ownerNote = h.scope === 'self'
+        ? `auto-assigned to creator ${persona.label}`
+        : finalOwner ? `assigned to ${finalOwner}` : 'unassigned';
+      writeAudit('CRM Lead Created', `${form.name} (manual entry by ${persona.label} — ${ownerNote} — protected 6 months)`, 'CRM');
+      toast(h.scope === 'self'
+        ? `Lead created & assigned to you — protected for 6 months`
+        : `Lead created — protected from reassignment for 6 months`, 'success');
     }
     setShowAdd(false);
   };
@@ -407,12 +430,32 @@ export const CrmLeads = () => {
               <div className="form-group"><label>Budget (EGP)</label><input type="number" value={form.budget} onChange={e=>setForm({...form,budget:e.target.value})}/></div>
               <div className="form-group"><label>Stage</label><select value={form.stage} onChange={e=>setForm({...form,stage:e.target.value})}>{STAGES.map(s=><option key={s}>{s}</option>)}</select></div>
               <div className="form-group"><label>Priority</label><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select></div>
-              <div className="form-group"><label>Owner (hierarchy-scoped)</label>
-                <select value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})} disabled={h.scope === 'self'}>
-                  <option value="">Unassigned</option>
-                  {assignable.map(s=><option key={s.id || s.name} value={s.name}>{s.name}{s.role ? ` — ${s.role}` : ''}</option>)}
-                </select>
-                <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{h.scope === 'self' ? 'Agents can only own self-created leads.' : h.scope === 'team' ? `Limited to Team ${h.team}.` : h.scope === 'cross' ? `Limited to Teams ${h.teams?.join(' + ')}.` : 'Director scope — any owner.'}</div>
+              <div className="form-group">
+                <label>Owner (hierarchy-scoped)</label>
+                {!editLead && h.scope === 'self' ? (
+                  // Agent creating a new lead — auto-assigned, locked.
+                  <div style={{
+                    display:'flex',alignItems:'center',gap:10,
+                    padding:'10px 12px',
+                    background:'var(--brand-tint)',
+                    border:'1px solid var(--brand)',
+                    borderRadius:8,fontSize:13,
+                  }}>
+                    <ShieldCheck size={16} color="var(--brand)"/>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700}}>Auto-assigned to you · {persona.label}</div>
+                      <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:2}}>This lead will be yours from creation and locked for 180 days under the manual-lead protection rule.</div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <select value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})}>
+                      <option value="">Unassigned</option>
+                      {assignable.map(s=><option key={s.id || s.name} value={s.name}>{s.name}{s.role ? ` — ${s.role}` : ''}</option>)}
+                    </select>
+                    <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{h.scope === 'team' ? `Limited to Team ${h.team}.` : h.scope === 'cross' ? `Limited to Teams ${h.teams?.join(' + ')}.` : h.scope === 'all' ? 'Director scope — any owner.' : 'Self-scope.'}</div>
+                  </>
+                )}
               </div>
               <div className="form-group" style={{gridColumn:'span 2'}}><label>Notes</label><textarea rows={3} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></div>
               {!editLead && (
