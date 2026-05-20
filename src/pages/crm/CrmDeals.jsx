@@ -255,16 +255,20 @@ export const CrmDeals = () => {
   // Commission override flow (BRD §6.2.4).
   const openOverride = (d) => {
     if (!canRequestOverride(personaKey)) { toast('Only Team Leader and above can request a commission override', 'error'); return; }
+    // Close any side drawer behind the modal so we never have a centered
+    // modal stacked on top of a right-side drawer (UX feedback May 2026).
+    closeDrawer?.();
     setOverrideFor(d);
     setOverrideForm({ requestedPct: String(d.commission || ''), reason: '' });
   };
-  // submitOverride now reads the requested 4-persona split directly from
-  // the form (the SplitEditor sets splitAgent/Tl/Manager/Director on the
-  // FormData via name attributes). Company is the auto-balanced residual.
+  // submitOverride reads only the requested 4-persona split from the form
+  // — the deal-side rate is FIXED at the deal's current rate (overrides
+  // can't change what the developer pays; they only change how the pool
+  // is split internally).
   const submitOverride = (formData) => {
     if (!overrideFor) return;
-    const requestedPct = Number(formData?.requestedPct ?? overrideForm.requestedPct);
-    if (!Number.isFinite(requestedPct) || requestedPct <= 0) { toast('Requested rate must be a positive number', 'error'); return false; }
+    // Rate is fixed at current — overrides don't touch it.
+    const requestedPct = Number(overrideFor.commission);
     const reason = (formData?.reason ?? overrideForm.reason ?? '').toString();
     if (!reason.trim()) { toast('Reason required', 'error'); return false; }
 
@@ -278,19 +282,17 @@ export const CrmDeals = () => {
     if (sum > 100) { toast(`Agent + TL + Manager + Director total ${sum.toFixed(2)}% — must stay ≤ 100`, 'error'); return false; }
     const requestedSplit = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
 
-    // No-op guard: the request must change at least one thing. Compare the
-    // requested rate + split against the deal's current rate + active
-    // policy split. If everything is identical, there's nothing to review.
+    // No-op guard: since the rate is locked, the split MUST differ from
+    // the active policy split. Otherwise the request is empty.
     const activePolicy = (state.commissionPolicies || []).find(
       p => p.developer === overrideFor.developer && p.project === overrideFor.project && p.status === 'Active'
     );
     const policySplit = activePolicy?.split || null;
-    const rateChanged = Number(requestedPct) !== Number(overrideFor.commission);
     const splitChanged = policySplit
       ? ['agent','tl','manager','director','company'].some(k => Number(policySplit[k] || 0) !== Number(requestedSplit[k]))
       : true; // if no policy split, any explicit split counts as a change
-    if (!rateChanged && !splitChanged) {
-      toast('Change the rate or at least one persona % before submitting — nothing to review.', 'error');
+    if (!splitChanged) {
+      toast('Change at least one persona % — the breakdown is identical to the policy.', 'error');
       return false;
     }
 
@@ -1084,14 +1086,11 @@ export const CrmDeals = () => {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label>Requested deal-side rate %</label>
-                  <input
-                    type="number" step="0.01" min="0" required
-                    name="requestedPct"
-                    defaultValue={overrideFor.commission}
-                  />
-                  <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>Rate paid by the developer on the deal value. The breakdown below splits the resulting pool.</div>
+                {/* Rate is FIXED at the deal's current rate — the request
+                    only changes the internal 4-persona breakdown. */}
+                <div style={{padding:'8px 12px',background:'#f1f5f9',border:'1px solid var(--border)',borderRadius:6,fontSize:12,display:'flex',alignItems:'center',gap:8}}>
+                  <Lock size={14} color="var(--text-secondary)"/>
+                  <span><b>Deal-side rate stays at {overrideFor.commission}%</b> — overrides change only the internal breakdown, not the rate paid by the developer.</span>
                 </div>
 
                 <div style={{margin:'4px 0 -4px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.08em'}}>
