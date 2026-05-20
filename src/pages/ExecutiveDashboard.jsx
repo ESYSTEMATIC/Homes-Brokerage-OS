@@ -228,8 +228,8 @@ export const ExecutiveDashboard = () => {
   const paidComm = state.commEngine.filter(c => c.status === 'Paid').reduce((s, c) => s + c.pool, 0);
   const activeAgents = state.staff.filter(s => s.status === 'Active').length;
   const apprPending =
-    state.onboarding.filter(o => o.status === 'Approved').length + ' approved / ' +
-    state.onboarding.filter(o => !['Approved', 'Rejected'].includes(o.status)).length + ' pending';
+    state.onboarding.filter(o => o.status === 'Activated').length + ' activated / ' +
+    state.onboarding.filter(o => !['Activated', 'Withdrawn'].includes(o.status)).length + ' pending';
 
   const refresh = () => { toast('Dashboard refreshed', 'info'); writeAudit('Dashboard Refreshed', 'Executive Dashboard', 'Reporting'); };
   const exportSnapshot = () => {

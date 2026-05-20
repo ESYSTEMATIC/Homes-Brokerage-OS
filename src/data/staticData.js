@@ -293,7 +293,7 @@ export const ONBOARDING = [
   },
   {
     id: "APP004", applicant: "Tamer Said", type: "Employee",
-    date: "2026-04-15", status: "Approved",
+    date: "2026-04-15", status: "Activated",
     department: "Marketing", branch: "New Cairo",
     photoDataUrl: "https://images.unsplash.com/photo-1542178243-bc20204b769f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80&dpr=1", photoName: "tamer-said.png",
     resumeName: "tamer-said-cv.pdf", resumeDataUrl: null,
@@ -309,7 +309,7 @@ export const ONBOARDING = [
       { stage: "Documents Pending",    at: "2026-04-17T10:00:00", by: "Dina Samir", note: "Awaiting docs" },
       { stage: "Training In Progress", at: "2026-04-19T09:00:00", by: "Academy",    note: "Onboarding training" },
       { stage: "Final Approval",       at: "2026-04-28T13:00:00", by: "Dina Samir", note: "Awaiting Director sign-off" },
-      { stage: "Approved",             at: "2026-04-30T16:30:00", by: "Tarek Hassan", note: "Approved · Employee A013 created" },
+      { stage: "Activated",            at: "2026-04-30T16:30:00", by: "Tarek Hassan", note: "Employee A013 activated (status Active · system access provisioned)" },
     ],
     notes: "Joined as Marketing persona — owns campaigns surface in CRM.",
   },
@@ -355,7 +355,7 @@ export const ONBOARDING = [
   },
   {
     id: "APP007", applicant: "Nadia Gamal", type: "Employee",
-    date: "2026-04-10", status: "Rejected",
+    date: "2026-04-10", status: "Withdrawn",
     department: "HR / Recruitment", branch: "New Cairo",
     photoDataUrl: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80&dpr=2", photoName: "nadia-gamal.png",
     resumeName: "nadia-gamal-cv.pdf", resumeDataUrl: null,
@@ -368,9 +368,9 @@ export const ONBOARDING = [
     statusHistory: [
       { stage: "Submitted",    at: "2026-04-10T09:00:00", by: "HR", note: "Application received" },
       { stage: "Under Review", at: "2026-04-11T10:00:00", by: "Dina Samir", note: "Screening" },
-      { stage: "Rejected",     at: "2026-04-14T15:30:00", by: "Dina Samir", note: "Rejected — insufficient HR systems experience" },
+      { stage: "Withdrawn",    at: "2026-04-14T15:30:00", by: "Dina Samir", note: "Candidate withdrew during HR onboarding screening — declined the role before activation" },
     ],
-    notes: "Not a fit for the current opening. Encouraged to reapply for L1 roles.",
+    notes: "Withdrew before activation. Free to be re-engaged in future cycles.",
   },
 ];
 
@@ -387,12 +387,15 @@ export const APPLICATION_STAGE_META = {
                             help: 'Awaiting required documents from applicant (ID, RERA, Education).' },
   'Training In Progress': { order: 4, color: '#8b5cf6', slaDays: 14, owner: 'Academy', next: 'Final Approval',
                             help: 'Mandatory training enrolled. Auto-advances when all required courses complete.' },
-  'Final Approval':       { order: 5, color: '#06b6d4', slaDays: 3,  owner: 'Director',next: 'Approved',
-                            help: 'All checklist items complete — Sales Director sign-off required.' },
-  'Approved':             { order: 6, color: '#10b981', slaDays: 0,  owner: 'System',  next: null,
-                            help: 'Approved. Employee record created. Onboarding complete.' },
-  'Rejected':             { order: 99, color: '#dc2626', slaDays: 0, owner: 'System',  next: null,
-                            help: 'Application rejected — terminal.' },
+  'Final Approval':       { order: 5, color: '#06b6d4', slaDays: 3,  owner: 'Director',next: 'Activated',
+                            help: 'All checklist items complete — Sales Director sign-off required before activation.' },
+  // Terminal: success — employee record flipped from 'Pending Onboarding' to 'Active'.
+  'Activated':            { order: 6, color: '#10b981', slaDays: 0,  owner: 'System',  next: null,
+                            help: 'Employee activated. System access provisioned. Onboarding complete.' },
+  // Terminal: exit before activation — candidate pulled out OR HR/Director
+  // cancelled. NOT a rejection (that decision was made upstream at offer stage).
+  'Withdrawn':            { order: 99, color: '#dc2626', slaDays: 0, owner: 'System',  next: null,
+                            help: 'Onboarding did not complete — candidate withdrew or activation cancelled before going Active.' },
 };
 
 // ── DOCUMENTS ──
@@ -1658,7 +1661,17 @@ export const PRIORITIES = ['Hot', 'Warm', 'Cold'];
 export const SOURCES = ['Marketplace', 'Referral', 'Walk-in', 'Campaign', 'Cold Call', 'Property Fair'];
 export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'Finance', 'Follow-up'];
 export const TASK_STATUS = ['Pending', 'In Progress', 'Completed', 'Overdue'];
-export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Documents Pending', 'Training In Progress', 'Final Approval', 'Approved', 'Rejected'];
+// Onboarding terminal states — by the time a record exists here, the
+// candidate has ALREADY been approved upstream (offer accepted in
+// RecruitmentPipeline → Employee record created with status='Pending
+// Onboarding'). Onboarding is purely an activation / provisioning flow,
+// so the terminal labels reflect that:
+//   • 'Activated'  — employee.status flipped to 'Active' (success)
+//   • 'Withdrawn'  — candidate pulled out, or HR / Director cancelled
+//                     before activation completed (no judgment on the
+//                     candidate — that decision was made earlier).
+// Legacy 'Approved' / 'Rejected' labels are no longer valid here.
+export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Documents Pending', 'Training In Progress', 'Final Approval', 'Activated', 'Withdrawn'];
 export const DOC_STATUS = ['Pending Review', 'Approved', 'Rejected', 'Missing'];
 // Added 'Hired' (May 2026) so candidates don't sit at 'Offer' forever
 // after they accept and complete onboarding. The transition is automatic:

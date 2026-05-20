@@ -3,13 +3,13 @@
 // ───────────────────────────────────────────────────────────────────────
 // Replaces the thin original page with:
 //   • Pipeline funnel (clickable stages with counts).
-//   • Enriched KPI strip (active · time-to-approve · stalled · approved · rate).
-//   • View tabs (All / Active / Stalled / Approved recent / Rejected).
-//   • Smart filter chips (missing docs · training incomplete · ready to approve).
-//   • Bulk actions (approve · reject · remind) via row checkboxes.
+//   • Enriched KPI strip (active · time-to-activate · stalled · activated · rate).
+//   • View tabs (All / Active / Stalled / Activated recent / Withdrawn).
+//   • Smart filter chips (missing docs · training incomplete · ready to activate).
+//   • Bulk actions (activate · withdraw · remind) via row checkboxes.
 //   • Drawer with 3 tabs (Overview / Timeline / Checklist).
 //   • Auto-progression banner when checklist hits 100 %.
-//   • Employee record creation on Approve.
+//   • Employee record ACTIVATION on Activate (candidate was approved upstream).
 //   • Candidate→Onboarding linkage banner.
 // ═══════════════════════════════════════════════════════════════════════
 import React, { useState, useMemo, useEffect } from 'react';
@@ -116,8 +116,8 @@ const stageColor  = (stage) => APPLICATION_STAGE_META[stage]?.color || '#94a3b8'
 const stageMeta   = (stage) => APPLICATION_STAGE_META[stage] || { order: 0, slaDays: 0, owner: 'System', help: '' };
 
 const badgeColorForStage = (stage) => {
-  if (stage === 'Approved') return 'badge-success';
-  if (stage === 'Rejected') return 'badge-danger';
+  if (stage === 'Activated') return 'badge-success';
+  if (stage === 'Withdrawn') return 'badge-danger';
   if (stage === 'Documents Pending') return 'badge-warning';
   if (stage === 'Final Approval')    return 'badge-info';
   return 'badge-info';
@@ -139,8 +139,8 @@ const computeChecklist = (applicant, documents, training) => {
   // Stages further down the funnel imply earlier steps are complete.
   const stageOrder = stageMeta(applicant.status).order;
   const appReviewed = stageOrder >= 2;            // Past Submitted
-  const m365Done    = applicant.status === 'Approved';
-  const welcomeDone = applicant.status === 'Approved';
+  const m365Done    = applicant.status === 'Activated';
+  const welcomeDone = applicant.status === 'Activated';
 
   const stateMap = {
     application: appReviewed,
@@ -187,7 +187,7 @@ export const Onboarding = () => {
   const initialChip = searchParams.get('chip') || null;
   const initialQ = searchParams.get('stage') || '';
 
-  const [tab, setTab] = useState(initialTab); // all | active | stalled | approved | rejected
+  const [tab, setTab] = useState(initialTab); // all | active | stalled | activated | withdrawn
   const [q, setQ] = useState(initialQ);
   const [filterType, setFilterType] = useState('');
   const [filterDept, setFilterDept] = useState('');
@@ -209,20 +209,20 @@ export const Onboarding = () => {
   // ─── KPI calculations ─────────────────────────────────────────
   const activeStatuses = ['Submitted','Under Review','Documents Pending','Training In Progress','Final Approval'];
 
-  const approvedAll = applicants.filter(a => a.status === 'Approved');
+  const activatedAll = applicants.filter(a => a.status === 'Activated');
   const last30 = new Date(); last30.setDate(last30.getDate() - 30);
-  const approvedRecent = approvedAll.filter(a => {
-    const approvedAt = a.statusHistory?.find(s => s.stage === 'Approved')?.at;
-    return approvedAt && new Date(approvedAt) >= last30;
+  const activatedRecent = activatedAll.filter(a => {
+    const activatedAt = a.statusHistory?.find(s => s.stage === 'Activated')?.at;
+    return activatedAt && new Date(activatedAt) >= last30;
   });
 
-  const avgTimeToApprove = (() => {
-    const days = approvedAll
+  const avgTimeToActivate = (() => {
+    const days = activatedAll
       .map(a => {
         const submitted = a.statusHistory?.find(s => s.stage === 'Submitted')?.at;
-        const approved  = a.statusHistory?.find(s => s.stage === 'Approved')?.at;
-        if (!submitted || !approved) return null;
-        return Math.round((new Date(approved) - new Date(submitted)) / 86400000);
+        const activated = a.statusHistory?.find(s => s.stage === 'Activated')?.at;
+        if (!submitted || !activated) return null;
+        return Math.round((new Date(activated) - new Date(submitted)) / 86400000);
       })
       .filter(d => d !== null);
     if (!days.length) return null;
@@ -236,31 +236,31 @@ export const Onboarding = () => {
     return daysSince(last.at) > sla;
   });
 
-  const approvalRate = (() => {
-    const decisioned = approvedAll.length + applicants.filter(a => a.status === 'Rejected').length;
+  const activationRate = (() => {
+    const decisioned = activatedAll.length + applicants.filter(a => a.status === 'Withdrawn').length;
     if (!decisioned) return 0;
-    return Math.round((approvedAll.length / decisioned) * 100);
+    return Math.round((activatedAll.length / decisioned) * 100);
   })();
 
   // ─── Funnel counts ────────────────────────────────────────────
   const funnel = Object.keys(APPLICATION_STAGE_META)
-    .filter(s => s !== 'Rejected')
+    .filter(s => s !== 'Withdrawn')
     .sort((a,b) => APPLICATION_STAGE_META[a].order - APPLICATION_STAGE_META[b].order)
     .map(s => ({ stage: s, count: applicants.filter(a => a.status === s).length, meta: APPLICATION_STAGE_META[s] }));
 
   // ─── Filtering pipeline ───────────────────────────────────────
   const visible = applicants.filter(a => {
     // Tab filter
-    if (tab === 'active'   && !activeStatuses.includes(a.status)) return false;
-    if (tab === 'stalled'  && !stalled.includes(a)) return false;
-    if (tab === 'approved' && !approvedRecent.includes(a)) return false;
-    if (tab === 'rejected' && a.status !== 'Rejected') return false;
+    if (tab === 'active'    && !activeStatuses.includes(a.status)) return false;
+    if (tab === 'stalled'   && !stalled.includes(a)) return false;
+    if (tab === 'activated' && !activatedRecent.includes(a)) return false;
+    if (tab === 'withdrawn' && a.status !== 'Withdrawn') return false;
     // Smart chip
     if (chip) {
       const cl = computeChecklist(a, state.documents, state.training);
       if (chip === 'missing-docs' && cl.state.documents) return false;
       if (chip === 'training-incomplete' && cl.state.training) return false;
-      if (chip === 'ready' && (cl.done < 5 || a.status === 'Approved')) return false;
+      if (chip === 'ready' && (cl.done < 5 || a.status === 'Activated')) return false;
     }
     // Type/Dept filters
     if (filterType && a.type !== filterType) return false;
@@ -292,19 +292,19 @@ export const Onboarding = () => {
     const newEntry = { stage, at: nowISO(), by, note };
     const history = [...(a.statusHistory || []), newEntry];
     const patch = { status: stage, statusHistory: history };
-    if (stage === 'Approved') {
+    if (stage === 'Activated') {
       // Business rule (May 2026): the employee record is created upstream
       // when the candidate accepts the HR offer (status='Pending Onboarding').
-      // Approve here only ACTIVATES that record — it doesn't create a new one.
-      // Direct-hire / legacy rows without an employeeId still get a new staff
-      // record so the flow stays robust.
+      // 'Activated' here ACTIVATES that record (status → 'Active') — it does
+      // NOT approve a candidate. Direct-hire / legacy rows without an
+      // employeeId still get a new staff record so the flow stays robust.
       let empId = a.employeeId;
       if (empId) {
         updateItem('staff', empId, { status: 'Active', linkedOnboardingId: a.id, activatedAt: nowISO() }, {
           action: 'Employee Activated',
           module: 'Backoffice',
           target: empId,
-          detail: `${a.applicant} · onboarding ${a.id} approved`,
+          detail: `${a.applicant} · onboarding ${a.id} completed (activated)`,
         });
       } else {
         // Fallback: no upstream employee record (direct hire or legacy seed).
@@ -342,7 +342,7 @@ export const Onboarding = () => {
           action: 'Candidate Hired',
           module: 'Recruitment',
           target: a.linkedCandidateId,
-          detail: `Auto-cascade from onboarding ${a.id} approval · employee ${empId}`,
+          detail: `Auto-cascade from onboarding ${a.id} activation · employee ${empId}`,
         });
       }
       // 3) Cascade to the linked offer → 'Onboarded' so the offer record
@@ -356,36 +356,46 @@ export const Onboarding = () => {
           detail: `Cascade from onboarding ${a.id} · employee ${empId}`,
         });
       }
+    } else if (stage === 'Withdrawn' && a.employeeId) {
+      // Mirror the activation cancellation on the upstream employee record
+      // so it doesn't sit at 'Pending Onboarding' forever.
+      updateItem('staff', a.employeeId, { status: 'Withdrawn', withdrawnAt: nowISO(), withdrawnReason: note || 'Onboarding cancelled' }, {
+        action: 'Employee Onboarding Withdrawn',
+        module: 'Backoffice',
+        target: a.employeeId,
+        detail: `${a.applicant} · onboarding ${a.id} withdrew before activation`,
+      });
     }
     updateItem('onboarding', a.id, patch, {
-      action: stage === 'Approved' ? 'Application Approved'
-            : stage === 'Rejected' ? 'Application Rejected'
-            : 'Application Advanced',
+      action: stage === 'Activated' ? 'Onboarding Activated'
+            : stage === 'Withdrawn' ? 'Onboarding Withdrawn'
+            : 'Onboarding Advanced',
       module: 'Backoffice', target: a.id,
       detail: note,
     });
-    toast(stage === 'Approved'
+    toast(stage === 'Activated'
       ? (a.employeeId
-          ? `${a.applicant} approved · employee ${a.employeeId} activated · candidate → Hired · offer → Onboarded`
-          : `${a.applicant} approved · employee created · candidate → Hired · offer → Onboarded`)
+          ? `${a.applicant} activated · employee ${a.employeeId} → Active · candidate → Hired · offer → Onboarded`
+          : `${a.applicant} activated · employee created · candidate → Hired · offer → Onboarded`)
       : `${a.applicant} → ${stage}`);
   };
 
-  const approve = (a) => openConfirm({
-    title: `Approve ${a.applicant}?`,
+  const activate = (a) => openConfirm({
+    title: `Activate ${a.applicant}?`,
     message: a.employeeId
-      ? `Employee ${a.employeeId} (currently Pending Onboarding) will be activated. The candidate moves to Hired and the offer closes as Onboarded. Audit-logged.`
+      ? `Employee ${a.employeeId} (currently Pending Onboarding) will be activated (status → Active). The candidate moves to Hired and the offer closes as Onboarded. Audit-logged.`
       : `An Employee record will be created and activated (no upstream offer link — direct-hire fallback). Audit-logged.`,
-    confirmLabel: a.employeeId ? 'Activate employee' : 'Approve & create employee',
-    onConfirm: () => pushStatus(a, 'Approved', 'HR Recruiter', 'Approved'),
+    confirmLabel: a.employeeId ? 'Activate employee' : 'Create & activate employee',
+    onConfirm: () => pushStatus(a, 'Activated', 'HR Recruiter', 'Activated'),
   });
 
-  const reject = (a) => openModal({
-    title: `Reject ${a.applicant}`,
-    submitLabel: 'Reject',
+  const withdraw = (a) => openModal({
+    title: `Withdraw ${a.applicant}`,
+    subtitle: 'Onboarding will close without activation. The candidate was already approved upstream — this only records that activation did not complete.',
+    submitLabel: 'Mark withdrawn',
     danger: true,
-    body: <Field label="Reason" name="reason" type="textarea" required placeholder="Visible in audit trail" />,
-    onSubmit: ({ reason }) => pushStatus(a, 'Rejected', 'HR Recruiter', reason),
+    body: <Field label="Reason" name="reason" type="textarea" required placeholder="e.g. candidate declined start date, role restructured, failed background check" />,
+    onSubmit: ({ reason }) => pushStatus(a, 'Withdrawn', 'HR Recruiter', reason),
   });
 
   const sendReminder = (a) => {
@@ -395,27 +405,28 @@ export const Onboarding = () => {
   };
 
   // ─── Bulk actions ─────────────────────────────────────────────
-  const bulkApprove = () => openConfirm({
-    title: `Approve ${selected.size} application${selected.size === 1 ? '' : 's'}?`,
-    message: 'Employee records will be created for each approved applicant.',
-    confirmLabel: 'Bulk approve',
+  const bulkActivate = () => openConfirm({
+    title: `Activate ${selected.size} onboarding${selected.size === 1 ? '' : 's'}?`,
+    message: 'Upstream employee records (status=Pending Onboarding) will be flipped to Active. Direct hires with no upstream record get one created.',
+    confirmLabel: 'Bulk activate',
     onConfirm: () => {
       Array.from(selected).forEach(id => {
         const a = applicants.find(x => x.id === id);
-        if (a && a.status !== 'Approved' && a.status !== 'Rejected') pushStatus(a, 'Approved', 'HR Recruiter (bulk)', 'Bulk approved');
+        if (a && a.status !== 'Activated' && a.status !== 'Withdrawn') pushStatus(a, 'Activated', 'HR Recruiter (bulk)', 'Bulk activated');
       });
       setSelected(new Set());
     },
   });
-  const bulkReject = () => openModal({
-    title: `Reject ${selected.size} application${selected.size === 1 ? '' : 's'}`,
-    submitLabel: 'Bulk reject',
+  const bulkWithdraw = () => openModal({
+    title: `Withdraw ${selected.size} onboarding${selected.size === 1 ? '' : 's'}`,
+    subtitle: 'Each onboarding closes without activation. Reason applied to all.',
+    submitLabel: 'Bulk withdraw',
     danger: true,
-    body: <Field label="Reason" name="reason" type="textarea" required placeholder="Applied to all selected applicants" />,
+    body: <Field label="Reason" name="reason" type="textarea" required placeholder="Applied to all selected" />,
     onSubmit: ({ reason }) => {
       Array.from(selected).forEach(id => {
         const a = applicants.find(x => x.id === id);
-        if (a && a.status !== 'Approved' && a.status !== 'Rejected') pushStatus(a, 'Rejected', 'HR Recruiter (bulk)', reason);
+        if (a && a.status !== 'Activated' && a.status !== 'Withdrawn') pushStatus(a, 'Withdrawn', 'HR Recruiter (bulk)', reason);
       });
       setSelected(new Set());
     },
@@ -509,12 +520,12 @@ export const Onboarding = () => {
       training={state.training}
       candidates={state.candidates}
       offers={state.offers}
-      onApprove={() => approve(a)}
-      onReject={() => reject(a)}
+      onActivate={() => activate(a)}
+      onWithdraw={() => withdraw(a)}
       onAdvance={() => advanceStage(a)}
       onStageChange={(s) => pushStatus(a, s, 'HR Recruiter', `Stage changed to ${s}`)}
       onReminder={() => sendReminder(a)}
-      onAutoApprove={() => pushStatus(a, 'Approved', 'HR Recruiter (auto · 100% checklist)', 'Auto-approved · checklist complete')}
+      onAutoActivate={() => pushStatus(a, 'Activated', 'HR Recruiter (auto · 100% checklist)', 'Auto-activated · checklist complete')}
     />,
   });
 
@@ -539,7 +550,7 @@ export const Onboarding = () => {
           <ListChecks size={18}/>
         </div>
         <div style={{flex:1, fontSize:12, color:'#1e3a8a', lineHeight:1.55}}>
-          <b>How onboarding starts:</b> a candidate has <b>no system account</b> while they're in the Recruitment Pipeline. Once they accept their offer there, an onboarding application is auto-created here. The Employee record (system credentials, CRM access, M365 mailbox) is then provisioned on the final Approve step.
+          <b>How onboarding starts:</b> a candidate has <b>no system account</b> while they're in the Recruitment Pipeline. Once they accept their offer there, an Employee record is created with <b>status&nbsp;= Pending&nbsp;Onboarding</b> and an onboarding application is spawned here. The final <b>Activate</b> step flips that record to <b>Active</b> (system credentials, CRM access, M365 mailbox provisioned). No re-approval happens here — the candidate decision was already made.
           <span style={{color:'#1e40af', marginLeft:6, fontStyle:'italic'}}>Direct Hire bypass below is reserved for special cases.</span>
         </div>
       </div>
@@ -562,13 +573,13 @@ export const Onboarding = () => {
           footer={`${applicants.length} total in the pipeline`}
         />
         <Kpi
-          label="Time to approve"
-          value={avgTimeToApprove !== null ? `${avgTimeToApprove}d` : '—'}
+          label="Time to activate"
+          value={avgTimeToActivate !== null ? `${avgTimeToActivate}d` : '—'}
           icon={Clock}
           color="#0ea5e9"
-          tip="Average days from Submitted to Approved across all approved applicants."
-          footer={avgTimeToApprove !== null ? `Target: ≤ 14 days` : 'No approvals yet'}
-          delta={avgTimeToApprove !== null && avgTimeToApprove <= 14 ? { dir:'up', value: 'on target' } : avgTimeToApprove !== null ? { dir: 'down', value: 'over target' } : null}
+          tip="Average days from Submitted to Activated across all activated applicants."
+          footer={avgTimeToActivate !== null ? `Target: ≤ 14 days` : 'No activations yet'}
+          delta={avgTimeToActivate !== null && avgTimeToActivate <= 14 ? { dir:'up', value: 'on target' } : avgTimeToActivate !== null ? { dir: 'down', value: 'over target' } : null}
         />
         <Kpi
           label="Stalled"
@@ -580,32 +591,32 @@ export const Onboarding = () => {
           footer={stalled.length > 0 ? 'Click to view & remind' : 'All on track'}
         />
         <Kpi
-          label="Approved (30d)"
-          value={approvedRecent.length}
+          label="Activated (30d)"
+          value={activatedRecent.length}
           icon={CheckCircle}
           color="#10b981"
-          onClick={() => setTab('approved')}
-          footer={`Employees added this month`}
+          onClick={() => setTab('activated')}
+          footer={`Employees activated this month`}
         />
         <Kpi
-          label="Approval rate"
-          value={`${approvalRate}%`}
+          label="Activation rate"
+          value={`${activationRate}%`}
           icon={BarChart3}
           color="#8b5cf6"
-          tip="Approved / (Approved + Rejected) — across all decisioned applications."
-          footer={`${approvedAll.length} approved · ${applicants.filter(a => a.status === 'Rejected').length} rejected`}
-          delta={approvalRate >= 70 ? { dir: 'up', value: 'healthy' } : approvalRate > 0 ? { dir: 'down', value: 'low' } : null}
+          tip="Activated / (Activated + Withdrawn) — across all closed onboardings."
+          footer={`${activatedAll.length} activated · ${applicants.filter(a => a.status === 'Withdrawn').length} withdrawn`}
+          delta={activationRate >= 70 ? { dir: 'up', value: 'healthy' } : activationRate > 0 ? { dir: 'down', value: 'low' } : null}
         />
       </div>
 
       {/* ─── VIEW TABS ────────────────────────────────────── */}
       <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap'}}>
         {[
-          ['all',      'All',       applicants.length],
-          ['active',   'Active',    applicants.filter(a => activeStatuses.includes(a.status)).length],
-          ['stalled',  'Stalled',   stalled.length],
-          ['approved', 'Approved (30d)', approvedRecent.length],
-          ['rejected', 'Rejected',  applicants.filter(a => a.status === 'Rejected').length],
+          ['all',       'All',              applicants.length],
+          ['active',    'Active',           applicants.filter(a => activeStatuses.includes(a.status)).length],
+          ['stalled',   'Stalled',          stalled.length],
+          ['activated', 'Activated (30d)',  activatedRecent.length],
+          ['withdrawn', 'Withdrawn',        applicants.filter(a => a.status === 'Withdrawn').length],
         ].map(([k, lbl, n]) => (
           <button
             key={k}
@@ -627,7 +638,7 @@ export const Onboarding = () => {
         {[
           ['missing-docs',         'Missing documents'],
           ['training-incomplete',  'Training incomplete'],
-          ['ready',                'Ready to approve'],
+          ['ready',                'Ready to activate'],
         ].map(([k, lbl]) => (
           <button
             key={k}
@@ -692,7 +703,7 @@ export const Onboarding = () => {
             fontSize:11, color:'var(--text-tertiary)',
           }}>
             <span style={{display:'inline-flex', alignItems:'center', gap:6}}>
-              <CheckSquare size={12}/> <b>Tip:</b> tick rows to enable bulk Remind · Approve · Reject
+              <CheckSquare size={12}/> <b>Tip:</b> tick rows to enable bulk Remind · Activate · Withdraw
             </span>
             <span style={{fontSize:10}}>Up to {visible.length} applicants selectable</span>
           </div>
@@ -712,8 +723,8 @@ export const Onboarding = () => {
             </div>
             <div style={{display:'flex', gap:8}}>
               <button className="btn btn-outline btn-sm" onClick={bulkRemind}><Bell size={13}/> Remind</button>
-              <button className="btn btn-success btn-sm" onClick={bulkApprove}><CheckCircle size={13}/> Approve</button>
-              <button className="btn btn-danger btn-sm" onClick={bulkReject}><XCircle size={13}/> Reject</button>
+              <button className="btn btn-success btn-sm" onClick={bulkActivate}><CheckCircle size={13}/> Activate</button>
+              <button className="btn btn-danger btn-sm" onClick={bulkWithdraw}><XCircle size={13}/> Withdraw</button>
               <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
             </div>
           </div>
@@ -818,13 +829,14 @@ export const Onboarding = () => {
                     <td style={{textAlign:'right'}} onClick={e => e.stopPropagation()}>
                       <div className="row-actions" style={{display:'inline-flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
                         <button className="btn btn-outline btn-sm" onClick={() => viewApplicant(a)}><Eye size={13}/> View</button>
-                        {!['Approved','Rejected'].includes(a.status) && (
+                        {!['Activated','Withdrawn'].includes(a.status) && (
                           <select
                             value={a.status}
                             onChange={(e) => {
                               const s = e.target.value;
                               if (s === a.status) return;
-                              if (s === 'Approved') approve(a);
+                              if (s === 'Activated') activate(a);
+                              else if (s === 'Withdrawn') withdraw(a);
                               else pushStatus(a, s, 'HR Recruiter', `Stage changed to ${s} (row action)`);
                             }}
                             title="Change stage"
@@ -1046,10 +1058,10 @@ const Kpi = ({ label, value, icon: Icon, color, tip, onClick, delta, footer }) =
 // ═══════════════════════════════════════════════════════════════════════
 // ApplicantDrawer — 3 tabs (Overview / Timeline / Checklist)
 // ═══════════════════════════════════════════════════════════════════════
-const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers, onApprove, onReject, onAdvance, onStageChange, onReminder, onAutoApprove }) => {
+const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers, onActivate, onWithdraw, onAdvance, onStageChange, onReminder, onAutoActivate }) => {
   const [tab, setTab] = useState('overview');
   const checklist = computeChecklist(a, documents, training);
-  const ready = checklist.done === checklist.total && a.status !== 'Approved';
+  const ready = checklist.done === checklist.total && a.status !== 'Activated' && a.status !== 'Withdrawn';
   const linkedCand  = candidates?.find(c => c.id === a.linkedCandidateId);
   const linkedOffer = offers?.find(o => o.id === a.linkedOfferId);
 
@@ -1073,7 +1085,7 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
         </div>
       </div>
 
-      {/* Auto-approve banner */}
+      {/* Auto-activate banner */}
       {ready && (
         <div style={{
           padding:'12px 16px', borderRadius:10,
@@ -1083,16 +1095,16 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
           <CheckCircle size={20} color="#10b981"/>
           <div style={{flex:1}}>
             <div style={{fontSize:13, fontWeight:700, color:'#065f46'}}>All checklist items complete</div>
-            <div style={{fontSize:11, color:'#065f46', opacity:.85, marginTop:2}}>Ready to approve and create the Employee record.</div>
+            <div style={{fontSize:11, color:'#065f46', opacity:.85, marginTop:2}}>Ready to activate the Employee record (status → Active).</div>
           </div>
-          <button className="btn btn-success btn-sm" onClick={onAutoApprove}><CheckCircle size={13}/> Auto-approve</button>
+          <button className="btn btn-success btn-sm" onClick={onAutoActivate}><CheckCircle size={13}/> Auto-activate</button>
         </div>
       )}
 
       {/* Cross-flow lifecycle chain — links to every related record so
           HR / auditors can walk the chain without leaving the page.
-          Renders even after approval (employee record link appears once
-          the staff record is created). */}
+          Renders even after activation (employee record link appears
+          once the staff record is created upstream at offer-accept). */}
       <div style={{
         padding:'12px 14px', borderRadius:10, background:'#eff6ff', border:'1px solid #bfdbfe',
         display:'flex', flexDirection:'column', gap:8,
@@ -1131,7 +1143,7 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
             <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11}}>Offer · — (no link)</span>
           )}
           <ChevronRight size={12} color="#94a3b8"/>
-          <span style={{padding:'5px 10px',background: a.status === 'Approved' ? '#dcfce7' : 'var(--brand-tint)',border:`1px solid ${a.status === 'Approved' ? '#86efac' : 'rgba(232,103,42,.25)'}`,borderRadius:999,color: a.status === 'Approved' ? '#166534' : 'var(--brand)',fontWeight:700,fontSize:12}}>
+          <span style={{padding:'5px 10px',background: a.status === 'Activated' ? '#dcfce7' : 'var(--brand-tint)',border:`1px solid ${a.status === 'Activated' ? '#86efac' : 'rgba(232,103,42,.25)'}`,borderRadius:999,color: a.status === 'Activated' ? '#166534' : 'var(--brand)',fontWeight:700,fontSize:12}}>
             Onboarding · {a.id} ({a.status})
           </span>
           <ChevronRight size={12} color="#94a3b8"/>
@@ -1145,7 +1157,7 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
               Employee · {a.employeeId} ✓
             </a>
           ) : (
-            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11,fontStyle:'italic'}}>Employee · pending approval</span>
+            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11,fontStyle:'italic'}}>Employee · pending activation</span>
           )}
         </div>
       </div>
@@ -1175,7 +1187,7 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
       {tab === 'checklist' && <ChecklistTab a={a} checklist={checklist} onReminder={onReminder}/>}
 
       {/* Action bar */}
-      {a.status !== 'Approved' && a.status !== 'Rejected' && (
+      {a.status !== 'Activated' && a.status !== 'Withdrawn' && (
         <div style={{display:'flex',flexDirection:'column',gap:10,paddingTop:14,borderTop:'1px solid var(--border)'}}>
           {/* Stage dropdown — HR picks any stage directly (parity with the
               candidate-stage dropdown in RecruitmentPipeline). The 'Advance
@@ -1206,8 +1218,8 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             <button className="btn btn-outline" onClick={onReminder}><Bell size={14}/> Remind {stageMeta(a.status).owner}</button>
-            <button className="btn btn-success" onClick={onApprove}><CheckCircle size={14}/> Approve</button>
-            <button className="btn btn-danger" onClick={onReject}><XCircle size={14}/> Reject</button>
+            <button className="btn btn-success" onClick={onActivate}><CheckCircle size={14}/> Activate</button>
+            <button className="btn btn-danger" onClick={onWithdraw}><XCircle size={14}/> Withdraw</button>
           </div>
         </div>
       )}

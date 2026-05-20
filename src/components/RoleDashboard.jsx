@@ -460,7 +460,7 @@ const HrRecruiterDashboard = () => {
   const openVacancies = (state.jobs || []).filter(j => j.status === 'Published').length;
   const candidatesActive = candidates.filter(c => c.stage !== 'Rejected').length;
   const offersPending = offers.filter(o => o.stage === 'Pending Approval' || o.stage === 'Approved' || o.stage === 'Sent').length;
-  const onboardingActive = onboarding.filter(a => !['Approved','Rejected'].includes(a.status)).length;
+  const onboardingActive = onboarding.filter(a => !['Activated','Withdrawn'].includes(a.status)).length;
 
   return (
     <RoleShell title="HR Recruiter Cockpit" subtitle="Vacancies · candidates · offers · onboarding">
@@ -751,7 +751,7 @@ const SuperAdminDashboard = () => {
   const { state } = useApp();
   const navigate = useNavigate();
 
-  const apps = (state.onboarding || []).filter(a => !['Approved','Rejected'].includes(a.status)).length;
+  const apps = (state.onboarding || []).filter(a => !['Activated','Withdrawn'].includes(a.status)).length;
   const docs = (state.documents || []).filter(d => d.status === 'Pending Review' || d.status === 'Missing').length;
   const audit = (state.audit || []).length;
   const offers = (state.offers || []).filter(o => o.stage === 'Pending Approval').length;
@@ -770,7 +770,7 @@ const SuperAdminDashboard = () => {
           title="Stalled applications"
           subtitle="Onboarding applicants past SLA"
           icon={AlertTriangle}
-          items={(state.onboarding || []).filter(a => !['Approved','Rejected'].includes(a.status)).slice(0,5).map(a => ({
+          items={(state.onboarding || []).filter(a => !['Activated','Withdrawn'].includes(a.status)).slice(0,5).map(a => ({
             key: a.id, title: a.applicant,
             subtitle: `${a.id} · ${a.requestedRole || a.type} · ${a.status}`,
             meta: a.department, metaColor:'var(--text-secondary)',

@@ -190,13 +190,13 @@ const HrDashboard = () => {
   const candidatesActive = candidates.filter(c => c.stage !== 'Rejected');
   const offersInFlight   = offers.filter(o => ['Pending Approval','Approved','Sent'].includes(o.stage));
   const offersAccepted   = offers.filter(o => o.stage === 'Accepted').length;
-  const onboardingActive = onboarding.filter(a => !['Approved','Rejected'].includes(a.status));
+  const onboardingActive = onboarding.filter(a => !['Activated','Withdrawn'].includes(a.status));
   const onboardingStalled = onboardingActive.filter(a => {
     const last = a.statusHistory?.[a.statusHistory.length - 1]?.at || a.date + 'T00:00:00';
     const days = Math.floor((new Date() - new Date(last)) / 86400000);
     return days > 7;
   });
-  const hiresThisMonth = onboarding.filter(a => a.status === 'Approved').length;
+  const hiresThisMonth = onboarding.filter(a => a.status === 'Activated').length;
 
   // Source breakdown removed (May 2026 review). Candidate `source` no
   // longer exists — the vacancy IS the source. Per-vacancy applicant
@@ -400,7 +400,7 @@ const ExecutiveOverview = () => {
   const totalSales = deals.reduce((s,d) => s + (d.value || 0), 0);
   const revenue = totalSales * 0.02;
   const activeAgents = (state.staff || []).filter(s => s.status === 'Active').length;
-  const apprPending = (state.onboarding || []).filter(o => !['Approved','Rejected'].includes(o.status)).length;
+  const apprPending = (state.onboarding || []).filter(o => !['Activated','Withdrawn'].includes(o.status)).length;
   const candidates = (state.candidates || []).filter(c => c.stage !== 'Rejected').length;
 
   return (
@@ -604,7 +604,7 @@ const SuperAdminDashboard = () => {
   const revenue = totalSales * 0.02;
 
   const counts = {
-    pendingOnboarding: state.onboarding.filter(o=>!['Approved','Rejected'].includes(o.status)).length,
+    pendingOnboarding: state.onboarding.filter(o=>!['Activated','Withdrawn'].includes(o.status)).length,
     missingDocs: state.documents.filter(d=>d.status==='Missing').length,
     trainingIncomplete: state.staff.filter(s=>s.status==='Pending').length + 3,
     accessBlocked: state.staff.filter(s=>s.status==='Suspended').length,
