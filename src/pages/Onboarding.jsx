@@ -163,11 +163,15 @@ const CHECKLIST_STEPS = [
   { key: 'welcome',     label: 'Welcome kit delivered',        icon: Mail,         owner: 'HR' },
 ];
 
-// Onboarding-record provenance — where the onboarding application
-// originated (NOT the candidate sourcing channel; that concept was
-// removed from the system per May 2026 business review). Used by the
-// Onboarding intake stub and the source column on the pipeline table.
-const SOURCES = ['Careers Page', 'Direct Hire', 'Offer (auto-spawned)', 'Internal Transfer', 'Other'];
+// Onboarding-record provenance — aligned with the hiring flow (May 2026):
+// the SOURCE is the originating vacancy ID, plus two non-vacancy values
+// for paths that bypass the careers funnel.
+//   • <vacancy ID>      — auto-spawned from an accepted offer on this vacancy
+//   • 'Direct Hire'     — HR created the onboarding directly (no offer)
+//   • 'Internal Transfer'— moved internally between teams / branches
+// The source is read-only when set from offer-accept; HR picks it manually
+// only when filing a direct hire / transfer.
+const NON_VACANCY_SOURCES = ['Direct Hire', 'Internal Transfer'];
 
 // ═══════════════════════════════════════════════════════════════════════
 // Main Onboarding page
@@ -288,36 +292,48 @@ export const Onboarding = () => {
     const newEntry = { stage, at: nowISO(), by, note };
     const history = [...(a.statusHistory || []), newEntry];
     const patch = { status: stage, statusHistory: history };
-    if (stage === 'Approved' && !a.employeeId) {
-      // 1) Create employee record (staff slice).
-      const empId = `A${String((state.staff || []).length + 1).padStart(3, '0')}`;
-      addItem('staff', {
-        name: a.applicant,
-        department: a.department,
-        title: a.requestedRole || 'Sales Agent',
-        branch: a.branch,
-        manager: a.hiringManager || 'Sales Manager',
-        status: 'Active',
-        type: 'Employee',
-        email: a.email || `${a.applicant.toLowerCase().replace(/\s+/g,'.')}@homesbrokerage.eg`,
-        phone: a.phone || '',
-        joinDate: today(),
-        // Carry photo through so the employee record is visually consistent
-        // with their original application / offer / onboarding screens.
-        photoDataUrl: a.photoDataUrl || null,
-        photoName: a.photoName || null,
-        // Source-of-truth chain — auditors can walk this back to the
-        // original candidate row without cross-joining slices manually.
-        linkedOnboardingId: a.id,
-        linkedOfferId:      a.linkedOfferId || null,
-        linkedCandidateId:  a.linkedCandidateId || null,
-      }, 'A', {
-        action: 'Employee Created',
-        module: 'Backoffice',
-        target: a.id,
-        detail: `${a.applicant} · from onboarding ${a.id}`,
-      });
-      patch.employeeId = empId;
+    if (stage === 'Approved') {
+      // Business rule (May 2026): the employee record is created upstream
+      // when the candidate accepts the HR offer (status='Pending Onboarding').
+      // Approve here only ACTIVATES that record — it doesn't create a new one.
+      // Direct-hire / legacy rows without an employeeId still get a new staff
+      // record so the flow stays robust.
+      let empId = a.employeeId;
+      if (empId) {
+        updateItem('staff', empId, { status: 'Active', linkedOnboardingId: a.id, activatedAt: nowISO() }, {
+          action: 'Employee Activated',
+          module: 'Backoffice',
+          target: empId,
+          detail: `${a.applicant} · onboarding ${a.id} approved`,
+        });
+      } else {
+        // Fallback: no upstream employee record (direct hire or legacy seed).
+        const fallbackId = `A${String((state.staff || []).length + 1).padStart(3, '0')}`;
+        addItem('staff', {
+          name: a.applicant,
+          department: a.department,
+          title: a.requestedRole || 'Sales Agent',
+          branch: a.branch,
+          manager: a.hiringManager || 'Sales Manager',
+          status: 'Active',
+          type: 'Employee',
+          email: a.email || `${a.applicant.toLowerCase().replace(/\s+/g,'.')}@homesbrokerage.eg`,
+          phone: a.phone || '',
+          joinDate: today(),
+          photoDataUrl: a.photoDataUrl || null,
+          photoName: a.photoName || null,
+          linkedOnboardingId: a.id,
+          linkedOfferId:      a.linkedOfferId || null,
+          linkedCandidateId:  a.linkedCandidateId || null,
+        }, 'A', {
+          action: 'Employee Created',
+          module: 'Backoffice',
+          target: a.id,
+          detail: `${a.applicant} · direct-hire fallback · from onboarding ${a.id}`,
+        });
+        empId = fallbackId;
+        patch.employeeId = empId;
+      }
 
       // 2) Cascade to the linked candidate → 'Hired' so they don't sit at
       //    'Offer' in the recruitment pipeline forever.
@@ -349,14 +365,18 @@ export const Onboarding = () => {
       detail: note,
     });
     toast(stage === 'Approved'
-      ? `${a.applicant} approved · employee created · candidate → Hired · offer → Onboarded`
+      ? (a.employeeId
+          ? `${a.applicant} approved · employee ${a.employeeId} activated · candidate → Hired · offer → Onboarded`
+          : `${a.applicant} approved · employee created · candidate → Hired · offer → Onboarded`)
       : `${a.applicant} → ${stage}`);
   };
 
   const approve = (a) => openConfirm({
     title: `Approve ${a.applicant}?`,
-    message: `An Employee record will be created and the applicant will be moved to Active staff. This action is logged in the audit trail.`,
-    confirmLabel: 'Approve & create employee',
+    message: a.employeeId
+      ? `Employee ${a.employeeId} (currently Pending Onboarding) will be activated. The candidate moves to Hired and the offer closes as Onboarded. Audit-logged.`
+      : `An Employee record will be created and activated (no upstream offer link — direct-hire fallback). Audit-logged.`,
+    confirmLabel: a.employeeId ? 'Activate employee' : 'Approve & create employee',
     onConfirm: () => pushStatus(a, 'Approved', 'HR Recruiter', 'Approved'),
   });
 
@@ -444,7 +464,17 @@ export const Onboarding = () => {
           <Field label="Hiring Manager" name="hiringManager" required defaultValue={state.staff.find(s => s.type === 'Sales Manager')?.name || ''} />
         </FieldRow>
         <FieldRow>
-          <Field label="Source"            name="source" type="select" options={SOURCES} required defaultValue="Careers Page" />
+          <Field
+            label="Source (vacancy or path)"
+            name="source"
+            type="select"
+            required
+            defaultValue="Direct Hire"
+            options={[
+              ...(state.jobs || []).filter(j => j.status === 'Published').map(j => ({ value: j.id, label: `${j.id} — ${j.title}` })),
+              ...NON_VACANCY_SOURCES.map(s => ({ value: s, label: s })),
+            ]}
+          />
           <Field label="Target Start Date" name="targetStartDate" type="date" />
         </FieldRow>
         <Field label="Notes" name="notes" type="textarea" placeholder="Anything HR should know — fast track, referral context, etc." />
@@ -482,6 +512,7 @@ export const Onboarding = () => {
       onApprove={() => approve(a)}
       onReject={() => reject(a)}
       onAdvance={() => advanceStage(a)}
+      onStageChange={(s) => pushStatus(a, s, 'HR Recruiter', `Stage changed to ${s}`)}
       onReminder={() => sendReminder(a)}
       onAutoApprove={() => pushStatus(a, 'Approved', 'HR Recruiter (auto · 100% checklist)', 'Auto-approved · checklist complete')}
     />,
@@ -785,13 +816,30 @@ export const Onboarding = () => {
                       </div>
                     </td>
                     <td style={{textAlign:'right'}} onClick={e => e.stopPropagation()}>
-                      <div className="row-actions">
+                      <div className="row-actions" style={{display:'inline-flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
                         <button className="btn btn-outline btn-sm" onClick={() => viewApplicant(a)}><Eye size={13}/> View</button>
-                        {!['Approved','Rejected'].includes(a.status) && stageMeta(a.status).next && (
-                          <button className="btn btn-primary btn-sm" onClick={() => advanceStage(a)}>Next →</button>
-                        )}
                         {!['Approved','Rejected'].includes(a.status) && (
-                          <button className="btn btn-success btn-sm" onClick={() => approve(a)} title="Skip directly to Approved">✓</button>
+                          <select
+                            value={a.status}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              if (s === a.status) return;
+                              if (s === 'Approved') approve(a);
+                              else pushStatus(a, s, 'HR Recruiter', `Stage changed to ${s} (row action)`);
+                            }}
+                            title="Change stage"
+                            style={{
+                              padding:'4px 22px 4px 10px',
+                              fontSize:11, fontWeight:700,
+                              background:`${stageColor(a.status)}15`,
+                              color:stageColor(a.status),
+                              border:`1px solid ${stageColor(a.status)}55`,
+                              borderRadius:6, cursor:'pointer',
+                              height:28,
+                            }}
+                          >
+                            {APPLICATION_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
                         )}
                       </div>
                     </td>
@@ -998,7 +1046,7 @@ const Kpi = ({ label, value, icon: Icon, color, tip, onClick, delta, footer }) =
 // ═══════════════════════════════════════════════════════════════════════
 // ApplicantDrawer — 3 tabs (Overview / Timeline / Checklist)
 // ═══════════════════════════════════════════════════════════════════════
-const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers, onApprove, onReject, onAdvance, onReminder, onAutoApprove }) => {
+const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers, onApprove, onReject, onAdvance, onStageChange, onReminder, onAutoApprove }) => {
   const [tab, setTab] = useState('overview');
   const checklist = computeChecklist(a, documents, training);
   const ready = checklist.done === checklist.total && a.status !== 'Approved';
@@ -1128,15 +1176,39 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
 
       {/* Action bar */}
       {a.status !== 'Approved' && a.status !== 'Rejected' && (
-        <div style={{display:'flex', gap:8, paddingTop:14, borderTop:'1px solid var(--border)'}}>
-          {stageMeta(a.status).next && (
-            <button className="btn btn-primary" onClick={onAdvance}>
-              Advance → {stageMeta(a.status).next}
-            </button>
-          )}
-          <button className="btn btn-outline" onClick={onReminder}><Bell size={14}/> Remind {stageMeta(a.status).owner}</button>
-          <button className="btn btn-success" onClick={onApprove}><CheckCircle size={14}/> Approve</button>
-          <button className="btn btn-danger" onClick={onReject}><XCircle size={14}/> Reject</button>
+        <div style={{display:'flex',flexDirection:'column',gap:10,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+          {/* Stage dropdown — HR picks any stage directly (parity with the
+              candidate-stage dropdown in RecruitmentPipeline). The 'Advance
+              to next' button stays as a one-click shortcut for the
+              canonical happy path. */}
+          <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            <label style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em'}}>Stage</label>
+            <select
+              value={a.status}
+              onChange={e => onStageChange(e.target.value)}
+              style={{
+                padding:'6px 28px 6px 12px',
+                fontSize:12,fontWeight:700,
+                background:`${stageColor(a.status)}15`,
+                color:stageColor(a.status),
+                border:`1px solid ${stageColor(a.status)}55`,
+                borderRadius:999,cursor:'pointer',
+              }}
+              title="Move the application to any stage"
+            >
+              {APPLICATION_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {stageMeta(a.status).next && (
+              <button className="btn btn-outline btn-sm" onClick={onAdvance} title={`Move to ${stageMeta(a.status).next}`}>
+                Advance → {stageMeta(a.status).next}
+              </button>
+            )}
+          </div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button className="btn btn-outline" onClick={onReminder}><Bell size={14}/> Remind {stageMeta(a.status).owner}</button>
+            <button className="btn btn-success" onClick={onApprove}><CheckCircle size={14}/> Approve</button>
+            <button className="btn btn-danger" onClick={onReject}><XCircle size={14}/> Reject</button>
+          </div>
         </div>
       )}
     </div>

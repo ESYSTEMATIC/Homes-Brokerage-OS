@@ -237,11 +237,42 @@ export const RecruitmentPipeline = () => {
         { action: `Offer ${response}`, module: 'Recruitment', target: offer.id, detail: offer.candidateName });
       if (response === 'Accepted') {
         updateItem('candidates', offer.candidateId, { stage: 'Offer' });
-        // Spawn an onboarding application pre-filled from the candidate + offer.
         const cand = state.candidates.find(c => c.id === offer.candidateId);
         const job  = state.jobs.find(j => j.id === offer.jobId);
         const now  = new Date().toISOString();
         const today = now.slice(0, 10);
+
+        // 1) Create the employee (staff) record IMMEDIATELY on offer accept,
+        //    with status='Pending Onboarding'. The hire is committed the
+        //    moment the offer is accepted — onboarding just gates the flip
+        //    to 'Active'. This matches the business rule the user flagged
+        //    (May 2026): 'employee record created from HR offer accept'.
+        const emp = addItem('staff', {
+          name: offer.candidateName,
+          department: job?.department || 'Sales',
+          title: offer.jobTitle || 'Sales Agent',
+          branch: job?.location || 'New Cairo',
+          manager: offer.reportingTo || job?.hiringManager || 'Sales Manager',
+          status: 'Pending Onboarding',
+          type: 'Employee',
+          email: cand?.email || `${offer.candidateName.toLowerCase().replace(/\s+/g,'.')}@homesbrokerage.eg`,
+          phone: cand?.phone || '',
+          joinDate: offer.startDate || today,
+          photoDataUrl: cand?.photoDataUrl || offer.photoDataUrl || null,
+          photoName: cand?.photoName || offer.photoName || null,
+          linkedOfferId: offer.id,
+          linkedCandidateId: offer.candidateId,
+        }, 'A', {
+          action: 'Employee Created (Pending Onboarding)',
+          module: 'Backoffice',
+          target: offer.candidateId,
+          detail: `${offer.candidateName} · from accepted offer ${offer.id}`,
+        });
+
+        // 2) Spawn an onboarding application linked to the new employee.
+        //    Source = the originating vacancy ID (or 'Direct Hire' / 'Internal
+        //    Transfer' for the other paths). Aligned with the hiring flow:
+        //    the vacancy IS the source — no separate 'Careers Page' string.
         const newApp = addItem('onboarding', {
           applicant: offer.candidateName,
           type: 'Agent',
@@ -249,7 +280,6 @@ export const RecruitmentPipeline = () => {
           status: 'Submitted',
           department: job?.department || 'Sales',
           branch: job?.location || 'New Cairo',
-          // Carry photo + CV through from candidate (or fall back to offer).
           photoDataUrl: cand?.photoDataUrl || offer.photoDataUrl || null,
           photoName:    cand?.photoName    || offer.photoName    || null,
           resumeName:   cand?.resumeName   || null,
@@ -259,19 +289,19 @@ export const RecruitmentPipeline = () => {
           requestedRole: offer.jobTitle,
           targetStartDate: offer.startDate,
           hiringManager: offer.reportingTo || job?.hiringManager || 'TBD',
-          source: cand?.source || 'Careers Page',
+          source: cand?.vacancyId || offer.jobId || 'Careers Page',
           linkedCandidateId: offer.candidateId,
           linkedOfferId: offer.id,
-          employeeId: null,
+          employeeId: emp.id,
           statusHistory: [
-            { stage: 'Submitted', at: now, by: `Auto · Offer accepted (${offer.id})`, note: `Spawned from accepted offer for ${offer.jobTitle}` },
+            { stage: 'Submitted', at: now, by: `Auto · Offer accepted (${offer.id})`, note: `Spawned from accepted offer for ${offer.jobTitle} · employee ${emp.id} created in Pending Onboarding status` },
           ],
           notes: `Salary: EGP ${offer.salaryMonthly?.toLocaleString()}/mo · Start ${offer.startDate}`,
         }, 'APP', {
           action: 'Onboarding Application Created',
           module: 'Backoffice',
           target: offer.candidateId,
-          detail: `Auto-spawned from accepted offer ${offer.id}`,
+          detail: `Auto-spawned from accepted offer ${offer.id} · employee ${emp.id}`,
         });
 
         // ─── Auto-spawn intro call ──────────────────────────────────
@@ -307,7 +337,7 @@ export const RecruitmentPipeline = () => {
           detail: `${ownerName} · ${callAt.replace('T', ' ')}`,
         });
 
-        toast(`${offer.candidateName} accepted — Onboarding ${newApp.id} + Intro call ${introCall.id} (${ownerName}) created`);
+        toast(`${offer.candidateName} accepted — Employee ${emp.id} (Pending Onboarding) · Onboarding ${newApp.id} · Intro call ${introCall.id} (${ownerName})`);
       } else {
         toast(`${offer.candidateName} declined the offer`, 'warning');
       }
