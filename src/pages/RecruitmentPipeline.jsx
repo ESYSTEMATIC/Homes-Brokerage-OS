@@ -445,6 +445,54 @@ export const RecruitmentPipeline = () => {
           )}
         </div>
 
+        {/* Cross-flow lifecycle chain — shows the full Hire journey
+            Candidate → Offer → Onboarding → Employee, with clickable
+            pills that jump to each linked record. Renders for every
+            candidate so the recruiter can spot which step they're at. */}
+        {(() => {
+          const linkedOffer     = (state.offers || []).find(o => o.candidateId === c.id);
+          const linkedOnboarding = (state.onboarding || []).find(a => a.linkedCandidateId === c.id);
+          const linkedEmployee  = linkedOnboarding?.employeeId
+            ? (state.staff || []).find(s => s.id === linkedOnboarding.employeeId)
+            : null;
+          return (
+            <div style={{marginTop:18, padding:'12px 14px', borderRadius:10, background:'#eff6ff', border:'1px solid #bfdbfe', display:'flex', flexDirection:'column', gap:8}}>
+              <div style={{fontSize:10, fontWeight:700, color:'#1e3a8a', textTransform:'uppercase', letterSpacing:'.06em'}}>
+                Hire lifecycle chain
+              </div>
+              <div style={{display:'flex', flexWrap:'wrap', gap:6, alignItems:'center', fontSize:12}}>
+                <span style={{padding:'5px 10px', background:'var(--brand-tint)', border:'1px solid rgba(232,103,42,.25)', borderRadius:999, color:'var(--brand)', fontWeight:700}}>
+                  Candidate · {c.id} ({c.stage})
+                </span>
+                <ChevronRight size={12} color="#94a3b8"/>
+                {linkedOffer ? (
+                  <span style={{padding:'5px 10px', background:'#fff', border:'1px solid #bfdbfe', borderRadius:999, color:'#1e40af', fontWeight:600}} title={`Offer ${linkedOffer.id} · ${linkedOffer.stage}`}>
+                    Offer · {linkedOffer.id} ({linkedOffer.stage})
+                  </span>
+                ) : (
+                  <span style={{padding:'5px 10px', color:'var(--text-tertiary)', fontSize:11, fontStyle:'italic'}}>Offer · not drafted</span>
+                )}
+                <ChevronRight size={12} color="#94a3b8"/>
+                {linkedOnboarding ? (
+                  <a href="#/backoffice/onboarding" onClick={(e) => { e.preventDefault(); navigate(`/backoffice/onboarding?stage=${encodeURIComponent(linkedOnboarding.status)}`); }} style={{padding:'5px 10px', background:'#fff', border:'1px solid #bfdbfe', borderRadius:999, color:'#1e40af', textDecoration:'none', fontWeight:600}} title="Open in Onboarding pipeline">
+                    Onboarding · {linkedOnboarding.id} ({linkedOnboarding.status})
+                  </a>
+                ) : (
+                  <span style={{padding:'5px 10px', color:'var(--text-tertiary)', fontSize:11, fontStyle:'italic'}}>Onboarding · not started</span>
+                )}
+                <ChevronRight size={12} color="#94a3b8"/>
+                {linkedEmployee ? (
+                  <a href="#/backoffice/staff" onClick={(e) => { e.preventDefault(); navigate('/backoffice/staff'); }} style={{padding:'5px 10px', background:'#dcfce7', border:'1px solid #86efac', borderRadius:999, color:'#166534', textDecoration:'none', fontWeight:700}} title="Open employee record in Staff Management">
+                    Employee · {linkedEmployee.id} ✓
+                  </a>
+                ) : (
+                  <span style={{padding:'5px 10px', color:'var(--text-tertiary)', fontSize:11, fontStyle:'italic'}}>Employee · pending</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Stage transitions are now handled by the dropdown above. The
             Reject button is kept as a quick action because it captures a
             mandatory reason that the stage-change handler routes through. */}
@@ -454,7 +502,7 @@ export const RecruitmentPipeline = () => {
               <Briefcase size={14}/> Open vacancy {c.vacancyId}
             </button>
           )}
-          {c.stage !== 'Rejected' && (
+          {c.stage !== 'Rejected' && c.stage !== 'Hired' && (
             <button className="btn btn-danger" onClick={() => changeStage(c, 'Rejected')}><X size={14}/> Reject</button>
           )}
         </div>

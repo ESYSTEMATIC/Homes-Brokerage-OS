@@ -289,7 +289,7 @@ export const Onboarding = () => {
     const history = [...(a.statusHistory || []), newEntry];
     const patch = { status: stage, statusHistory: history };
     if (stage === 'Approved' && !a.employeeId) {
-      // Create employee record.
+      // 1) Create employee record (staff slice).
       const empId = `A${String((state.staff || []).length + 1).padStart(3, '0')}`;
       addItem('staff', {
         name: a.applicant,
@@ -302,6 +302,15 @@ export const Onboarding = () => {
         email: a.email || `${a.applicant.toLowerCase().replace(/\s+/g,'.')}@homesbrokerage.eg`,
         phone: a.phone || '',
         joinDate: today(),
+        // Carry photo through so the employee record is visually consistent
+        // with their original application / offer / onboarding screens.
+        photoDataUrl: a.photoDataUrl || null,
+        photoName: a.photoName || null,
+        // Source-of-truth chain — auditors can walk this back to the
+        // original candidate row without cross-joining slices manually.
+        linkedOnboardingId: a.id,
+        linkedOfferId:      a.linkedOfferId || null,
+        linkedCandidateId:  a.linkedCandidateId || null,
       }, 'A', {
         action: 'Employee Created',
         module: 'Backoffice',
@@ -309,6 +318,28 @@ export const Onboarding = () => {
         detail: `${a.applicant} · from onboarding ${a.id}`,
       });
       patch.employeeId = empId;
+
+      // 2) Cascade to the linked candidate → 'Hired' so they don't sit at
+      //    'Offer' in the recruitment pipeline forever.
+      if (a.linkedCandidateId) {
+        updateItem('candidates', a.linkedCandidateId, { stage: 'Hired', hiredAt: nowISO(), hiredEmployeeId: empId }, {
+          action: 'Candidate Hired',
+          module: 'Recruitment',
+          target: a.linkedCandidateId,
+          detail: `Auto-cascade from onboarding ${a.id} approval · employee ${empId}`,
+        });
+      }
+      // 3) Cascade to the linked offer → 'Onboarded' so the offer record
+      //    closes out cleanly and stops appearing in the 'Accepted, awaiting
+      //    onboarding' bucket.
+      if (a.linkedOfferId) {
+        updateItem('offers', a.linkedOfferId, { stage: 'Onboarded', onboardedAt: nowISO(), linkedOnboardingId: a.id, linkedEmployeeId: empId }, {
+          action: 'Offer Onboarded',
+          module: 'Recruitment',
+          target: a.linkedOfferId,
+          detail: `Cascade from onboarding ${a.id} · employee ${empId}`,
+        });
+      }
     }
     updateItem('onboarding', a.id, patch, {
       action: stage === 'Approved' ? 'Application Approved'
@@ -318,7 +349,7 @@ export const Onboarding = () => {
       detail: note,
     });
     toast(stage === 'Approved'
-      ? `${a.applicant} approved · Employee record created`
+      ? `${a.applicant} approved · employee created · candidate → Hired · offer → Onboarded`
       : `${a.applicant} → ${stage}`);
   };
 
@@ -1010,21 +1041,66 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
         </div>
       )}
 
-      {/* Linkage banner */}
-      {(linkedCand || linkedOffer) && (
-        <div style={{
-          padding:'10px 14px', borderRadius:8, background:'#eff6ff', border:'1px solid #bfdbfe',
-          display:'flex', alignItems:'center', gap:10, fontSize:12,
-        }}>
-          <Link2 size={14} color="#1e40af"/>
-          <div style={{flex:1, color:'#1e40af'}}>
-            Originated from{' '}
-            {linkedCand && <b>Candidate {linkedCand.id} ({linkedCand.name})</b>}
-            {linkedCand && linkedOffer && ' · '}
-            {linkedOffer && <b>Offer {linkedOffer.id} ({linkedOffer.jobTitle}, EGP {linkedOffer.salaryMonthly?.toLocaleString()}/mo)</b>}
-          </div>
+      {/* Cross-flow lifecycle chain — links to every related record so
+          HR / auditors can walk the chain without leaving the page.
+          Renders even after approval (employee record link appears once
+          the staff record is created). */}
+      <div style={{
+        padding:'12px 14px', borderRadius:10, background:'#eff6ff', border:'1px solid #bfdbfe',
+        display:'flex', flexDirection:'column', gap:8,
+      }}>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,fontWeight:700,color:'#1e3a8a',textTransform:'uppercase',letterSpacing:'.06em'}}>
+          <Link2 size={12}/> Hire lifecycle chain
         </div>
-      )}
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',fontSize:12}}>
+          {linkedCand ? (
+            <a
+              href={`#/system/crm`}
+              onClick={(e) => { e.preventDefault(); window.location.hash = '#/backoffice/jobs'; }}
+              style={{padding:'5px 10px',background:'#fff',border:'1px solid #bfdbfe',borderRadius:999,color:'#1e40af',textDecoration:'none',fontWeight:600}}
+              title="View linked candidate in Recruitment Pipeline"
+            >
+              Candidate · {linkedCand.id} ({linkedCand.name}){linkedCand.stage ? ` · ${linkedCand.stage}` : ''}
+            </a>
+          ) : (
+            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11}}>Candidate · — (no link)</span>
+          )}
+          <ChevronRight size={12} color="#94a3b8"/>
+          {linkedOffer ? (
+            <a
+              href={`#/backoffice/recruitment`}
+              onClick={(e) => { e.preventDefault(); window.location.hash = '#/backoffice/recruitment'; }}
+              style={{padding:'5px 10px',background:'#fff',border:'1px solid #bfdbfe',borderRadius:999,color:'#1e40af',textDecoration:'none',fontWeight:600}}
+              title={`View offer ${linkedOffer.id} in Recruitment Pipeline`}
+            >
+              Offer · {linkedOffer.id} (EGP {linkedOffer.salaryMonthly?.toLocaleString()}/mo · {linkedOffer.stage})
+            </a>
+          ) : a.directHire ? (
+            <span style={{padding:'5px 10px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:999,color:'#92400e',fontSize:11,fontWeight:700}}>
+              Direct hire (no offer)
+            </span>
+          ) : (
+            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11}}>Offer · — (no link)</span>
+          )}
+          <ChevronRight size={12} color="#94a3b8"/>
+          <span style={{padding:'5px 10px',background: a.status === 'Approved' ? '#dcfce7' : 'var(--brand-tint)',border:`1px solid ${a.status === 'Approved' ? '#86efac' : 'rgba(232,103,42,.25)'}`,borderRadius:999,color: a.status === 'Approved' ? '#166534' : 'var(--brand)',fontWeight:700,fontSize:12}}>
+            Onboarding · {a.id} ({a.status})
+          </span>
+          <ChevronRight size={12} color="#94a3b8"/>
+          {a.employeeId ? (
+            <a
+              href="#/backoffice/staff"
+              onClick={(e) => { e.preventDefault(); window.location.hash = '#/backoffice/staff'; }}
+              style={{padding:'5px 10px',background:'#dcfce7',border:'1px solid #86efac',borderRadius:999,color:'#166534',textDecoration:'none',fontWeight:700,fontSize:12}}
+              title={`View employee record ${a.employeeId} in Staff Management`}
+            >
+              Employee · {a.employeeId} ✓
+            </a>
+          ) : (
+            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11,fontStyle:'italic'}}>Employee · pending approval</span>
+          )}
+        </div>
+      </div>
 
       {/* Tabs */}
       <div style={{display:'flex', gap:0, borderBottom:'1px solid var(--border)'}}>

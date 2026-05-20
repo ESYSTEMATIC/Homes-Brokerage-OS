@@ -644,7 +644,13 @@ export const CANDIDATES = [
 
 // ── OFFERS ── HR drafts → Sales Director approves → Sent → Accepted/Rejected
 // Lifecycle: Draft → Pending Approval → Approved → Sent → (Accepted | Declined | Withdrawn)
-export const OFFER_STAGES = ['Draft', 'Pending Approval', 'Approved', 'Sent', 'Accepted', 'Declined', 'Withdrawn'];
+// Added 'Onboarded' (May 2026) as the final terminal stage after the
+// onboarding flow approves the new hire. This closes the loop:
+// Accepted → onboarding spawned → Approved by HR → offer flips to
+// 'Onboarded'. Reports counting filled headcount include both
+// 'Accepted' (in onboarding) and 'Onboarded' (joined) so a vacancy
+// doesn't appear to lose headcount once people complete onboarding.
+export const OFFER_STAGES = ['Draft', 'Pending Approval', 'Approved', 'Sent', 'Accepted', 'Onboarded', 'Declined', 'Withdrawn'];
 
 export const OFFERS = [
   {
@@ -1654,7 +1660,10 @@ export const TASK_TYPES = ['Call', 'Tour', 'WhatsApp', 'Meeting', 'Contract', 'F
 export const TASK_STATUS = ['Pending', 'In Progress', 'Completed', 'Overdue'];
 export const APPLICATION_STATUS = ['Submitted', 'Under Review', 'Documents Pending', 'Training In Progress', 'Final Approval', 'Approved', 'Rejected'];
 export const DOC_STATUS = ['Pending Review', 'Approved', 'Rejected', 'Missing'];
-export const CANDIDATE_STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Rejected'];
+// Added 'Hired' (May 2026) so candidates don't sit at 'Offer' forever
+// after they accept and complete onboarding. The transition is automatic:
+// Onboarding.jsx → Approved cascades 'Hired' onto the linked candidate.
+export const CANDIDATE_STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
 export const JOB_STATUS = ['Draft', 'Published', 'Closed'];
 export const TOUR_STATUS = ['Scheduled', 'Completed', 'Cancelled', 'No-Show'];
 // CONTRACT_STAGES retired — see DEAL_STAGES_OFFPLAN / DEAL_STAGES_RESALE above.

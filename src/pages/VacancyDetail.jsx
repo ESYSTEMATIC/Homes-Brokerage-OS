@@ -52,8 +52,10 @@ export const VacancyDetail = () => {
     );
   }
 
-  // Headcount accounting — matches the badge logic in the list page.
-  const acceptedOffers = (state.offers || []).filter(o => o.jobId === job.id && o.stage === 'Accepted').length;
+  // Headcount accounting — counts both 'Accepted' (in onboarding) and
+  // 'Onboarded' (joined) offers so a vacancy doesn't appear to lose
+  // headcount once people complete onboarding.
+  const acceptedOffers = (state.offers || []).filter(o => o.jobId === job.id && ['Accepted','Onboarded'].includes(o.stage)).length;
   const isFilled = job.headcount > 0 && acceptedOffers >= job.headcount;
   const filledRatio = job.headcount > 0 ? acceptedOffers / job.headcount : 0;
 

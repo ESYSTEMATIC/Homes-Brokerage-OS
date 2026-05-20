@@ -151,7 +151,9 @@ export const JobVacancies = () => {
               /* Audit-finding fix (May 2026): count accepted offers as
                  "hired" against this vacancy so recruiters see the moment
                  a headcount band is filled and can stop sourcing. */
-              const acceptedOffers = (state.offers || []).filter(o => o.jobId === j.id && o.stage === 'Accepted').length;
+              // Count both 'Accepted' (in onboarding) and 'Onboarded' (joined)
+              // so the vacancy stays 'filled' once people complete onboarding.
+              const acceptedOffers = (state.offers || []).filter(o => o.jobId === j.id && ['Accepted','Onboarded'].includes(o.stage)).length;
               const filledRatio = j.headcount > 0 ? acceptedOffers / j.headcount : 0;
               const isFilled = j.headcount > 0 && acceptedOffers >= j.headcount;
               return (
