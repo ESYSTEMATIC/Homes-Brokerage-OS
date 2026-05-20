@@ -45,9 +45,42 @@ export const FinanceOverview = () => {
 
 export const DealsRevenue = () => {
   const { state, openDrawer } = useApp();
-  const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.dealsRev, {
+  const { q, setQ, filterVals, setFilter, filtered: baseFiltered } = useTableState(state.dealsRev, {
     searchKeys:['unit','developer','agent','id'], filters:{ status:'status' },
   });
+
+  // ─── Advanced filter (May 2026) ───────────────────────────────────
+  // Collapsible panel covering developer / agent / unit / price-range /
+  // revenue-range so finance can drill into a slice without scrolling.
+  const [showAdv, setShowAdv] = useState(false);
+  const [adv, setAdv] = useState({
+    developer: '',
+    agent: '',
+    unit: '',
+    minPrice: '',
+    maxPrice: '',
+    minRevenue: '',
+    maxRevenue: '',
+  });
+  const resetAdv = () => setAdv({ developer: '', agent: '', unit: '', minPrice: '', maxPrice: '', minRevenue: '', maxRevenue: '' });
+  const advCount =
+    (adv.developer ? 1 : 0) + (adv.agent ? 1 : 0) + (adv.unit ? 1 : 0) +
+    (adv.minPrice ? 1 : 0) + (adv.maxPrice ? 1 : 0) +
+    (adv.minRevenue ? 1 : 0) + (adv.maxRevenue ? 1 : 0);
+
+  const developerOptions = useMemo(() => Array.from(new Set((state.dealsRev || []).map(d => d.developer).filter(Boolean))).sort(), [state.dealsRev]);
+  const agentOptions     = useMemo(() => Array.from(new Set((state.dealsRev || []).map(d => d.agent).filter(Boolean))).sort(), [state.dealsRev]);
+
+  const filtered = useMemo(() => baseFiltered.filter(d => {
+    if (adv.developer && d.developer !== adv.developer) return false;
+    if (adv.agent && d.agent !== adv.agent) return false;
+    if (adv.unit && !(d.unit || '').toLowerCase().includes(adv.unit.toLowerCase())) return false;
+    if (adv.minPrice && (d.price || 0) < Number(adv.minPrice)) return false;
+    if (adv.maxPrice && (d.price || 0) > Number(adv.maxPrice)) return false;
+    if (adv.minRevenue && (d.revenue || 0) < Number(adv.minRevenue)) return false;
+    if (adv.maxRevenue && (d.revenue || 0) > Number(adv.maxRevenue)) return false;
+    return true;
+  }), [baseFiltered, adv]);
 
   const view = (d) => openDrawer({
     title: `Deal ${d.id}`, subtitle: `${d.unit} · ${d.agent}`,
@@ -64,10 +97,18 @@ export const DealsRevenue = () => {
       <div className="data-panel">
         <div className="data-toolbar">
           <div className="data-toolbar-left">
-            <input className="data-search" placeholder="Search…" value={q} onChange={e=>setQ(e.target.value)} />
+            <input className="data-search" placeholder="Search by deal ID, unit, developer, agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
               <option value="">All Statuses</option>{['Approved','Pending','Paid'].map(s=><option key={s}>{s}</option>)}
             </select>
+            <button
+              type="button"
+              className={`btn btn-sm ${advCount > 0 || showAdv ? 'btn-brand' : 'btn-outline'}`}
+              onClick={() => setShowAdv(s => !s)}
+              title="Developer / agent / unit / price & revenue ranges"
+            >
+              <SlidersHorizontal size={13}/> Advanced{advCount > 0 ? ` · ${advCount}` : ''}
+            </button>
           </div>
           <ExportMenu
             rows={filtered}
@@ -85,6 +126,63 @@ export const DealsRevenue = () => {
             subtitle={`Filtered view · ${filtered.length} deal${filtered.length === 1 ? '' : 's'}`}
           />
         </div>
+
+        {/* Advanced filter panel — collapses by default. Mirrors the layout
+            of the Commission Engine panel so finance officers get a
+            consistent UX across the slice. */}
+        {showAdv && (
+          <div style={{padding:'14px 16px',background:'#fafbfc',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+                <SlidersHorizontal size={13}/> Advanced filter
+              </div>
+              {advCount > 0 && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={resetAdv} style={{padding:'4px 10px',fontSize:11,color:'var(--danger)'}}>
+                  <X size={11}/> Reset
+                </button>
+              )}
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:10}}>
+              <div className="form-group" style={{margin:0}}>
+                <label>Developer</label>
+                <select value={adv.developer} onChange={e=>setAdv({...adv, developer: e.target.value})}>
+                  <option value="">All developers</option>
+                  {developerOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Agent</label>
+                <select value={adv.agent} onChange={e=>setAdv({...adv, agent: e.target.value})}>
+                  <option value="">All agents</option>
+                  {agentOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Unit code</label>
+                <input type="text" placeholder="e.g. PH-BAD or A101" value={adv.unit} onChange={e=>setAdv({...adv, unit: e.target.value})}/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Min price (EGP)</label>
+                <input type="number" value={adv.minPrice} onChange={e=>setAdv({...adv, minPrice: e.target.value})} placeholder="—"/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Max price (EGP)</label>
+                <input type="number" value={adv.maxPrice} onChange={e=>setAdv({...adv, maxPrice: e.target.value})} placeholder="—"/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Min revenue (EGP)</label>
+                <input type="number" value={adv.minRevenue} onChange={e=>setAdv({...adv, minRevenue: e.target.value})} placeholder="—"/>
+              </div>
+              <div className="form-group" style={{margin:0}}>
+                <label>Max revenue (EGP)</label>
+                <input type="number" value={adv.maxRevenue} onChange={e=>setAdv({...adv, maxRevenue: e.target.value})} placeholder="—"/>
+              </div>
+            </div>
+            <div style={{fontSize:11,color:'var(--text-tertiary)'}}>{filtered.length} of {baseFiltered.length} match · status filter applied first, then advanced.</div>
+          </div>
+        )}
+
         <div className="data-scroll">
           <table className="data-table">
             <thead><tr><th>Deal ID</th><th>Unit</th><th>Developer</th><th>Agent</th><th>Unit Price</th><th>Company Revenue</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
