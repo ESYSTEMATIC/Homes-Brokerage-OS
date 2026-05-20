@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useTableState, Field, FieldRow, Empty } from '../components/UI';
 import { ExportMenu } from '../components/ExportMenu';
 import { findCommissionPolicy, computeSplit, COMMISSION_SPLIT_DEFAULT } from '../data/staticData';
-import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings } from 'lucide-react';
+import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings, Receipt } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
@@ -111,7 +111,9 @@ export const DealsRevenue = () => {
 export const CommissionEngine = () => {
   const { state, updateItem, openConfirm, openDrawer, toast, persona } = useApp();
   const { q, setQ, filterVals, setFilter, filtered: baseFiltered } = useTableState(state.commEngine, {
-    searchKeys:['deal','agent','id'], filters:{ status:'status' },
+    // Search across the deal context (label, deal ID, unit, project, developer)
+    // so finance officers can find a row by any one of them.
+    searchKeys:['deal','agent','id','dealId','unit','project','developer'], filters:{ status:'status' },
   });
 
   // ─── Advanced filters (May 2026) ──────────────────────────────────
@@ -210,12 +212,64 @@ export const CommissionEngine = () => {
       toast(`${c.deal} paid`);
     },
   });
-  const view = (c) => openDrawer({ title: `Commission · ${c.deal}`, subtitle: c.agent,
+  const view = (c) => {
+    // Resolve the linked deal (if any) so the drawer can show live status
+    // from the deals slice — value, stage, etc. — in addition to the
+    // commission-row context.
+    const linkedDeal = c.dealId ? (state.deals || []).find(d => d.id === c.dealId) : null;
+    return openDrawer({ title: `Commission · ${c.deal}`, subtitle: `${c.agent} · ${c.developer || '—'} · ${c.project || '—'}`,
     content: (
       <div style={{display:'flex', flexDirection:'column', gap:18}}>
+        {/* Deal context block — surfaces the linked Deal ID + Unit + Developer
+            + Project so the finance officer can see the source of truth
+            for this commission at a glance and jump to the deal record. */}
+        <div style={{
+          padding:'12px 14px', borderRadius:10,
+          background:'linear-gradient(135deg, var(--brand-tint), #fff)',
+          border:'1px solid rgba(232,103,42,.25)',
+          display:'flex', flexDirection:'column', gap:8,
+        }}>
+          <div style={{fontSize:10, fontWeight:700, color:'var(--brand)', textTransform:'uppercase', letterSpacing:'.06em', display:'inline-flex', alignItems:'center', gap:6}}>
+            <Receipt size={12}/> Deal context
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, fontSize:12}}>
+            <div>
+              <div style={{fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Deal ID</div>
+              <div style={{fontWeight:700, fontFamily:'ui-monospace, monospace', marginTop:2}}>
+                {c.dealId ? (
+                  <a href={`#/system/crm/deals`} onClick={(e) => { e.preventDefault(); window.location.hash = `#/system/crm/deals?focus=${encodeURIComponent(c.dealId)}`; }} style={{color:'var(--brand)', textDecoration:'none'}} title="Open the linked deal">
+                    {c.dealId}
+                  </a>
+                ) : <span style={{color:'var(--text-tertiary)', fontStyle:'italic'}}>not linked</span>}
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Unit</div>
+              <div style={{fontWeight:700, fontFamily:'ui-monospace, monospace', marginTop:2}}>{c.unit || c.deal || '—'}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Project</div>
+              <div style={{fontWeight:700, marginTop:2}}>{c.project || '—'}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Developer</div>
+              <div style={{fontWeight:700, marginTop:2}}>{c.developer || '—'}</div>
+            </div>
+          </div>
+          {linkedDeal && (
+            <div style={{marginTop:4, paddingTop:8, borderTop:'1px dashed rgba(232,103,42,.25)', fontSize:11, color:'var(--text-secondary)', display:'flex', gap:12, flexWrap:'wrap'}}>
+              <span><b>Stage:</b> {linkedDeal.stage}</span>
+              <span><b>Deal value:</b> {fmt(linkedDeal.value)}</span>
+              <span><b>Lead:</b> {linkedDeal.leadName || linkedDeal.lead}</span>
+              <span><b>Owner:</b> {linkedDeal.owner}</span>
+            </div>
+          )}
+        </div>
+
         <div className="detail-grid">
           {[
-            ['Deal', c.deal],
+            ['Commission ID', c.id],
+            ['Deal label', c.deal],
             ['Pool', fmt(c.pool)],
             ['Created', c.createdAt || '—'],
             ['Status', c.status],
@@ -301,6 +355,7 @@ export const CommissionEngine = () => {
       </div>
     ),
   });
+  };
 
   return (
     <div>
@@ -308,7 +363,7 @@ export const CommissionEngine = () => {
       <div className="data-panel">
         <div className="data-toolbar">
           <div className="data-toolbar-left">
-            <input className="data-search" placeholder="Search deal or agent…" value={q} onChange={e=>setQ(e.target.value)} />
+            <input className="data-search" placeholder="Search by Deal ID, unit, project, developer, agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
               <option value="">All Statuses</option>{['Approved','Pending','Paid','Rejected'].map(s=><option key={s}>{s}</option>)}
             </select>
@@ -325,7 +380,11 @@ export const CommissionEngine = () => {
             rows={filtered}
             columns={[
               { key: 'id',            label: 'ID' },
-              { key: 'deal',          label: 'Deal' },
+              { key: 'dealId',        label: 'Deal ID',             format: v => v || '—' },
+              { key: 'unit',          label: 'Unit',                format: (v, r) => v || r.deal || '—' },
+              { key: 'project',       label: 'Project',             format: v => v || '—' },
+              { key: 'developer',     label: 'Developer',           format: v => v || '—' },
+              { key: 'deal',          label: 'Deal label' },
               { key: 'agent',         label: 'Agent' },
               { key: 'teamLeader',    label: 'Team Leader' },
               { key: 'manager',       label: 'Sales Manager' },
@@ -413,10 +472,43 @@ export const CommissionEngine = () => {
 
         <div className="data-scroll">
           <table className="data-table">
-            <thead><tr><th>Deal</th><th>Agent</th><th>Pool</th><th>Agent</th><th>TL</th><th>Mgr</th><th>Dir</th><th>Co</th><th>Status</th><th>Created</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <thead><tr>
+              <th>Deal ID</th>
+              <th>Unit</th>
+              <th>Developer / Project</th>
+              <th>Agent</th>
+              <th>Pool</th>
+              <th>Agent</th><th>TL</th><th>Mgr</th><th>Dir</th><th>Co</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th style={{textAlign:'right'}}>Actions</th>
+            </tr></thead>
             <tbody>{filtered.map(c=>(
               <tr key={c.id}>
-                <td className="bold">{c.deal}</td>
+                {/* Deal ID — clickable when linked, opens the CRM deal */}
+                <td className="bold" style={{fontFamily:'ui-monospace, monospace', fontSize:12}}>
+                  {c.dealId ? (
+                    <a
+                      href={`#/system/crm/deals?focus=${encodeURIComponent(c.dealId)}`}
+                      onClick={(e) => { e.stopPropagation(); }}
+                      style={{color:'var(--brand)', textDecoration:'none', fontWeight:700}}
+                      title={`Open deal ${c.dealId}`}
+                    >
+                      {c.dealId}
+                    </a>
+                  ) : (
+                    <span style={{color:'var(--text-tertiary)', fontStyle:'italic', fontSize:11}}>not linked</span>
+                  )}
+                </td>
+                {/* Unit code — the human reference (TH-B304, A-110, etc.) */}
+                <td style={{fontFamily:'ui-monospace, monospace', fontSize:12, fontWeight:600}}>
+                  {c.unit || c.deal || '—'}
+                </td>
+                {/* Developer / Project pair — stacked so the column stays compact */}
+                <td>
+                  <div style={{fontWeight:700, fontSize:12}}>{c.developer || '—'}</div>
+                  <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>{c.project || '—'}</div>
+                </td>
                 <td>{c.agent}</td>
                 <td className="bold">{fmt(c.pool)}</td>
                 <td>{fmt(c.agentShare)}</td>

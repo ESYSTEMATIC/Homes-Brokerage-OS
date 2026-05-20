@@ -21,7 +21,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2, Search, SlidersHorizontal, Calendar } from 'lucide-react';
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 import { stagesForDealType, DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
 import { ExportMenu } from '../../components/ExportMenu';
@@ -159,6 +159,47 @@ export const CrmDeals = () => {
   const [directOverrideFor, setDirectOverrideFor] = useState(null);
   const [directForm, setDirectForm] = useState({ reason:'', agent:'', tl:'', manager:'', director:'' });
 
+  // ─── Search & Advanced filter (May 2026) ──────────────────────────
+  // Lightweight free-text search bar + a collapsible Advanced Search
+  // panel covering: stage(s), status, developer/project/unit text,
+  // owner+team, value min/max, and created-date range. Filters compose
+  // with the pipeline tab and the owner dropdown so finance can drill
+  // into a slice in one shot ("Off Plan · Emaar · Marassi · value > 15M
+  // · created last 30 days · owned by Fatma").
+  const [q, setQ] = useState('');
+  const [showAdv, setShowAdv] = useState(false);
+  const [adv, setAdv] = useState({
+    stages: [],          // empty = all
+    status: '',          // Active | Closed | Closed Lost
+    developer: '',
+    project: '',
+    unit: '',            // searched against propertyId / unitCode
+    owner: '',           // any owner name string (separate from the top-bar dropdown)
+    team: '',
+    minValue: '',
+    maxValue: '',
+    dateFrom: '',
+    dateTo: '',
+  });
+  const resetAdv = () => setAdv({ stages: [], status: '', developer: '', project: '', unit: '', owner: '', team: '', minValue: '', maxValue: '', dateFrom: '', dateTo: '' });
+  const toggleStageFilter = (s) => setAdv(a => ({ ...a, stages: a.stages.includes(s) ? a.stages.filter(x => x !== s) : [...a.stages, s] }));
+  const advCount =
+    (adv.stages.length ? 1 : 0) +
+    (adv.status ? 1 : 0) +
+    (adv.developer ? 1 : 0) + (adv.project ? 1 : 0) + (adv.unit ? 1 : 0) +
+    (adv.owner ? 1 : 0) + (adv.team ? 1 : 0) +
+    (adv.minValue ? 1 : 0) + (adv.maxValue ? 1 : 0) +
+    (adv.dateFrom ? 1 : 0) + (adv.dateTo ? 1 : 0);
+
+  // Distinct values for the dropdowns — taken from the full visible scope
+  // so the user can target a developer/project even if the current filter
+  // hides every matching deal.
+  const developerOptions = useMemo(() => Array.from(new Set(dealsAll.map(d => d.developer).filter(Boolean))).sort(), [dealsAll]);
+  const projectOptions   = useMemo(() => Array.from(new Set(dealsAll.map(d => d.project).filter(Boolean))).sort(), [dealsAll]);
+  const teamOptions      = useMemo(() => Array.from(new Set(dealsAll.map(d => d.team).filter(Boolean))).sort(), [dealsAll]);
+  const ownerOptions     = useMemo(() => Array.from(new Set(dealsAll.map(d => d.owner).filter(Boolean))).sort(), [dealsAll]);
+  const statusOptions    = useMemo(() => Array.from(new Set(dealsAll.map(d => d.status).filter(Boolean))).sort(), [dealsAll]);
+
   const defForm = (type='OffPlan') => ({
     type, lead:'', leadName:'', project:'', developer:'', propertyId:'',
     value:'', commission: 2, owner: personaOwnerName(personaKey) || 'Fatma Ibrahim',
@@ -176,8 +217,29 @@ export const CrmDeals = () => {
       if (fOwner === '__UNASSIGNED__') { if (d.owner) return false; }
       else if (d.owner !== fOwner) return false;
     }
+    // Free-text search — matches across every column the user might type into.
+    if (q) {
+      const hay = `${d.id} ${d.leadName || d.lead || ''} ${d.project || ''} ${d.developer || ''} ${d.propertyId || ''} ${d.owner || ''} ${d.team || ''} ${d.stage || ''}`.toLowerCase();
+      if (!hay.includes(q.toLowerCase())) return false;
+    }
+    // Advanced filters — every condition is AND with the rest. Empty values
+    // mean 'no constraint on this dimension'.
+    if (adv.stages.length && !adv.stages.includes(d.stage)) return false;
+    if (adv.status && d.status !== adv.status) return false;
+    if (adv.developer && d.developer !== adv.developer) return false;
+    if (adv.project && d.project !== adv.project) return false;
+    if (adv.unit) {
+      const u = adv.unit.toLowerCase();
+      if (!(d.propertyId || '').toLowerCase().includes(u)) return false;
+    }
+    if (adv.owner && d.owner !== adv.owner) return false;
+    if (adv.team && d.team !== adv.team) return false;
+    if (adv.minValue && (d.value || 0) < Number(adv.minValue)) return false;
+    if (adv.maxValue && (d.value || 0) > Number(adv.maxValue)) return false;
+    if (adv.dateFrom && (d.created || '') < adv.dateFrom) return false;
+    if (adv.dateTo && (d.created || '') > adv.dateTo) return false;
     return true;
-  }), [dealsAll, pipeline, fOwner]);
+  }), [dealsAll, pipeline, fOwner, q, adv]);
   const stages = pipeline === 'Resale' ? DEAL_STAGES_RESALE : DEAL_STAGES_OFFPLAN;
 
   // Team-member list available to this persona — drives the Owner filter.
@@ -744,6 +806,186 @@ export const CrmDeals = () => {
           <div><div className="num">{homesAdvanceEligible}</div><div className="lbl">Homes Advance ready</div></div>
         </div>
       </div>
+
+      {/* Search + Advanced row — sits above the pipeline tabs so the user
+          can scope the deck before flipping between Off Plan / Resale. */}
+      <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{position:'relative',flex:'1 1 280px',maxWidth:480}}>
+          <Search size={14} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text-tertiary)',pointerEvents:'none'}}/>
+          <input
+            type="text"
+            value={q}
+            onChange={e=>setQ(e.target.value)}
+            placeholder="Search by deal ID, lead, project, developer, unit, owner…"
+            style={{
+              width:'100%', padding:'9px 30px 9px 32px',
+              borderRadius:8, border:'1px solid var(--border)',
+              fontSize:13, background:'#fff',
+            }}
+          />
+          {q && (
+            <button onClick={()=>setQ('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'transparent',border:0,padding:4,cursor:'pointer',color:'var(--text-tertiary)'}} title="Clear search">
+              <X size={12}/>
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          className={`btn btn-sm ${(advCount > 0 || showAdv) ? 'btn-brand' : 'btn-outline'}`}
+          onClick={() => setShowAdv(s => !s)}
+          title="Stage, status, developer/project/unit, owner/team, value & date filters"
+        >
+          <SlidersHorizontal size={13}/> Advanced{advCount > 0 ? ` · ${advCount}` : ''}
+        </button>
+        {advCount > 0 && (
+          <button type="button" className="btn btn-sm btn-outline" onClick={resetAdv} title="Clear all advanced filters" style={{color:'var(--danger)'}}>
+            <X size={12}/> Clear
+          </button>
+        )}
+        <div style={{fontSize:11,color:'var(--text-tertiary)',marginLeft:'auto'}}>
+          {deals.length} match{deals.length === 1 ? '' : 'es'}
+        </div>
+      </div>
+
+      {/* Advanced filter panel — collapses by default, opens when the user
+          clicks Advanced. Each row groups related dimensions: stage+status,
+          developer+project+unit, owner+team, value range, date range. */}
+      {showAdv && (
+        <div style={{
+          padding:'14px 16px', marginBottom:12,
+          background:'#fafbfc', border:'1px solid var(--border)', borderRadius:10,
+          display:'flex', flexDirection:'column', gap:14,
+        }}>
+          <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+            <SlidersHorizontal size={13}/> Advanced search
+          </div>
+
+          {/* Stage chips — pick one or more stages within the current pipeline */}
+          <div>
+            <label style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.05em',display:'block',marginBottom:6}}>Stage ({pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'} pipeline)</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {stages.map(s => {
+                const active = adv.stages.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => toggleStageFilter(s)}
+                    style={{
+                      padding:'5px 12px', borderRadius:999, fontSize:11, fontWeight:600, cursor:'pointer',
+                      background: active ? `${stageColor(s)}20` : '#fff',
+                      border: `1px solid ${active ? stageColor(s) : 'var(--border)'}`,
+                      color: active ? stageColor(s) : 'var(--text-secondary)',
+                    }}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Two-column grid — every filter dimension goes here */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
+            <div className="form-group" style={{margin:0}}>
+              <label>Status</label>
+              <select value={adv.status} onChange={e=>setAdv({...adv, status: e.target.value})}>
+                <option value="">All statuses</option>
+                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Developer</label>
+              <select value={adv.developer} onChange={e=>setAdv({...adv, developer: e.target.value})}>
+                <option value="">All developers</option>
+                {developerOptions.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Project</label>
+              <select value={adv.project} onChange={e=>setAdv({...adv, project: e.target.value})}>
+                <option value="">All projects</option>
+                {projectOptions.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Unit (listing ref)</label>
+              <input type="text" placeholder="e.g. LST-002 or partial" value={adv.unit} onChange={e=>setAdv({...adv, unit: e.target.value})}/>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Owner / Agent</label>
+              <select value={adv.owner} onChange={e=>setAdv({...adv, owner: e.target.value})}>
+                <option value="">Any owner</option>
+                {ownerOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Team</label>
+              <select value={adv.team} onChange={e=>setAdv({...adv, team: e.target.value})}>
+                <option value="">All teams</option>
+                {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Min value (EGP)</label>
+              <input type="number" placeholder="—" value={adv.minValue} onChange={e=>setAdv({...adv, minValue: e.target.value})}/>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label>Max value (EGP)</label>
+              <input type="number" placeholder="—" value={adv.maxValue} onChange={e=>setAdv({...adv, maxValue: e.target.value})}/>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label><Calendar size={11} style={{display:'inline',marginRight:4}}/> Created from</label>
+              <input type="date" value={adv.dateFrom} onChange={e=>setAdv({...adv, dateFrom: e.target.value})}/>
+            </div>
+            <div className="form-group" style={{margin:0}}>
+              <label><Calendar size={11} style={{display:'inline',marginRight:4}}/> Created to</label>
+              <input type="date" value={adv.dateTo} onChange={e=>setAdv({...adv, dateTo: e.target.value})}/>
+            </div>
+          </div>
+
+          <div style={{display:'flex',alignItems:'center',gap:10,paddingTop:6,borderTop:'1px dashed var(--border)'}}>
+            <div style={{fontSize:11,color:'var(--text-tertiary)',flex:1}}>
+              Filters apply within the current pipeline tab ({pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'}) and stack with the Owner dropdown above.
+            </div>
+            <button type="button" className="btn btn-outline btn-sm" onClick={resetAdv} disabled={advCount === 0}>Reset</button>
+            <button type="button" className="btn btn-brand btn-sm" onClick={() => setShowAdv(false)}>Done</button>
+          </div>
+        </div>
+      )}
+
+      {/* Applied-filters chip strip — visible whenever any advanced filter
+          is set, so the user can see WHY the result count is what it is
+          and pop individual filters off without opening the panel. */}
+      {advCount > 0 && (
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'var(--text-tertiary)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.05em',marginRight:4}}>Filters:</span>
+          {adv.stages.map(s => (
+            <span key={`stage-${s}`} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:999,background:`${stageColor(s)}15`,color:stageColor(s),fontSize:11,fontWeight:700,border:`1px solid ${stageColor(s)}55`}}>
+              {s}
+              <button onClick={() => toggleStageFilter(s)} style={{background:'transparent',border:0,padding:0,cursor:'pointer',color:'inherit',display:'inline-flex'}} title="Remove"><X size={10}/></button>
+            </span>
+          ))}
+          {[
+            ['status', adv.status],
+            ['developer', adv.developer],
+            ['project', adv.project],
+            ['unit', adv.unit],
+            ['owner', adv.owner],
+            ['team', adv.team],
+            ['minValue', adv.minValue && `≥ ${fmt(adv.minValue)} EGP`],
+            ['maxValue', adv.maxValue && `≤ ${fmt(adv.maxValue)} EGP`],
+            ['dateFrom', adv.dateFrom && `from ${adv.dateFrom}`],
+            ['dateTo',   adv.dateTo   && `to ${adv.dateTo}`],
+          ].filter(([, v]) => v).map(([k, label]) => (
+            <span key={k} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:999,background:'#eff6ff',color:'#1e40af',fontSize:11,fontWeight:600,border:'1px solid #bfdbfe'}}>
+              {label}
+              <button onClick={() => setAdv({...adv, [k]: k === 'minValue' || k === 'maxValue' ? '' : ''})} style={{background:'transparent',border:0,padding:0,cursor:'pointer',color:'inherit',display:'inline-flex'}} title="Remove"><X size={10}/></button>
+            </span>
+          ))}
+          <button type="button" onClick={resetAdv} style={{background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',borderRadius:999,fontSize:11,fontWeight:600,cursor:'pointer',color:'var(--danger)'}}>Clear all</button>
+        </div>
+      )}
 
       {/* Pipeline tabs */}
       <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
