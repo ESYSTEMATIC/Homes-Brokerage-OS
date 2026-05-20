@@ -1,18 +1,20 @@
 // ═══════════════════════════════════════════════════════════════
-// CRM Deals — Off Plan and Resale pipelines
+// CRM Deals — Off Plan pipeline (canonical)
 // ───────────────────────────────────────────────────────────────
-// Driven by Deal Stages.docx (business team, 08-May):
-//   Off Plan:  Lead Qualified → Reservation → Contract Signed →
-//              Early Collection (5%) → Standard Collection (10%)
-//   Resale:    Lead Qualified → Property Viewed → Offer Made →
-//              Offer Accepted → Contract Signed & Payment
+// Driven by Deal Stages.docx (business team, 08-May), simplified
+// May 2026 to a single Off Plan pipeline:
+//   Lead Qualified → Reservation → Contract Signed →
+//   Early Collection (5%) → Standard Collection (10%)
 //
 // Pipeline lifecycle rules (auto-applied on stage transition):
-//   • Contract Signed locks the commission and writes a Closed-Won
-//     status for Off Plan deals.
-//   • Early Collection Trigger flips the Homes Advance flag (Off Plan).
-//   • Standard Collection (10%) marks revenue recognised (Off Plan).
-//   • Contract Signed & Payment marks revenue recognised (Resale).
+//   • Contract Signed locks the commission and writes Closed-Won.
+//   • Early Collection Trigger flips the Homes Advance flag.
+//   • Standard Collection (10%) marks revenue recognised + Closed.
+//
+// Resale pipeline retired May 2026 — every historical Resale deal
+// was migrated to its closest Off Plan stage (Property Viewed →
+// Lead Qualified · Offer Made → Reservation · Offer Accepted →
+// Contract Signed · Contract Signed & Payment → Standard Collection).
 //
 // Commission override approval chain (BRD §6.2.4) preserved:
 //   Δ ≤ 0.5% → Team Leader   ·   Δ ≤ 1.0% → Sales Manager
@@ -23,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2, Search, SlidersHorizontal, Calendar } from 'lucide-react';
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
-import { stagesForDealType, DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
+import { DEAL_STAGES_OFFPLAN } from '../../data/staticData';
 import { ExportMenu } from '../../components/ExportMenu';
 import { SplitEditor } from '../FinancialManagement';
 
@@ -46,19 +48,14 @@ const DEALS_EXPORT_COLUMNS = [
 
 const fmt = n => new Intl.NumberFormat('en-EG').format(n || 0);
 
-// Off Plan + Resale colors — shared 'Lead Qualified', different downstream.
+// Off Plan pipeline colors. Resale legacy stages kept here only to
+// keep already-archived rows readable until they're migrated.
 const STAGE_COLORS = {
   'Lead Qualified':                  '#3b82f6',
-  // Off Plan
   'Reservation':                     '#E8672A',
   'Contract Signed':                 '#8b5cf6',
   'Early Collection Trigger (5%)':   '#06b6d4',
   'Standard Collection (10%)':       '#10b981',
-  // Resale
-  'Property Viewed':                 '#f59e0b',
-  'Offer Made':                      '#E8672A',
-  'Offer Accepted':                  '#8b5cf6',
-  'Contract Signed & Payment':       '#10b981',
 };
 const stageColor = (s) => STAGE_COLORS[s] || '#64748b';
 
@@ -119,12 +116,6 @@ const lifecyclePatch = (deal, newStage) => {
       patch.status = 'Closed';
       if (!deal.collectionPercent || deal.collectionPercent < 10) patch.collectionPercent = 10;
     }
-  } else if (deal.type === 'Resale') {
-    if (newStage === 'Contract Signed & Payment') {
-      patch.commissionLocked = true;
-      patch.revenueRecognised = true;
-      patch.status = 'Closed';
-    }
   }
   return patch;
 };
@@ -140,8 +131,10 @@ export const CrmDeals = () => {
   // Role-scoped visibility — same rule as leads.
   const dealsAll = useMemo(() => allDeals.filter(d => canSeeLead(personaKey, d)), [allDeals, personaKey]);
 
-  // Pipeline tab — All / OffPlan / Resale
-  const [pipeline, setPipeline] = useState('OffPlan');
+  // Off Plan is the canonical pipeline now (Resale retired May 2026).
+  // 'pipeline' is left as a const for any legacy references but is no
+  // longer user-switchable from the toolbar.
+  const pipeline = 'OffPlan';
   const [view, setView] = useState('kanban');
   // Owner / team-member filter for management roles — narrows pipeline view
   // to one team member without leaving the page.
@@ -201,12 +194,12 @@ export const CrmDeals = () => {
   const statusOptions    = useMemo(() => Array.from(new Set(dealsAll.map(d => d.status).filter(Boolean))).sort(), [dealsAll]);
 
   const defForm = (type='OffPlan') => ({
-    type, lead:'', leadName:'', project:'', developer:'', propertyId:'',
+    type: 'OffPlan', // Off Plan is the only pipeline now; ignore caller-supplied type
+    lead:'', leadName:'', project:'', developer:'', propertyId:'',
     value:'', commission: 2, owner: personaOwnerName(personaKey) || 'Fatma Ibrahim',
     team: h.team || 'Alpha',
-    stage: type === 'Resale' ? 'Lead Qualified' : 'Lead Qualified',
+    stage: 'Lead Qualified',
     reservationDeposit: 0, paymentPlan: '',
-    offerPrice: 0, paymentMethod: 'Cash',
     status: 'Active',
   });
   const [form, setForm] = useState(defForm('OffPlan'));
@@ -240,7 +233,7 @@ export const CrmDeals = () => {
     if (adv.dateTo && (d.created || '') > adv.dateTo) return false;
     return true;
   }), [dealsAll, pipeline, fOwner, q, adv]);
-  const stages = pipeline === 'Resale' ? DEAL_STAGES_RESALE : DEAL_STAGES_OFFPLAN;
+  const stages = DEAL_STAGES_OFFPLAN;
 
   // Team-member list available to this persona — drives the Owner filter.
   const assignable = useMemo(() => assignableStaff(personaKey, state.staff || []), [personaKey, state.staff]);
@@ -263,13 +256,12 @@ export const CrmDeals = () => {
   const openAdd = (type) => { setForm(defForm(type)); setEditDeal(null); setShowAdd(true); };
   const openEdit = (d) => {
     setForm({
-      type: d.type || 'OffPlan',
+      type: 'OffPlan', // Resale retired — every deal is OffPlan now
       lead: d.lead || '', leadName: d.leadName || d.lead || '', project: d.project || '', developer: d.developer || '',
       propertyId: d.propertyId || '', value: d.value || '', commission: d.commission || 2, owner: d.owner || '',
       team: d.team || 'Alpha',
       stage: d.stage || 'Lead Qualified',
       reservationDeposit: d.reservationDeposit || 0, paymentPlan: d.paymentPlan || '',
-      offerPrice: d.offerPrice || 0, paymentMethod: d.paymentMethod || 'Cash',
       status: d.status || 'Active',
     });
     setEditDeal(d);
@@ -284,7 +276,6 @@ export const CrmDeals = () => {
       value: Number(form.value) || 0,
       commission: Number(form.commission) || 0,
       reservationDeposit: Number(form.reservationDeposit) || 0,
-      offerPrice: Number(form.offerPrice) || 0,
     };
     if (editDeal) {
       updateItem('deals', editDeal.id, payload, { action: 'Deal Updated', module: 'CRM', target: editDeal.id });
@@ -647,19 +638,6 @@ export const CrmDeals = () => {
             </div>
           )}
 
-          {d.type === 'Resale' && (
-            <div style={{padding:14,background:'#fff',border:'1px solid var(--border)',borderRadius:10}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:10}}>Resale — Offer & Payment</div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                {[
-                  ['Offer Price', d.offerPrice ? `EGP ${fmt(d.offerPrice)}` : '—'],
-                  ['Payment Method', d.paymentMethod || '—'],
-                  ['Revenue Recognised', d.revenueRecognised ? '✅ Recognised on contract' : '—'],
-                ].map(([k,v]) => <div key={k}><div className="drawer-label">{k}</div><div className="drawer-value">{v}</div></div>)}
-              </div>
-            </div>
-          )}
-
           {/* Attachments */}
           <div style={{padding:14,background:'#fff',border:'1px solid var(--border)',borderRadius:10}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -786,7 +764,7 @@ export const CrmDeals = () => {
     <div className="crm-page">
       <div className="page-header">
         <h1 className="page-title">Deals Pipeline</h1>
-        <p className="page-subtitle">Off Plan and Resale pipelines from <b>Deal Stages.docx</b>. Total active pipeline: <strong>EGP {fmt(totalPipeline)}</strong> · Revenue recognised this period: <strong>EGP {fmt(revenueRecognised)}</strong>.</p>
+        <p className="page-subtitle">Off Plan pipeline from <b>Deal Stages.docx</b>. Total active pipeline: <strong>EGP {fmt(totalPipeline)}</strong> · Revenue recognised this period: <strong>EGP {fmt(revenueRecognised)}</strong>.</p>
       </div>
 
       {/* Role banner */}
@@ -807,8 +785,8 @@ export const CrmDeals = () => {
         </div>
       </div>
 
-      {/* Search + Advanced row — sits above the pipeline tabs so the user
-          can scope the deck before flipping between Off Plan / Resale. */}
+      {/* Search + Advanced row — primary scoping controls for the Off Plan
+          pipeline (Resale retired May 2026). */}
       <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'center',flexWrap:'wrap'}}>
         <div style={{position:'relative',flex:'1 1 280px',maxWidth:480}}>
           <Search size={14} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text-tertiary)',pointerEvents:'none'}}/>
@@ -862,7 +840,7 @@ export const CrmDeals = () => {
 
           {/* Stage chips — pick one or more stages within the current pipeline */}
           <div>
-            <label style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.05em',display:'block',marginBottom:6}}>Stage ({pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'} pipeline)</label>
+            <label style={{fontSize:10,fontWeight:700,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.05em',display:'block',marginBottom:6}}>Stage (Off Plan pipeline)</label>
             <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
               {stages.map(s => {
                 const active = adv.stages.includes(s);
@@ -946,7 +924,7 @@ export const CrmDeals = () => {
 
           <div style={{display:'flex',alignItems:'center',gap:10,paddingTop:6,borderTop:'1px dashed var(--border)'}}>
             <div style={{fontSize:11,color:'var(--text-tertiary)',flex:1}}>
-              Filters apply within the current pipeline tab ({pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'}) and stack with the Owner dropdown above.
+              Filters apply within the Off Plan pipeline and stack with the Owner dropdown above.
             </div>
             <button type="button" className="btn btn-outline btn-sm" onClick={resetAdv} disabled={advCount === 0}>Reset</button>
             <button type="button" className="btn btn-brand btn-sm" onClick={() => setShowAdv(false)}>Done</button>
@@ -987,25 +965,10 @@ export const CrmDeals = () => {
         </div>
       )}
 
-      {/* Pipeline tabs */}
+      {/* Toolbar: Owner filter + view toggle + override queue.
+          (Resale pipeline tab retired May 2026 — Off Plan only.) */}
       <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
-        {['OffPlan','Resale'].map(p => (
-          <button
-            key={p}
-            onClick={()=>setPipeline(p)}
-            style={{
-              padding:'9px 18px',borderRadius:8,cursor:'pointer',
-              border: pipeline === p ? '1px solid var(--brand)' : '1px solid var(--border)',
-              background: pipeline === p ? 'var(--brand)' : '#fff',
-              color: pipeline === p ? '#fff' : 'var(--text-primary)',
-              fontWeight:700,fontSize:13,
-            }}
-          >
-            {p === 'OffPlan' ? 'Off Plan' : 'Resale'} <span style={{marginLeft:6,fontSize:11,opacity:.8}}>({dealsAll.filter(d=>d.type===p).length})</span>
-          </button>
-        ))}
-        {/* Owner filter — visible only to roles that can see more than self.
-            Sits on the same row as the pipeline tabs / view toggle. */}
+        {/* Owner filter — visible only to roles that can see more than self. */}
         {h.scope !== 'self' && h.scope !== 'none' && (
           <select
             className="filter-select"
@@ -1145,11 +1108,11 @@ export const CrmDeals = () => {
           rows={deals}
           columns={DEALS_EXPORT_COLUMNS}
           filename={`deals_${pipeline.toLowerCase()}`}
-          title={`${pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'} Deal Pipeline Export`}
+          title="Off Plan Deal Pipeline Export"
           subtitle={`${deals.length} deal${deals.length === 1 ? '' : 's'} · scope ${h.role}`}
           size="md"
         />
-        {!readOnly && <button className="btn btn-brand" onClick={()=>openAdd(pipeline)}><Plus size={16}/> Add {pipeline === 'OffPlan' ? 'Off Plan' : 'Resale'} Deal</button>}
+        {!readOnly && <button className="btn btn-brand" onClick={()=>openAdd('OffPlan')}><Plus size={16}/> Add Deal</button>}
       </div>
 
       {/* Kanban / Table */}
@@ -1195,7 +1158,7 @@ export const CrmDeals = () => {
           <tbody>{deals.length === 0 ? <tr><td colSpan={10} style={{textAlign:'center',padding:40,color:'var(--text-tertiary)'}}>No deals match your filters or visibility scope.</td></tr> : deals.map(d=>(
             <tr key={d.id}>
               <td className="muted" style={{fontSize:11}}>{d.id}</td>
-              <td>{d.type === 'OffPlan' ? 'Off Plan' : 'Resale'}</td>
+              <td>Off Plan</td>
               <td className="bold clickable" onClick={()=>viewDetail(d)}>{d.leadName || d.lead}</td>
               <td className="muted">{d.project}</td>
               <td className="bold">EGP {fmt(d.value)}</td>
@@ -1227,24 +1190,7 @@ export const CrmDeals = () => {
           <div className="modal-header"><h3>{editDeal?'Edit Deal':'Add New Deal'}</h3><button className="btn-icon" onClick={()=>setShowAdd(false)}><X size={18}/></button></div>
           <form onSubmit={handleSubmit}>
             <div className="modal-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-              <div className="form-group" style={{gridColumn:'span 2'}}>
-                <label>Pipeline Type *</label>
-                <div style={{display:'flex',gap:8}}>
-                  {['OffPlan','Resale'].map(t => (
-                    <button
-                      key={t} type="button"
-                      onClick={()=>setForm({...form, type: t, stage: 'Lead Qualified'})}
-                      style={{
-                        flex:1,padding:'10px 14px',borderRadius:8,cursor:'pointer',
-                        border: form.type === t ? '1px solid var(--brand)' : '1px solid var(--border)',
-                        background: form.type === t ? 'var(--brand-tint)' : '#fff',
-                        color: form.type === t ? 'var(--brand)' : 'var(--text-primary)',
-                        fontWeight:700,fontSize:13,
-                      }}
-                    >{t === 'OffPlan' ? 'Off Plan' : 'Resale'}</button>
-                  ))}
-                </div>
-              </div>
+              {/* Type selector retired May 2026 — Off Plan is the only pipeline. */}
               <div className="form-group"><label>Lead Name *</label><input type="text" value={form.leadName} onChange={e=>setForm({...form,leadName:e.target.value})} required/></div>
               <div className="form-group"><label>Project *</label><input type="text" value={form.project} onChange={e=>setForm({...form,project:e.target.value})} required/></div>
               <div className="form-group"><label>Developer</label><input type="text" value={form.developer} onChange={e=>setForm({...form,developer:e.target.value})}/></div>
@@ -1258,35 +1204,17 @@ export const CrmDeals = () => {
               <div className="form-group"><label>Commission %</label><input type="number" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})} step="0.1"/></div>
               <div className="form-group"><label>Stage</label>
                 <select value={form.stage} onChange={e=>setForm({...form,stage:e.target.value})}>
-                  {stagesForDealType(form.type).map(s => <option key={s} value={s}>{s}</option>)}
+                  {DEAL_STAGES_OFFPLAN.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="form-group"><label>Owner</label><input type="text" value={form.owner} onChange={e=>setForm({...form,owner:e.target.value})}/></div>
 
-              {/* Type-specific fields */}
-              {form.type === 'OffPlan' && (
-                <>
-                  <div className="form-group" style={{gridColumn:'span 2',borderTop:'1px solid var(--border)',paddingTop:14,marginTop:4}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Off Plan — Payment</div>
-                  </div>
-                  <div className="form-group"><label>Reservation Deposit (EGP)</label><input type="number" value={form.reservationDeposit} onChange={e=>setForm({...form,reservationDeposit:e.target.value})}/></div>
-                  <div className="form-group"><label>Payment Plan</label><input type="text" value={form.paymentPlan} onChange={e=>setForm({...form,paymentPlan:e.target.value})} placeholder="e.g. 10% down · 8y installments"/></div>
-                </>
-              )}
-              {form.type === 'Resale' && (
-                <>
-                  <div className="form-group" style={{gridColumn:'span 2',borderTop:'1px solid var(--border)',paddingTop:14,marginTop:4}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Resale — Offer</div>
-                  </div>
-                  <div className="form-group"><label>Offer Price (EGP)</label><input type="number" value={form.offerPrice} onChange={e=>setForm({...form,offerPrice:e.target.value})}/></div>
-                  <div className="form-group"><label>Payment Method</label>
-                    <select value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value})}>
-                      <option>Cash</option>
-                      <option>Mortgage</option>
-                    </select>
-                  </div>
-                </>
-              )}
+              {/* Off Plan payment block — the only type now. */}
+              <div className="form-group" style={{gridColumn:'span 2',borderTop:'1px solid var(--border)',paddingTop:14,marginTop:4}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Off Plan — Payment</div>
+              </div>
+              <div className="form-group"><label>Reservation Deposit (EGP)</label><input type="number" value={form.reservationDeposit} onChange={e=>setForm({...form,reservationDeposit:e.target.value})}/></div>
+              <div className="form-group"><label>Payment Plan</label><input type="text" value={form.paymentPlan} onChange={e=>setForm({...form,paymentPlan:e.target.value})} placeholder="e.g. 10% down · 8y installments"/></div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button>

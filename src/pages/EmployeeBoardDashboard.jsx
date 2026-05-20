@@ -635,7 +635,7 @@ export const EmployeeBoardDashboard = () => {
                               <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
                               <div style={{fontSize:13,fontWeight:800,color:'var(--brand)',whiteSpace:'nowrap'}}>EGP {(d.value/1e6).toFixed(1)}M</div>
                             </div>
-                            <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:2}}>{d.id} · {d.type === 'OffPlan' ? 'Off Plan' : 'Resale'} · {d.stage}{d.commissionLocked ? ' · 🔒 locked' : ''}{d.revenueRecognised ? ' · ✅ revenue recognised' : ''}</div>
+                            <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:2}}>{d.id} · Off Plan · {d.stage}{d.commissionLocked ? ' · 🔒 locked' : ''}{d.revenueRecognised ? ' · ✅ revenue recognised' : ''}</div>
                           </div>
                         ))}
                     </div>

@@ -413,7 +413,7 @@ const SalesDirectorDashboard = () => {
           icon={KanbanSquare}
           items={[...deals].sort((a,b) => (b.value||0) - (a.value||0)).slice(0,5).map(d => ({
             key: d.id, title: `${d.leadName || d.lead} · ${d.project}`,
-            subtitle: `${d.id} · ${d.type === 'OffPlan' ? 'Off Plan' : 'Resale'} · ${d.stage} · ${d.owner || '—'}`,
+            subtitle: `${d.id} · Off Plan · ${d.stage} · ${d.owner || '—'}`,
             meta: fmtM(d.value), metaColor: '#10b981',
             icon: <KanbanSquare size={14}/>,
           }))}

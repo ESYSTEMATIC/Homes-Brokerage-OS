@@ -638,32 +638,15 @@ export const CrmLeadDetail = () => {
                 <b>{createDealPrompt.leadName}</b> just moved to <b>Reservation</b> — the buyer has formally contracted with the developer and paid the reservation deposit. Per the 11-May decision, the Deal officially enters the pipeline now.<br/>
                 Project: <b>{createDealPrompt.project}</b> · Budget: <b>EGP {fmt(createDealPrompt.budget || 0)}</b>
               </div>
-              <div className="form-group">
-                <label>Pipeline Type</label>
-                <div style={{display:'flex',gap:8}}>
-                  {['OffPlan','Resale'].map(t => (
-                    <button
-                      key={t} type="button"
-                      onClick={()=>setCreateDealType(t)}
-                      style={{
-                        flex:1,padding:'10px 14px',borderRadius:8,cursor:'pointer',
-                        border: createDealType === t ? '1px solid var(--brand)' : '1px solid var(--border)',
-                        background: createDealType === t ? 'var(--brand-tint)' : '#fff',
-                        color: createDealType === t ? 'var(--brand)' : 'var(--text-primary)',
-                        fontWeight:700,fontSize:13,
-                      }}
-                    >{t === 'OffPlan' ? 'Off Plan' : 'Resale'}</button>
-                  ))}
-                </div>
-              </div>
+              {/* Pipeline-type selector retired May 2026 — Off Plan only. */}
               <div style={{fontSize:11,color:'var(--text-tertiary)',lineHeight:1.4}}>
-                The deal will be created at stage <b>Reservation</b> for Off Plan or <b>Offer Accepted</b> for Resale. Commission details can be filled in later — they are not required at deal creation.
+                The deal will be created at stage <b>Reservation</b> in the <b>Off Plan</b> pipeline. Commission details can be filled in later — they are not required at deal creation.
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={()=>setCreateDealPrompt(null)}>Skip — don't create deal</button>
               <button className="btn btn-brand" onClick={()=>{
-                const entryStage = createDealType === 'OffPlan' ? 'Reservation' : 'Offer Accepted';
+                const entryStage = 'Reservation'; // Off Plan only
                 const created = addItem('deals', {
                   type: createDealType,
                   lead: createDealPrompt.leadName,

@@ -84,7 +84,7 @@ export const SmartSearch = () => {
         kind: 'deal',
         id: d.id,
         title: `${d.leadName || d.lead} · ${d.project}`,
-        sub: `${d.type === 'OffPlan' ? 'Off Plan' : 'Resale'} · ${d.stage}${d.commissionLocked ? ' · 🔒 locked' : ''}`,
+        sub: `Off Plan · ${d.stage}${d.commissionLocked ? ' · 🔒 locked' : ''}`,
         meta: `EGP ${fmt(d.value)}`,
         icon: KanbanSquare,
         onClick: () => navigate('/system/crm/deals'),

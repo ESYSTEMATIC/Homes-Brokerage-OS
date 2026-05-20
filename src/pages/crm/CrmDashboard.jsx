@@ -12,7 +12,7 @@
 //   3. Today's Focus row — actionable items (SLA breaches · overdue tasks ·
 //      override queue · cold calls awaiting review)
 //   4. Targets card · monthly progress against state.targets[persona]
-//   5. Pipeline Summary (Off Plan + Resale pipeline tabs)
+//   5. Pipeline Summary (Off Plan only — Resale retired May 2026)
 //   6. Lead Sources (donut · hidden for individual-contributor agents)
 //   7. Recent Leads + Recent Activity (2-col)
 //   8. Top Performers (visible to TL+) · Upcoming Tasks
@@ -26,7 +26,7 @@ import {
   Award, PhoneCall, Megaphone, Sparkles, DollarSign,
 } from 'lucide-react';
 import { HIERARCHY, canSeeLead, slaForStage, leadAgeDays } from '../../data/crmAccess';
-import { DEAL_STAGES_OFFPLAN, DEAL_STAGES_RESALE } from '../../data/staticData';
+import { DEAL_STAGES_OFFPLAN } from '../../data/staticData';
 import { Tooltip } from '../../components/UI';
 
 const fmtN = (n) => new Intl.NumberFormat('en-EG').format(n || 0);
@@ -35,7 +35,9 @@ const fmtM = (n) => n >= 1e6 ? `EGP ${(n/1e6).toFixed(1)}M` : `EGP ${fmtN(n)}`;
 export const CrmDashboard = () => {
   const { state, persona, personaKey, openDrawer } = useApp();
   const navigate = useNavigate();
-  const [pipelineTab, setPipelineTab] = useState('OffPlan');
+  // pipelineTab kept as const for legacy references in the JSX below;
+  // Resale tab removed, so only Off Plan remains.
+  const pipelineTab = 'OffPlan';
 
   const h = HIERARCHY[personaKey] || { role: 'Visitor', scope: 'none' };
   const isAgentScope = h.scope === 'self';
@@ -78,11 +80,10 @@ export const CrmDashboard = () => {
     { key:'closed',   label:'Closed Won',     actual: closedWonCount,                                   target: myTarget.closedWonTarget },
   ].map(t => ({ ...t, pct: Math.min(100, Math.round((Number(t.actual) / Math.max(1, t.target)) * 100)) })) : null;
 
-  // Pipeline by type
+  // Pipeline (Off Plan only — Resale retired May 2026)
   const offPlanDeals = deals.filter(d => d.type === 'OffPlan');
-  const resaleDeals  = deals.filter(d => d.type === 'Resale');
-  const pipelineStages = pipelineTab === 'Resale' ? DEAL_STAGES_RESALE : DEAL_STAGES_OFFPLAN;
-  const pipelineDeals = pipelineTab === 'Resale' ? resaleDeals : offPlanDeals;
+  const pipelineStages = DEAL_STAGES_OFFPLAN;
+  const pipelineDeals = offPlanDeals;
   const stageCounts = pipelineStages.map(s => ({ stage: s, count: pipelineDeals.filter(d => d.stage === s).length, value: pipelineDeals.filter(d => d.stage === s).reduce((sum,d) => sum + (d.value||0), 0) }));
   const maxStage = Math.max(...stageCounts.map(s => s.count), 1);
 
@@ -188,7 +189,7 @@ export const CrmDashboard = () => {
                 <div style={{fontWeight:700,fontSize:13}}>{d.leadName || d.lead} · {d.project}</div>
                 <div style={{fontSize:13,fontWeight:800,color:'var(--brand)',whiteSpace:'nowrap'}}>{fmtM(d.value)}</div>
               </div>
-              <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:2}}>{d.id} · {d.type === 'OffPlan' ? 'Off Plan' : 'Resale'} · {d.stage}{d.commissionLocked ? ' · 🔒' : ''}{d.revenueRecognised ? ' · ✅' : ''}</div>
+              <div style={{fontSize:11,color:'var(--text-tertiary)',marginTop:2}}>{d.id} · Off Plan · {d.stage}{d.commissionLocked ? ' · 🔒' : ''}{d.revenueRecognised ? ' · ✅' : ''}</div>
             </div>
           ))}
       </div>
@@ -206,13 +207,13 @@ export const CrmDashboard = () => {
     {
       label: 'Active Deals', value: activeDeals, sub: fmtM(pipelineValue) + ' pipeline',
       icon: KanbanSquare, color: '#10b981',
-      tip: 'Deals currently in the pipeline (both Off Plan and Resale). Pipeline value shows total weighted deal value.',
+      tip: 'Deals currently in the Off Plan pipeline. Pipeline value shows total weighted deal value.',
       onClick: () => openDealsDrawer(deals.filter(d => d.status === 'Active' || d.status === undefined), 'Active Deals'),
     },
     {
       label: 'Revenue Recognised', value: fmtM(closedWonRevenue), sub: `${closedWonCount} closed won`,
       icon: DollarSign, color: '#E8672A',
-      tip: 'Recognised at Standard Collection (10%) for Off Plan deals, or at Contract Signed & Payment for Resale.',
+      tip: 'Recognised at Standard Collection (10%) for Off Plan deals.',
       onClick: () => openDealsDrawer(deals.filter(d => d.revenueRecognised), 'Revenue Recognised'),
     },
     {
@@ -392,22 +393,7 @@ export const CrmDashboard = () => {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:14,gap:12,flexWrap:'wrap'}}>
             <div>
               <h3 style={{fontSize:14,fontWeight:800,display:'flex',alignItems:'center',gap:8}}><KanbanSquare size={16} color="var(--brand)"/> Pipeline Summary</h3>
-              <p style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>Stage distribution across the {pipelineTab === 'OffPlan' ? 'Off Plan' : 'Resale'} pipeline (Deal Stages.docx · 11-May)</p>
-            </div>
-            <div style={{display:'flex',gap:4,background:'#f1f5f9',borderRadius:8,padding:3}}>
-              {[['OffPlan',`Off Plan (${offPlanDeals.length})`],['Resale',`Resale (${resaleDeals.length})`]].map(([key,label]) => (
-                <button
-                  key={key}
-                  onClick={()=>setPipelineTab(key)}
-                  style={{
-                    padding:'6px 12px', borderRadius:6, border:'none', cursor:'pointer',
-                    fontSize:11, fontWeight:700,
-                    background: pipelineTab === key ? '#fff' : 'transparent',
-                    color: pipelineTab === key ? 'var(--brand)' : 'var(--text-secondary)',
-                    boxShadow: pipelineTab === key ? '0 1px 2px rgba(0,0,0,.08)' : 'none',
-                  }}
-                >{label}</button>
-              ))}
+              <p style={{fontSize:11,color:'var(--text-tertiary)',marginTop:4}}>Stage distribution across the Off Plan pipeline ({offPlanDeals.length} deals · Deal Stages.docx · 11-May)</p>
             </div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -423,7 +409,7 @@ export const CrmDashboard = () => {
               </div>
             ))}
             {stageCounts.every(s => s.count === 0) && (
-              <div style={{padding:'20px 0',textAlign:'center',color:'var(--text-tertiary)',fontSize:13}}>No {pipelineTab === 'OffPlan' ? 'Off Plan' : 'Resale'} deals in your visibility scope.</div>
+              <div style={{padding:'20px 0',textAlign:'center',color:'var(--text-tertiary)',fontSize:13}}>No Off Plan deals in your visibility scope.</div>
             )}
           </div>
           <button className="btn btn-outline btn-sm" style={{marginTop:14}} onClick={()=>navigate('/system/crm/deals')}>View Pipeline <ChevronRight size={12}/></button>
