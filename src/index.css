@@ -3482,29 +3482,36 @@ a.pm-whatsapp { text-decoration: none; }
 }
 
 /* ─── Org chart tree connectors (CrmTeam / Org panel) ──────────────
-   Canonical "closed and consistent" tree-line pattern. Each child node
-   draws its own half-bar that meets the parent's vertical drop in the
-   middle. Edge children only draw the inward-pointing half, so the
-   horizontal bar always starts and ends exactly under sibling centers
-   regardless of row count, scroll, or container width.
+   "Closed and consistent" tree-line pattern using full-width bars per
+   child, truncated at the edges so they always start and end exactly
+   under sibling centers. No gaps between siblings means bars connect
+   seamlessly across the row.
+
+   Vertical layout inside each .org-tree-child:
+     y=0     ── horizontal bar (drawn via ::before, full width)
+     y=0..24 │  per-child vertical drop (drawn via ::after, 24px)
+     y=24    ┌─────┐  card top (after padding-top: 24px on the child)
+              │card │
+              └─────┘
+   The parent's vertical drop lives on the .org-tree-children container.
 */
 .org-tree-children {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 24px; /* room for the horizontal bar above the children */
+  padding-top: 24px;   /* parent's vertical drop lives in this padding */
   position: relative;
-  gap: 16px;
+  gap: 0;              /* no gap so per-child bars connect seamlessly */
 }
 .org-tree-children.scroll { overflow-x: auto; }
 .org-tree-children::before {
-  /* Vertical drop from the parent card down to the horizontal bar.
-     Painted on the children container, not each child, so a single
-     child still gets a clean drop. */
+  /* Parent's vertical drop — from the parent card down to the bar. */
   content: '';
   position: absolute;
-  top: 0; left: 50%;
-  width: 2px; height: 24px;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 24px;
   background: var(--border);
   transform: translateX(-1px);
 }
@@ -3513,28 +3520,39 @@ a.pm-whatsapp { text-decoration: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 24px 14px 0; /* 24px top: room for bar + per-child drop ·
+                           14px sides: sibling breathing room (replaces
+                           the old flex `gap`, since gaps would create
+                           horizontal discontinuities in the bar). */
+  box-sizing: border-box;
 }
-.org-tree-child::before,
-.org-tree-child::after {
+.org-tree-child::before {
+  /* Horizontal bar — spans the FULL child width including sibling
+     padding. First/last children truncate this to a half-bar so the
+     bar terminates exactly under their card centers. */
   content: '';
   position: absolute;
-  top: -24px; /* sit at the top of the children-row padding */
+  top: 0;
+  left: 0;
+  right: 0;
   height: 2px;
   background: var(--border);
 }
-/* Horizontal half-bars — left half points inward from this child's left
-   edge to its center, right half from center to its right edge. */
-.org-tree-child::before { left: 0; right: 50%; }
-.org-tree-child::after  { left: 50%; right: 0;  }
-/* Edge cases — for the FIRST child, suppress the outward (left) half so
-   the bar starts cleanly under its center; LAST child suppresses the
-   outward (right) half. Only one child = no horizontal bar at all. */
-.org-tree-children > .org-tree-child:first-child::before { display: none; }
-.org-tree-children > .org-tree-child:last-child::after  { display: none; }
-.org-tree-children > .org-tree-child:only-child::before,
-.org-tree-children > .org-tree-child:only-child::after { display: none; }
-.org-tree-child > .org-tree-vline {
-  /* Per-child vertical drop from the horizontal bar down to the card. */
-  width: 2px; height: 24px;
+.org-tree-child::after {
+  /* Per-child vertical drop — from bar down to the card. */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 24px;
   background: var(--border);
+  transform: translateX(-1px);
 }
+/* Edge children — truncate the bar to a half so it terminates at their
+   center instead of running off the row. */
+.org-tree-children > .org-tree-child:first-child::before { left: 50%; }
+.org-tree-children > .org-tree-child:last-child::before  { right: 50%; }
+/* Single child — no horizontal bar needed; the parent drop + per-child
+   drop already form a continuous line. */
+.org-tree-children > .org-tree-child:only-child::before { display: none; }

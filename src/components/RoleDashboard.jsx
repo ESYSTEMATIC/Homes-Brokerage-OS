@@ -859,14 +859,19 @@ const OrgNode = ({ member, allStaff, leads, deals, tasks, targets, onMemberClick
   const meta = tierOf(member);
   const initials = member.name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
 
+  // For non-root nodes, layout is fully owned by .org-tree-child in
+  // index.css — inline styles here would override its padding/display
+  // and break the connector lines. The root wrapper keeps its inline
+  // layout since it has no parent connectors to align with.
+  const wrapperStyle = isRoot
+    ? {display:'flex', flexDirection:'column', alignItems:'center', position:'relative', padding:'0 8px'}
+    : undefined;
+
   return (
-    <div className={isRoot ? undefined : 'org-tree-child'} style={{display:'flex', flexDirection:'column', alignItems:'center', position:'relative', padding:'0 8px'}}>
-      {/* Vertical drop from the parent's horizontal bar down to this card.
-          Skipped for the root — the root has no parent above it.
-          The horizontal bar itself is painted via ::before/::after on
-          this same .org-tree-child wrapper (see index.css), so siblings'
-          half-bars meet exactly at the parent's vertical drop center. */}
-      {!isRoot && <div className="org-tree-vline"/>}
+    <div className={isRoot ? undefined : 'org-tree-child'} style={wrapperStyle}>
+      {/* Connector lines (horizontal bar + per-child vertical drop) are
+          painted by the .org-tree-child pseudo-elements (::before for
+          the bar, ::after for the drop). See index.css. */}
 
       {/* Person card */}
       <div
