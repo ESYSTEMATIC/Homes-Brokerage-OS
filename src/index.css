@@ -3480,3 +3480,61 @@ a.pm-whatsapp { text-decoration: none; }
   .pm-dev-about-grid { grid-template-columns: 1fr; }
   .pm-dev-hero-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ─── Org chart tree connectors (CrmTeam / Org panel) ──────────────
+   Canonical "closed and consistent" tree-line pattern. Each child node
+   draws its own half-bar that meets the parent's vertical drop in the
+   middle. Edge children only draw the inward-pointing half, so the
+   horizontal bar always starts and ends exactly under sibling centers
+   regardless of row count, scroll, or container width.
+*/
+.org-tree-children {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 24px; /* room for the horizontal bar above the children */
+  position: relative;
+  gap: 16px;
+}
+.org-tree-children.scroll { overflow-x: auto; }
+.org-tree-children::before {
+  /* Vertical drop from the parent card down to the horizontal bar.
+     Painted on the children container, not each child, so a single
+     child still gets a clean drop. */
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  width: 2px; height: 24px;
+  background: var(--border);
+  transform: translateX(-1px);
+}
+.org-tree-child {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.org-tree-child::before,
+.org-tree-child::after {
+  content: '';
+  position: absolute;
+  top: -24px; /* sit at the top of the children-row padding */
+  height: 2px;
+  background: var(--border);
+}
+/* Horizontal half-bars — left half points inward from this child's left
+   edge to its center, right half from center to its right edge. */
+.org-tree-child::before { left: 0; right: 50%; }
+.org-tree-child::after  { left: 50%; right: 0;  }
+/* Edge cases — for the FIRST child, suppress the outward (left) half so
+   the bar starts cleanly under its center; LAST child suppresses the
+   outward (right) half. Only one child = no horizontal bar at all. */
+.org-tree-children > .org-tree-child:first-child::before { display: none; }
+.org-tree-children > .org-tree-child:last-child::after  { display: none; }
+.org-tree-children > .org-tree-child:only-child::before,
+.org-tree-children > .org-tree-child:only-child::after { display: none; }
+.org-tree-child > .org-tree-vline {
+  /* Per-child vertical drop from the horizontal bar down to the card. */
+  width: 2px; height: 24px;
+  background: var(--border);
+}

@@ -860,11 +860,13 @@ const OrgNode = ({ member, allStaff, leads, deals, tasks, targets, onMemberClick
   const initials = member.name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
 
   return (
-    <div style={{display:'flex', flexDirection:'column', alignItems:'center', position:'relative', padding:'0 8px'}}>
-      {/* Vertical connector dropping from parent (rendered above the card) */}
-      {!isRoot && (
-        <div style={{width:2, height:24, background:'var(--border)'}}/>
-      )}
+    <div className={isRoot ? undefined : 'org-tree-child'} style={{display:'flex', flexDirection:'column', alignItems:'center', position:'relative', padding:'0 8px'}}>
+      {/* Vertical drop from the parent's horizontal bar down to this card.
+          Skipped for the root — the root has no parent above it.
+          The horizontal bar itself is painted via ::before/::after on
+          this same .org-tree-child wrapper (see index.css), so siblings'
+          half-bars meet exactly at the parent's vertical drop center. */}
+      {!isRoot && <div className="org-tree-vline"/>}
 
       {/* Person card */}
       <div
@@ -932,39 +934,31 @@ const OrgNode = ({ member, allStaff, leads, deals, tasks, targets, onMemberClick
         )}
       </div>
 
-      {/* Children — vertical connector down + horizontal bar across, then
-          each child node rendered (with its own vertical drop). */}
+      {/* Children — the children container draws its own vertical drop
+          from this card to the row below (via ::before), and each child
+          inside the row draws its own half-bar that meets at the
+          parent's vertical-drop center. Edge children suppress the
+          outward half so the bar terminates exactly under sibling
+          centers no matter how many children there are.
+
+          We add the .scroll modifier when there are 4+ children so wide
+          fanouts don't overflow the page; otherwise the row stays
+          centered for clean alignment. */}
       {children.length > 0 && (
-        <>
-          <div style={{width:2, height:24, background:'var(--border)'}}/>
-          <div style={{position:'relative', display:'flex', alignItems:'flex-start', justifyContent:'center'}}>
-            {/* Horizontal bar spanning the children. Only render when >1
-                child since a single child can just be connected by a
-                vertical line directly. */}
-            {children.length > 1 && (
-              <div style={{
-                position:'absolute', top:0, left:0, right:0, height:2,
-                background:'var(--border)',
-                marginLeft:'calc(50% / ' + children.length + ' * 1)',
-                marginRight:'calc(50% / ' + children.length + ' * 1)',
-              }}/>
-            )}
-            <div style={{display:'flex', flexWrap:'nowrap', overflowX:'auto', gap:16, paddingTop:0}}>
-              {children.map(c => (
-                <OrgNode
-                  key={c.id}
-                  member={c}
-                  allStaff={allStaff}
-                  leads={leads}
-                  deals={deals}
-                  tasks={tasks}
-                  targets={targets}
-                  onMemberClick={onMemberClick}
-                />
-              ))}
-            </div>
-          </div>
-        </>
+        <div className={`org-tree-children${children.length >= 4 ? ' scroll' : ''}`}>
+          {children.map(c => (
+            <OrgNode
+              key={c.id}
+              member={c}
+              allStaff={allStaff}
+              leads={leads}
+              deals={deals}
+              tasks={tasks}
+              targets={targets}
+              onMemberClick={onMemberClick}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
