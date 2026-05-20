@@ -255,6 +255,12 @@ export const CrmDeals = () => {
 
   const openAdd = (type) => { setForm(defForm(type)); setEditDeal(null); setShowAdd(true); };
   const openEdit = (d) => {
+    // Edit can be triggered from inside the deal drawer — close that
+    // drawer first so the modal isn't obscured behind it. The drawer
+    // and our local edit modal are independent layers; without this
+    // call the UX issue is "click Edit, nothing happens" because the
+    // modal renders below the drawer's z-index.
+    closeDrawer();
     setForm({
       type: 'OffPlan', // Resale retired — every deal is OffPlan now
       lead: d.lead || '', leadName: d.leadName || d.lead || '', project: d.project || '', developer: d.developer || '',
@@ -565,7 +571,8 @@ export const CrmDeals = () => {
 
   const viewDetail = (d) => {
     const list = listingFor(d.propertyId);
-    const stageList = stagesForDealType(d.type);
+    // Off Plan is the only pipeline now (Resale retired May 2026).
+    const stageList = DEAL_STAGES_OFFPLAN;
     openDrawer({
       title: `${d.leadName || d.lead || 'Deal'} · ${d.project}`,
       subtitle: `${d.type} · ${d.id}`,
