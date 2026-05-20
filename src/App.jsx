@@ -51,6 +51,7 @@ import { CrmReports } from './pages/crm/CrmReports';
 import { CrmCampaigns } from './pages/crm/CrmCampaigns';
 import { CrmColdCalls } from './pages/crm/CrmColdCalls';
 import { CrmTeam } from './pages/crm/CrmTeam';
+import { CrmOverrides } from './pages/crm/CrmOverrides';
 
 // Marketplace Dashboard — full federated system with its own layout + nested routes.
 import { MarketplaceLayout } from './components/MarketplaceLayout';
@@ -235,6 +236,11 @@ const AppRoutes = () => {
             {/* Team — Director/Manager/TL only. The page itself does the
                 role check and bounces if the persona doesn't qualify. */}
             <Route path="/team" element={<CrmTeam />} />
+            {/* Commission Override Requests — management queue with full
+                request detail (4-persona comparison, decision history,
+                inline approve / reject). Page enforces role gating
+                internally (Manager / Director / Admin only). */}
+            <Route path="/overrides" element={<CrmOverrides />} />
             <Route path="*" element={<Navigate to="/system/crm" />} />
           </Routes>
         </CrmLayout>
