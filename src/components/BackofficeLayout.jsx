@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { HomesLogoFull } from './HomesLogo';
-import { LayoutDashboard, Users, UsersRound, ShieldCheck, BadgeDollarSign, UserSquare2, Database, ChevronDown, Bell, Building2, ScrollText, Settings, Briefcase, AlertTriangle, KeyRound, LogOut, ArrowLeft, Inbox } from 'lucide-react';
+import { LayoutDashboard, Users, UsersRound, ShieldCheck, BadgeDollarSign, UserSquare2, Database, ChevronDown, Bell, Building2, ScrollText, Settings, Briefcase, AlertTriangle, KeyRound, LogOut, ArrowLeft, Inbox, FileText } from 'lucide-react';
 
 const Sub = ({ label, icon, open, toggle, children }) => (
   <>
@@ -129,6 +129,7 @@ export const BackofficeLayout = ({ children }) => {
             <>
               <Link to="/backoffice/recruitment"><Users size={16}/>Candidate Pipeline</Link>
               <Link to="/backoffice/jobs"><Briefcase size={16}/>Job Vacancies</Link>
+              <Link to="/backoffice/offers"><FileText size={16}/>Offers</Link>
             </>
           )}
 
