@@ -298,36 +298,38 @@ const FinanceDashboard = () => {
   const navigate = useNavigate();
   const deals = state.deals || [];
   const recognised = deals.filter(d => d.revenueRecognised);
-  const revenueMTD = recognised.reduce((s, d) => s + (d.value || 0), 0) * 0.02;
-  const pendingComm = (state.commEngine || []).filter(c => c.status === 'Pending').reduce((s,c) => s + (c.pool || 0), 0);
-  const paidComm    = (state.commEngine || []).filter(c => c.status === 'Paid').reduce((s,c) => s + (c.pool || 0), 0);
-  const expenses = 293000;
-  const homesAdvance = deals.filter(d => d.homesAdvanceAvailable).length;
-  const overrides = (state.commEngine || []).filter(c => c.override).length;
 
-  // Revenue by developer
+  // Company income KPIs — live from the Commission Engine (SME finance
+  // review, May 2026): company KPIs, income-focused, no expenses.
+  const ce = (state.commEngine || []).filter(c => c.status !== 'Rejected');
+  const payoutOf = (c) => (c.agentShare || 0) + (c.tlShare || 0) + (c.managerShare || 0) + (c.directorShare || 0);
+  const collected = ce.filter(c => c.status === 'Collected');
+  const grossRevenue     = ce.reduce((s, c) => s + (c.pool || 0), 0);          // commission income billed
+  const collectedRevenue = collected.reduce((s, c) => s + (c.pool || 0), 0);   // actually realized
+  const vatTotal         = ce.reduce((s, c) => s + (c.vat || 0), 0);
+  const payoutTotal      = ce.reduce((s, c) => s + payoutOf(c), 0);
+  const netRevenue       = grossRevenue - vatTotal;                            // revenue net of VAT
+  const netResult        = netRevenue - payoutTotal;                           // company keep after payouts
+
+  // Revenue by developer — commission pool grouped by developer.
   const devRev = {};
-  recognised.forEach(d => {
-    const k = d.developer || 'Other';
-    devRev[k] = (devRev[k] || 0) + (d.value || 0) * 0.02;
-  });
-  const devItems = Object.entries(devRev).map(([label, value]) => ({ label, value }));
+  ce.forEach(c => { const k = c.developer || 'Other'; devRev[k] = (devRev[k] || 0) + (c.pool || 0); });
+  const devItems = Object.entries(devRev).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
   const maxDev = Math.max(...devItems.map(i => i.value), 1);
 
   return (
     <div>
       <Header
         title="Finance Dashboard"
-        subtitle="Revenue · commissions · payouts · advance approvals"
+        subtitle="Company income KPIs · commissions · collections"
         role="Finance Officer"
       />
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18, marginTop:18}}>
-        <KpiCard label="Revenue MTD"        value={fmtM(revenueMTD)} icon={DollarSign}  color="#10b981" footer={`${recognised.length} deals recognised`} delta={{dir:'up', value:'+12%'}}/>
-        <KpiCard label="Pending commissions" value={fmtM(pendingComm)} icon={Clock}      color="#f59e0b" footer="Awaiting payout cycle" onClick={() => navigate('/backoffice/finance/commission')}/>
-        <KpiCard label="Paid (MTD)"          value={fmtM(paidComm)}    icon={CheckCircle2} color="#3b82f6" footer="Cleared payout cycles"/>
-        <KpiCard label="Total expenses"      value={fmt(expenses)}     icon={ReceiptText} color="#dc2626" footer="Operating costs"/>
-        <KpiCard label="Net result"          value={fmtM(revenueMTD - expenses)} icon={TrendingUp} color="#10b981" footer={revenueMTD - expenses > 0 ? 'Profitable' : 'Loss'}/>
+        <KpiCard label="Gross Revenue"     value={fmtM(grossRevenue)}     icon={DollarSign}   color="#10b981" footer="Total commission income billed"/>
+        <KpiCard label="Collected Revenue" value={fmtM(collectedRevenue)} icon={CheckCircle2} color="#3b82f6" footer={`Actually realized · ${collected.length} deals`} onClick={() => navigate('/backoffice/finance/commission')}/>
+        <KpiCard label="Net Revenue"       value={fmtM(netRevenue)}       icon={TrendingUp}   color="#10b981" footer="Gross Revenue − 14% VAT"/>
+        <KpiCard label="Net Result"        value={fmtM(netResult)}        icon={TrendingUp}   color="#10b981" footer="After commission payouts"/>
       </div>
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
@@ -339,13 +341,13 @@ const FinanceDashboard = () => {
         </div>
         <div style={{background:'#fff', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px'}}>
           <h3 style={{fontSize:14, fontWeight:800, marginBottom:14, display:'flex', alignItems:'center', gap:8}}>
-            <DollarSign size={16} color="var(--brand)"/> Payout cycle status
+            <DollarSign size={16} color="var(--brand)"/> Commission status
           </h3>
           <div style={{display:'flex', flexDirection:'column', gap:14, padding:'10px 0'}}>
             {[
-              { label: 'Triggered', count: deals.filter(d => d.homesAdvanceAvailable).length, color:'#0ea5e9' },
-              { label: 'Reviewed',  count: (state.commEngine || []).filter(c => c.status === 'Approved').length, color:'#f59e0b' },
-              { label: 'Paid',      count: (state.commEngine || []).filter(c => c.status === 'Paid').length, color:'#10b981' },
+              { label: 'Pending',   count: ce.filter(c => c.status === 'Pending').length,  color:'#f59e0b' },
+              { label: 'Approved',  count: ce.filter(c => c.status === 'Approved').length, color:'#3b82f6' },
+              { label: 'Collected', count: collected.length,                               color:'#10b981' },
             ].map(s => (
               <div key={s.label} style={{display:'flex', alignItems:'center', gap:14}}>
                 <div style={{width:12, height:12, borderRadius:'50%', background:s.color}}/>
@@ -359,21 +361,21 @@ const FinanceDashboard = () => {
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
         <ListPanel
-          title="Pending commission overrides"
-          subtitle="Manager-requested commission adjustments"
-          icon={ShieldCheck}
-          items={(state.commEngine || []).filter(c => c.override && c.status === 'Pending').slice(0,5).map(c => ({
+          title="Recently collected commissions"
+          subtitle="Commission income realized this period"
+          icon={CheckCircle2}
+          items={collected.slice(0,5).map(c => ({
             key: c.id, title: `${c.id} · ${c.developer || '—'}`,
-            subtitle: `${c.project || ''} · pool ${fmt(c.pool)}`,
-            meta: 'Override', metaColor:'#f59e0b', urgent: true,
-            icon: <ShieldCheck size={14}/>,
+            subtitle: `${c.project || ''} · ${c.unit || ''}`,
+            meta: fmt(c.pool), metaColor:'#10b981',
+            icon: <CheckCircle2 size={14}/>,
           }))}
-          emptyText="No override requests pending."
+          emptyText="No commissions collected yet."
           onSeeAll={() => navigate('/backoffice/finance/commission')}
         />
         <ListPanel
           title="Recently recognised deals"
-          subtitle="Closed deals contributing to MTD revenue"
+          subtitle="Closed deals contributing to revenue"
           icon={KanbanSquare}
           items={recognised.slice(0,5).map(d => ({
             key: d.id, title: `${d.leadName || d.lead} · ${d.project}`,
