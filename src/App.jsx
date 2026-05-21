@@ -156,7 +156,7 @@ const AppRoutes = () => {
   //   └───────────────────┴───────────────┴────────────────────┴─────────────────────┘
   const BACKOFFICE_ROLES   = ['backofficeAdmin','salesDirector','hrRecruiter','financeOfficer','executive','systemAdmin'];
   const MARKETPLACE_ROLES  = ['marketplaceAdmin']; // exclusive — only this role enters Marketplace Dashboard
-  const CRM_BLOCKED_ROLES  = ['hrRecruiter','marketplaceAdmin']; // BRD §11 — no CRM data access
+  const CRM_BLOCKED_ROLES  = ['hrRecruiter','marketplaceAdmin','financeOfficer']; // BRD §11 — no CRM data access
   // Training + agent scoring are sales-track features. Homes Academy
   // (/board/learning), Performance (/board/performance) and Training
   // Compliance (/backoffice/training) are hidden + bounced for everyone

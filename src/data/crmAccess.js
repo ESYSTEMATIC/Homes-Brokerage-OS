@@ -51,7 +51,7 @@ export const HIERARCHY = {
   systemAdmin:     { role: 'System Admin',      scope: 'audit',                                                                   crmModules: 'all' },
   executive:       { role: 'Executive / CEO',   scope: 'audit',                                                                   crmModules: SALES_TRACK },
   hrRecruiter:     { role: 'HR Recruiter',      scope: 'none',                                                                    crmModules: [] },
-  financeOfficer:  { role: 'Finance Officer',   scope: 'audit',                                                                   crmModules: SALES_TRACK },
+  financeOfficer:  { role: 'Finance Officer',   scope: 'none',                                                                    crmModules: [] },
   marketplaceAdmin:{ role: 'Marketplace Admin', scope: 'none',                                                                    crmModules: [] },
   // Marketing — CRM-only persona scoped to Campaigns + Cold Calls (import-only
   // view). Does not see leads, deals, contracts, tours, listings, reports.

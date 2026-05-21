@@ -518,18 +518,25 @@ const FinanceOfficerDashboard = () => {
   const navigate = useNavigate();
 
   const deals = state.deals || [];
-  const revenueMTD = deals.filter(d => d.revenueRecognised).reduce((s,d) => s + (d.value || 0), 0) * 0.02;
-  const pendingComm = (state.commEngine || []).filter(c => c.status === 'Pending').reduce((s,c) => s + (c.pool || 0), 0);
-  const paidComm    = (state.commEngine || []).filter(c => c.status === 'Paid').reduce((s,c) => s + (c.pool || 0), 0);
-  const closedThisMonth = deals.filter(d => d.revenueRecognised).length;
+  // Company income KPIs — identical computation to the backoffice Finance
+  // Dashboard so the cockpit and the dashboard always agree (SME review).
+  const ce = (state.commEngine || []).filter(c => c.status !== 'Rejected');
+  const payoutOf = (c) => (c.agentShare || 0) + (c.tlShare || 0) + (c.managerShare || 0) + (c.directorShare || 0);
+  const collected = ce.filter(c => c.status === 'Collected');
+  const grossRevenue     = ce.reduce((s, c) => s + (c.pool || 0), 0);
+  const collectedRevenue = collected.reduce((s, c) => s + (c.pool || 0), 0);
+  const vatTotal         = ce.reduce((s, c) => s + (c.vat || 0), 0);
+  const payoutTotal      = ce.reduce((s, c) => s + payoutOf(c), 0);
+  const netRevenue       = grossRevenue - vatTotal;
+  const netResult        = netRevenue - payoutTotal;
 
   return (
-    <RoleShell title="Finance Cockpit" subtitle="Revenue · commissions · payouts">
+    <RoleShell title="Finance Cockpit" subtitle="Company income · commissions · collections">
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18}}>
-        <KpiCard label="Revenue MTD"       value={fmtM(revenueMTD)} icon={DollarSign}  color="#10b981" footer={`${closedThisMonth} closed deals recognised`}/>
-        <KpiCard label="Pending commissions" value={fmtM(pendingComm)} icon={Clock}      color="#f59e0b" footer="Awaiting payout cycle"  onClick={() => navigate('/backoffice/finance/commission')}/>
-        <KpiCard label="Paid (MTD)"        value={fmtM(paidComm)}   icon={CheckCircle2} color="#3b82f6" footer="Cleared payout cycles"/>
-        <KpiCard label="Deals recognised"  value={closedThisMonth}  icon={KanbanSquare} color="#8b5cf6" footer="Standard Collection (10%) trigger"/>
+        <KpiCard label="Gross Revenue"     value={fmtM(grossRevenue)}     icon={DollarSign}   color="#10b981" footer="Total commission income billed"/>
+        <KpiCard label="Collected Revenue" value={fmtM(collectedRevenue)} icon={CheckCircle2} color="#3b82f6" footer={`Actually realized · ${collected.length} deals`} onClick={() => navigate('/backoffice/finance/commission')}/>
+        <KpiCard label="Net Revenue"       value={fmtM(netRevenue)}       icon={TrendingUp}   color="#10b981" footer="Gross Revenue − 14% VAT"/>
+        <KpiCard label="Net Result"        value={fmtM(netResult)}        icon={TrendingUp}   color="#8b5cf6" footer="After commission payouts"/>
       </div>
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
