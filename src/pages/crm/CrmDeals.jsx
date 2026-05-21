@@ -23,7 +23,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2, Search, SlidersHorizontal, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2, Search, SlidersHorizontal, Calendar, Ban } from 'lucide-react';
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
 import { DEAL_STAGES_OFFPLAN } from '../../data/staticData';
 import { ExportMenu } from '../../components/ExportMenu';
@@ -82,11 +82,13 @@ const canActOnOverride = (personaKey, status) => {
 // Who is allowed to INITIATE an override request? TL is the canonical
 // initiator; Manager can also initiate (their request just short-circuits
 // the first stage since they're the manager-stage approver themselves).
-// Sales Director does NOT initiate via Request — they have Direct Override
-// instead, which is their bypass path.
+// SME finance review (May 2026): the Sales Director NEVER initiates an
+// override — no direct % change is allowed without the approval chain.
+// The Director's only override actions are Approve / Reject.
 const canRequestOverride = (personaKey) => ['teamLeader','salesManager','backofficeAdmin','systemAdmin'].includes(personaKey);
-// Director or admins can do a direct override that bypasses the chain.
-const canDirectOverride = (personaKey) => ['salesDirector','systemAdmin','backofficeAdmin'].includes(personaKey);
+// Cancel / write-off requests are approved by the Sales Director (SME
+// finance review, May 2026); admins can also action them.
+const canDecideCancel = (personaKey) => ['salesDirector','systemAdmin','backofficeAdmin'].includes(personaKey);
 // Which override-stage rows does this persona see in the queue? Sales
 // Manager only sees rows awaiting their action; Sales Director only sees
 // rows that already cleared the Manager stage. Admins see everything.
@@ -147,10 +149,9 @@ export const CrmDeals = () => {
   // that wasn't reliably submitting comments.
   const [decisionFor, setDecisionFor] = useState(null); // { deal, decision }
   const [decisionComment, setDecisionComment] = useState('');
-  // Director direct override modal state — dedicated form fields so the
-  // submit is bulletproof (same pattern as the decision modal).
-  const [directOverrideFor, setDirectOverrideFor] = useState(null);
-  const [directForm, setDirectForm] = useState({ reason:'', agent:'', tl:'', manager:'', director:'' });
+  // Cancel / write-off request modal state.
+  const [cancelFor, setCancelFor] = useState(null);
+  const [cancelForm, setCancelForm] = useState({ kind: 'Cancel', note: '' });
 
   // ─── Search & Advanced filter (May 2026) ──────────────────────────
   // Lightweight free-text search bar + a collapsible Advanced Search
@@ -199,7 +200,7 @@ export const CrmDeals = () => {
     value:'', commission: 2, owner: personaOwnerName(personaKey) || 'Fatma Ibrahim',
     team: h.team || 'Alpha',
     stage: 'Lead Qualified',
-    reservationDeposit: 0, paymentPlan: '',
+    reservationDeposit: 0, paymentPlan: '', collectionDueDate: '',
     status: 'Active',
   });
   const [form, setForm] = useState(defForm('OffPlan'));
@@ -268,6 +269,7 @@ export const CrmDeals = () => {
       team: d.team || 'Alpha',
       stage: d.stage || 'Lead Qualified',
       reservationDeposit: d.reservationDeposit || 0, paymentPlan: d.paymentPlan || '',
+      collectionDueDate: d.collectionDueDate || '',
       status: d.status || 'Active',
     });
     setEditDeal(d);
@@ -300,6 +302,48 @@ export const CrmDeals = () => {
     setShowAdd(false);
   };
   const handleDel = (id) => { removeItem('deals', id, { action: 'Deal Deleted', module: 'CRM', target: id }); toast('Deal deleted','success'); };
+
+  // ─── Cancel / Write-off (SME finance review, May 2026) ───────────
+  // An agent requests a cancellation or write-off with a mandatory note.
+  // The deal carries a `cancellation` record at 'Pending Approval' until
+  // the Sales Director approves (deal closed Cancelled / Written Off) or
+  // rejects (request cleared, the deal stays active).
+  const openCancel = (d) => { closeDrawer?.(); setCancelForm({ kind: 'Cancel', note: '' }); setCancelFor(d); };
+  const submitCancel = () => {
+    if (!cancelFor) return;
+    const note = cancelForm.note.trim();
+    if (!note) { toast('A note explaining the request is required', 'error'); return; }
+    const at = new Date().toISOString();
+    updateItem('deals', cancelFor.id, {
+      cancellation: {
+        kind: cancelForm.kind, note,
+        requestedBy: persona.label, requestedAt: at,
+        status: 'Pending Approval', approver: 'Sales Director',
+        decidedBy: null, decidedAt: null,
+      },
+    }, { action: `Deal ${cancelForm.kind} Requested`, module: 'CRM', target: cancelFor.id, detail: `By ${persona.label} · "${note}"` });
+    toast(`${cancelForm.kind} request submitted — awaiting Sales Director`, 'success');
+    setCancelFor(null);
+  };
+  const decideCancel = (d, decision) => {
+    if (!canDecideCancel(personaKey)) { toast('Only the Sales Director can approve a cancellation', 'error'); return; }
+    const c = d.cancellation || {};
+    const at = new Date().toISOString();
+    if (decision === 'approve') {
+      const newStatus = c.kind === 'Write-off' ? 'Written Off' : 'Cancelled';
+      updateItem('deals', d.id, {
+        status: newStatus,
+        cancellation: { ...c, status: 'Approved', decidedBy: persona.label, decidedAt: at },
+      }, { action: `Deal ${c.kind} Approved`, module: 'CRM', target: d.id, detail: `${d.leadName || d.lead} · ${d.project}` });
+      toast(`Deal ${newStatus.toLowerCase()}`, 'success');
+    } else {
+      updateItem('deals', d.id, {
+        cancellation: { ...c, status: 'Rejected', decidedBy: persona.label, decidedAt: at },
+      }, { action: `Deal ${c.kind} Rejected`, module: 'CRM', target: d.id });
+      toast(`${c.kind} request rejected — deal stays active`, 'info');
+    }
+    closeDrawer?.();
+  };
 
   // Stage transition with lifecycle side-effects.
   const moveStage = (d, newStage) => {
@@ -489,79 +533,6 @@ export const CrmDeals = () => {
     setDecisionComment('');
   };
 
-  // Director direct override — bypasses the TL→Manager→Director chain.
-  // Director (or admin) can apply a one-off breakdown change directly.
-  // Uses dedicated React state so the form is fully controlled.
-  const directOverride = (d) => {
-    if (!canDirectOverride(personaKey)) { toast('Only Sales Director can apply a direct override', 'error'); return; }
-    closeDrawer?.();
-    // Pre-fill split from the active policy if one matches, else defaults.
-    const activePolicy = (state.commissionPolicies || []).find(
-      p => p.developer === d.developer && p.project === d.project && p.status === 'Active'
-    );
-    const seed = activePolicy?.split || { agent: 33.33, tl: 10, manager: 5, director: 3, company: 48.67 };
-    setDirectForm({
-      reason: '',
-      agent:    String(seed.agent),
-      tl:       String(seed.tl),
-      manager:  String(seed.manager),
-      director: String(seed.director),
-    });
-    setDirectOverrideFor(d);
-  };
-
-  // Apply the direct override — same data shape as a chain-approved override
-  // but with status: Approved + bypassedApproval: true on the metadata.
-  const submitDirectOverride = () => {
-    if (!directOverrideFor) return;
-    const d = directOverrideFor;
-    if (!directForm.reason.trim()) { toast('Reason is required', 'error'); return; }
-    const a  = Number(directForm.agent    || 0);
-    const t  = Number(directForm.tl       || 0);
-    const m  = Number(directForm.manager  || 0);
-    const dr = Number(directForm.director || 0);
-    if ([a, t, m, dr].some(n => !Number.isFinite(n) || n < 0)) {
-      toast('Each persona % must be a positive number', 'error');
-      return;
-    }
-    const sum = a + t + m + dr;
-    if (sum > 100) {
-      toast(`Agent + TL + Mgr + Dir total ${sum.toFixed(2)}% — must be ≤ 100 so Company stays ≥ 0`, 'error');
-      return;
-    }
-    const splitOverride = { agent: a, tl: t, manager: m, director: dr, company: Number((100 - sum).toFixed(2)) };
-    const at = new Date().toISOString();
-    const entry = {
-      at,
-      actor: persona.label,
-      action: 'Director Direct Override',
-      stage: 'Approved',
-      decision: 'approve',
-      comment: `Direct: ${directForm.reason.trim()} · split: A${splitOverride.agent}/T${splitOverride.tl}/M${splitOverride.manager}/D${splitOverride.director}/C${splitOverride.company}`,
-    };
-    updateItem('deals', d.id, {
-      commissionOverride: {
-        ...(d.commissionOverride || {}),
-        currentPct: d.commission,
-        requestedPct: d.commission, // rate unchanged — direct override only changes split
-        delta: 0,
-        reason: directForm.reason.trim(),
-        requestedBy: persona.label,
-        requestedAt: at,
-        decidedBy: persona.label,
-        decidedAt: at,
-        decisionComment: directForm.reason.trim(),
-        status: 'Approved',
-        bypassedApproval: true,
-        splitOverride,
-        history: [...(d.commissionOverride?.history || []), entry],
-      },
-    });
-    writeAudit('Commission Direct Override', `${d.id}: split A${splitOverride.agent}/T${splitOverride.tl}/M${splitOverride.manager}/D${splitOverride.director}/C${splitOverride.company}`, 'CRM', `Direct by ${persona.label} · "${directForm.reason.trim()}"`);
-    toast(`Direct override applied to ${d.id}`, 'success');
-    setDirectOverrideFor(null);
-  };
-
   // Legacy alias — keeps existing call sites working but routes through the
   // new modal that captures the comment.
   const approveOverride = (d, decision) => openOverrideDecision(d, decision);
@@ -632,6 +603,7 @@ export const CrmDeals = () => {
                 {[
                   ['Reservation Deposit', d.reservationDeposit ? `EGP ${fmt(d.reservationDeposit)}` : '—'],
                   ['Payment Plan', d.paymentPlan || '—'],
+                  ['Collection Due Date', d.collectionDueDate || '—'],
                   ['Developer Collection', d.collectionPercent ? `${d.collectionPercent}%` : '0%'],
                   ['Homes Advance', d.homesAdvanceAvailable ? '✅ Available' : '—'],
                   ['Revenue Recognised', d.revenueRecognised ? '✅ Recognised' : '—'],
@@ -725,6 +697,27 @@ export const CrmDeals = () => {
             </div>
           )}
 
+          {/* Cancellation / Write-off request (SME finance review, May 2026) */}
+          {d.cancellation && (
+            <div style={{padding:14,background:d.cancellation.status==='Pending Approval'?'#fef3c7':d.cancellation.status==='Approved'?'#fee2e2':'#f1f5f9',border:`1px solid ${d.cancellation.status==='Pending Approval'?'#fcd34d':d.cancellation.status==='Approved'?'#fca5a5':'var(--border)'}`,borderRadius:10}}>
+              <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>Deal {d.cancellation.kind} · {d.cancellation.status}</div>
+              <div style={{fontSize:12,color:'var(--text-secondary)',lineHeight:1.5}}>
+                Requested by <b>{d.cancellation.requestedBy}</b> · routed to <b>{d.cancellation.approver}</b><br/>
+                <i>"{d.cancellation.note}"</i>
+                {d.cancellation.decidedBy && <><br/>Decided by <b>{d.cancellation.decidedBy}</b> at {new Date(d.cancellation.decidedAt).toLocaleString()}</>}
+              </div>
+              {d.cancellation.status === 'Pending Approval' && canDecideCancel(personaKey) && (
+                <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+                  <button className="btn btn-sm btn-brand" onClick={()=>decideCancel(d,'approve')}><Check size={13}/> Approve {d.cancellation.kind}</button>
+                  <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>decideCancel(d,'reject')}><X size={13}/> Reject</button>
+                </div>
+              )}
+              {d.cancellation.status === 'Pending Approval' && !canDecideCancel(personaKey) && (
+                <div style={{marginTop:10,fontSize:11,color:'var(--text-tertiary)'}}>Awaiting Sales Director approval.</div>
+              )}
+            </div>
+          )}
+
           {/* Stage transitions */}
           <div style={{borderTop:'1px solid var(--border)',paddingTop:14}}>
             <div className="drawer-label" style={{marginBottom:8}}>Move to Stage</div>
@@ -757,7 +750,9 @@ export const CrmDeals = () => {
                 <Percent size={11}/> Override applied{d.commissionOverride.bypassedApproval ? ' (Direct)' : ''}
               </span>
             )}
-            {!readOnly && canDirectOverride(personaKey) && <button className="btn btn-sm btn-warning" style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}} onClick={()=>directOverride(d)}><Percent size={13}/> Director direct override</button>}
+            {!readOnly && d.status === 'Active' && (!d.cancellation || d.cancellation.status === 'Rejected') && (
+              <button className="btn btn-sm btn-outline" style={{color:'#b45309'}} onClick={()=>openCancel(d)}><Ban size={13}/> Cancel / Write-off</button>
+            )}
             {!readOnly && <button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={()=>handleDel(d.id)}><Trash2 size={13}/> Delete</button>}
           </div>
         </div>
@@ -1222,6 +1217,7 @@ export const CrmDeals = () => {
               </div>
               <div className="form-group"><label>Reservation Deposit (EGP)</label><input type="number" value={form.reservationDeposit} onChange={e=>setForm({...form,reservationDeposit:e.target.value})}/></div>
               <div className="form-group"><label>Payment Plan</label><input type="text" value={form.paymentPlan} onChange={e=>setForm({...form,paymentPlan:e.target.value})} placeholder="e.g. 10% down · 8y installments"/></div>
+              <div className="form-group"><label>Commission Collection Due Date</label><input type="date" value={form.collectionDueDate} onChange={e=>setForm({...form,collectionDueDate:e.target.value})}/></div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline" onClick={()=>setShowAdd(false)}>Cancel</button>
@@ -1304,103 +1300,42 @@ export const CrmDeals = () => {
         );
       })()}
 
-      {/* ─── Director Direct Override modal ─── */}
-      {directOverrideFor && (() => {
-        const d = directOverrideFor;
-        const a  = Number(directForm.agent || 0);
-        const t  = Number(directForm.tl || 0);
-        const m  = Number(directForm.manager || 0);
-        const dr = Number(directForm.director || 0);
-        const sum = a + t + m + dr;
-        const company = Math.round((100 - sum) * 100) / 100;
-        const valid = company >= 0;
-        return (
-          <div className="modal-overlay" onClick={() => setDirectOverrideFor(null)}>
-            <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:580}}>
-              <div className="modal-header">
-                <h3>Director direct override · {d.id}</h3>
-                <button className="btn-icon" onClick={() => setDirectOverrideFor(null)}><X size={18}/></button>
+      {/* ─── Cancel / Write-off request modal ─── */}
+      {cancelFor && (
+        <div className="modal-overlay" onClick={()=>setCancelFor(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
+            <div className="modal-header">
+              <h3>Cancel / Write-off · {cancelFor.id}</h3>
+              <button className="btn-icon" onClick={()=>setCancelFor(null)}><X size={18}/></button>
+            </div>
+            <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+              <div style={{padding:'10px 12px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:8,fontSize:12,lineHeight:1.5,color:'#92400e'}}>
+                This submits a request — the deal stays active until the <b>Sales Director</b> approves it.
               </div>
-              <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:14}}>
-                <div style={{padding:'10px 12px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:8,fontSize:12,lineHeight:1.5,color:'#92400e'}}>
-                  Bypasses the TL → Manager → Director approval chain. Logged with <b>bypassedApproval: true</b>. Rate stays at {d.commission}%; only the per-deal breakdown changes.
-                </div>
-
-                <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>
-                    Reason <span style={{color:'var(--danger)'}}>*</span>
-                  </label>
-                  <textarea
-                    value={directForm.reason}
-                    onChange={e => setDirectForm({...directForm, reason: e.target.value})}
-                    placeholder="e.g. Strategic close · VIP retention · loyal-buyer adjustment"
-                    style={{width:'100%',minHeight:60,padding:'10px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,fontFamily:'inherit',resize:'vertical'}}
-                    autoFocus
-                  />
-                </div>
-
-                <div style={{margin:'4px 0 -4px',fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.08em'}}>
-                  Per-deal split · Company auto-balances
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                  {[
-                    ['Agent %',    'agent'],
-                    ['TL %',       'tl'],
-                    ['Manager %',  'manager'],
-                    ['Director %', 'director'],
-                  ].map(([lbl, key]) => (
-                    <div key={key}>
-                      <label style={{fontSize:11,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:4}}>{lbl}</label>
-                      <input
-                        type="number" step="0.01" min="0" max="100"
-                        value={directForm[key]}
-                        onChange={e => setDirectForm({...directForm, [key]: e.target.value})}
-                        style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13}}
-                      />
-                    </div>
-                  ))}
-                  <div>
-                    <label style={{fontSize:11,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:4}}>
-                      Company % <span style={{fontWeight:500,color:'var(--text-tertiary)',fontSize:10}}>(auto)</span>
-                    </label>
-                    <input
-                      type="number" readOnly value={company}
-                      style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border)',borderRadius:8,fontSize:13,background:'#f8fafc',color: valid ? 'var(--text-primary)' : 'var(--danger)'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{fontSize:11,fontWeight:600,color:'var(--text-secondary)',display:'block',marginBottom:4}}>Total</label>
-                    <div style={{
-                      padding:'9px 12px',border:`1px solid ${valid ? '#86efac' : '#fca5a5'}`,
-                      background: valid ? '#dcfce7' : '#fee2e2',
-                      color: valid ? '#166534' : '#991b1b',
-                      borderRadius:8,fontSize:13,fontWeight:700,fontFamily:'ui-monospace,monospace',
-                    }}>
-                      {(sum + company).toFixed(2)}% {valid ? '✓' : '· over 100'}
-                    </div>
-                  </div>
-                </div>
-                {!valid && (
-                  <div style={{fontSize:11,color:'#b45309'}}>
-                    Agent + TL + Manager + Director total {sum.toFixed(2)}% — reduce one share so Company stays ≥ 0.
-                  </div>
-                )}
+              <div className="form-group">
+                <label>Request type</label>
+                <select value={cancelForm.kind} onChange={e=>setCancelForm({...cancelForm,kind:e.target.value})}>
+                  <option value="Cancel">Cancel deal</option>
+                  <option value="Write-off">Write off deal</option>
+                </select>
               </div>
-              <div className="modal-footer">
-                <button className="btn btn-outline" onClick={() => setDirectOverrideFor(null)}>Cancel</button>
-                <button
-                  className="btn btn-warning"
-                  style={{background:'var(--warning-bg)',color:'var(--warning)',border:'1px solid #fde68a'}}
-                  disabled={!directForm.reason.trim() || !valid}
-                  onClick={submitDirectOverride}
-                >
-                  Apply direct override
-                </button>
+              <div className="form-group">
+                <label>Note <span style={{color:'var(--danger)'}}>*</span></label>
+                <textarea
+                  value={cancelForm.note}
+                  onChange={e=>setCancelForm({...cancelForm,note:e.target.value})}
+                  placeholder="Explain why this deal should be cancelled / written off — visible to the Sales Director and recorded in the audit trail."
+                  style={{minHeight:80,resize:'vertical'}}
+                />
               </div>
             </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={()=>setCancelFor(null)}>Cancel</button>
+              <button className="btn btn-brand" disabled={!cancelForm.note.trim()} onClick={submitCancel}>Submit for approval</button>
+            </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* ─── Decision modal (Manager Accept / Director Final Approve / Reject)
             Self-contained controlled component — the comment textarea binds
