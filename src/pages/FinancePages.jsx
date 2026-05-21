@@ -132,8 +132,25 @@ export const FinanceOverview = () => {
 
 export const DealsRevenue = () => {
   const { state, openDrawer } = useApp();
-  const { q, setQ, filterVals, setFilter, filtered: baseFiltered } = useTableState(state.dealsRev, {
-    searchKeys:['unit','developer','agent','id'], filters:{ status:'status' },
+  // Deals & Revenue is a revenue view over the Commission Engine, so the
+  // Deal ID + Unit always match the Commission Engine exactly (SME finance
+  // review, May 2026). Unit Price comes from the linked CRM deal.
+  const dealsRev = useMemo(() => (state.commEngine || []).map(c => {
+    const deal = (state.deals || []).find(d => d.id === c.dealId);
+    return {
+      id: c.id,
+      dealId: c.dealId,
+      unit: c.unit,
+      developer: c.developer,
+      project: c.project,
+      agent: c.agent,
+      price: deal?.value || 0,
+      revenue: c.pool,
+      status: c.status,
+    };
+  }), [state.commEngine, state.deals]);
+  const { q, setQ, filterVals, setFilter, filtered: baseFiltered } = useTableState(dealsRev, {
+    searchKeys:['unit','developer','agent','id','dealId'], filters:{ status:'status' },
   });
 
   // ─── Advanced filter (May 2026) ───────────────────────────────────
@@ -155,8 +172,8 @@ export const DealsRevenue = () => {
     (adv.minPrice ? 1 : 0) + (adv.maxPrice ? 1 : 0) +
     (adv.minRevenue ? 1 : 0) + (adv.maxRevenue ? 1 : 0);
 
-  const developerOptions = useMemo(() => Array.from(new Set((state.dealsRev || []).map(d => d.developer).filter(Boolean))).sort(), [state.dealsRev]);
-  const agentOptions     = useMemo(() => Array.from(new Set((state.dealsRev || []).map(d => d.agent).filter(Boolean))).sort(), [state.dealsRev]);
+  const developerOptions = useMemo(() => Array.from(new Set(dealsRev.map(d => d.developer).filter(Boolean))).sort(), [dealsRev]);
+  const agentOptions     = useMemo(() => Array.from(new Set(dealsRev.map(d => d.agent).filter(Boolean))).sort(), [dealsRev]);
 
   const filtered = useMemo(() => baseFiltered.filter(d => {
     if (adv.developer && d.developer !== adv.developer) return false;
@@ -170,9 +187,9 @@ export const DealsRevenue = () => {
   }), [baseFiltered, adv]);
 
   const view = (d) => openDrawer({
-    title: `Deal ${d.id}`, subtitle: `${d.unit} · ${d.agent}`,
+    title: `Deal ${d.dealId || d.id}`, subtitle: `${d.unit} · ${d.agent}`,
     content: (<div className="detail-grid">
-      {[['ID',d.id],['Unit',d.unit],['Developer',d.developer],['Agent',d.agent],['Unit Price',fmt(d.price)],['Company Revenue',fmt(d.revenue)],['Status',d.status]].map(([k,v])=>(
+      {[['Deal ID',d.dealId || '—'],['Unit',d.unit || '—'],['Developer',d.developer],['Project',d.project || '—'],['Agent',d.agent],['Unit Price',fmt(d.price)],['Company Revenue',fmt(d.revenue)],['Status',d.status]].map(([k,v])=>(
         <div key={k}><label>{k}</label><div className="v">{v}</div></div>
       ))}
     </div>),
@@ -186,7 +203,7 @@ export const DealsRevenue = () => {
           <div className="data-toolbar-left">
             <input className="data-search" placeholder="Search by deal ID, unit, developer, agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
-              <option value="">All Statuses</option>{['Approved','Pending','Paid'].map(s=><option key={s}>{s}</option>)}
+              <option value="">All Statuses</option>{['Pending','Invoiced','Collected','Rejected'].map(s=><option key={s}>{s}</option>)}
             </select>
             <button
               type="button"
@@ -200,7 +217,7 @@ export const DealsRevenue = () => {
           <ExportMenu
             rows={filtered}
             columns={[
-              { key: 'id',        label: 'Deal ID' },
+              { key: 'dealId',    label: 'Deal ID', format: v => v || '—' },
               { key: 'unit',      label: 'Unit' },
               { key: 'developer', label: 'Developer' },
               { key: 'agent',     label: 'Agent' },
@@ -275,8 +292,12 @@ export const DealsRevenue = () => {
             <thead><tr><th>Deal ID</th><th>Unit</th><th>Developer</th><th>Agent</th><th>Unit Price</th><th>Company Revenue</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>{filtered.map(d=>(
               <tr key={d.id}>
-                <td className="muted">{d.id}</td>
-                <td className="bold">{d.unit}</td>
+                <td className="bold" style={{fontFamily:'ui-monospace, monospace', fontSize:12}}>
+                  {d.dealId ? (
+                    <a href={`#/system/crm/deals?focus=${encodeURIComponent(d.dealId)}`} style={{color:'var(--brand)', textDecoration:'none', fontWeight:700}} title={`Open deal ${d.dealId}`}>{d.dealId}</a>
+                  ) : <span style={{color:'var(--text-tertiary)', fontStyle:'italic', fontSize:11}}>not linked</span>}
+                </td>
+                <td className="bold" style={{fontFamily:'ui-monospace, monospace', fontSize:12}}>{d.unit || '—'}</td>
                 <td>{d.developer}</td>
                 <td>{d.agent}</td>
                 <td>{fmt(d.price)}</td>
