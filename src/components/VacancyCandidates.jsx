@@ -142,6 +142,71 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
     },
   });
 
+  // ─── Draft offer flow ──────────────────────────────────────────
+  // Re-activated (May 2026): moving a candidate INTO the Offer stage opens
+  // the Draft Offer Letter modal and creates an offer record (stage
+  // 'Pending Approval'). The offer then flows through the Recruitment
+  // Pipeline → Offers panel (HR drafts → Sales Director approves → Sent →
+  // Accepted). The salary band comes from this vacancy.
+  const draftOffer = (c) => {
+    const band = vacancy.salaryBand || null;
+    const hasBand = !!(band && (band.min || band.max));
+    const midpoint = hasBand ? Math.round(((band.min || 0) + (band.max || 0)) / 2) : 15000;
+    openModal({
+      title: `Draft Offer Letter — ${c.name}`,
+      subtitle: hasBand
+        ? `Band: EGP ${(band.min || 0).toLocaleString()}–${(band.max || 0).toLocaleString()} / month`
+        : 'No salary band on file for this vacancy',
+      submitLabel: 'Save draft + send for approval',
+      body: (
+        <>
+          <FieldRow>
+            <Field label="Job Title" name="jobTitle" defaultValue={vacancy.title} required />
+            <Field label="Start date" name="startDate" type="date" defaultValue={(() => { const d = new Date(); d.setDate(d.getDate() + 21); return d.toISOString().slice(0,10); })()} required />
+          </FieldRow>
+          <FieldRow>
+            <Field label="Salary (EGP / month)" name="salaryMonthly" type="number" defaultValue={midpoint} required />
+            <Field label="Probation (months)" name="probationMonths" type="number" defaultValue={3} required />
+          </FieldRow>
+          <Field label="Commission structure" name="commission" type="textarea" placeholder="e.g. Uncapped, 0.5% of deal value at Standard Collection (10%)" defaultValue={band?.commission || ''} />
+          <Field label="Sign-on / bonuses" name="bonus" type="textarea" placeholder="e.g. EGP 5,000 sign-on after probation" />
+          <FieldRow>
+            <Field label="Work schedule" name="workSchedule" defaultValue="Sun–Thu, 9am–6pm" />
+            <Field label="Reports to" name="reportingTo" defaultValue={state.staff.find(s => s.type === 'Sales Manager')?.name || ''} />
+          </FieldRow>
+          <Field label="HR Notes" name="notes" type="textarea" placeholder="Reasoning for salary placement, fast-track flags, etc." />
+        </>
+      ),
+      onSubmit: (data) => {
+        const sal = Number(data.salaryMonthly);
+        const outOfBand = hasBand && ((band.min && sal < band.min) || (band.max && sal > band.max));
+        const offer = addItem('offers', {
+          candidateId: c.id, candidateName: c.name,
+          // Carry the candidate's photo through so HR, the Director, and the
+          // offer-letter preview all show the same person.
+          photoDataUrl: c.photoDataUrl || null, photoName: c.photoName || null,
+          jobId: vacancy.id,
+          jobTitle: data.jobTitle, salaryMonthly: sal, currency: 'EGP',
+          commission: data.commission, bonus: data.bonus,
+          benefits: ["Health insurance", "Microsoft 365", "Homes Academy"],
+          startDate: data.startDate, probationMonths: Number(data.probationMonths),
+          workSchedule: data.workSchedule, reportingTo: data.reportingTo,
+          contractType: 'Full-time, indefinite',
+          stage: 'Pending Approval',
+          draftedBy: 'HR Recruiter',
+          approvedBy: null, approvedAt: null, sentAt: null, expiresAt: null,
+          outOfBand: !!outOfBand,
+          notes: data.notes,
+        }, 'OFR', {
+          action: 'Offer Drafted', module: 'Recruitment', target: c.id,
+          detail: `${data.jobTitle} · EGP ${sal.toLocaleString()}/mo · pending Sales Director approval${outOfBand ? ' · OUT OF BAND' : ''}`,
+        });
+        updateItem('candidates', c.id, { stage: 'Offer' });
+        toast(`Offer ${offer.id} drafted${outOfBand ? ' (out-of-band — director must justify)' : ''}`, outOfBand ? 'warning' : 'success');
+      },
+    });
+  };
+
   // ─── Stage change via dropdown ─────────────────────────────────
   // Auto-prompts for an interviewer when moving INTO Interview; auto-spawns
   // an offer draft when moving INTO Offer.
@@ -182,6 +247,11 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
           toast(`${c.name} → Interview · ${interviewer}`);
         },
       });
+      return;
+    }
+
+    if (newStage === 'Offer' && c.stage !== 'Offer') {
+      draftOffer(c);
       return;
     }
 
