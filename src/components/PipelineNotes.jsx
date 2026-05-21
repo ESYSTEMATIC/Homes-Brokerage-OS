@@ -103,7 +103,9 @@ export const StageNotesThread = ({ slice, record, stageField = 'stage', field = 
 // Read-only activity feed for a record, sourced from the global audit log
 // (entries whose target === recordId). The audit log is newest-first.
 export const AuditTimeline = ({ entries }) => {
-  const list = [...(entries || [])];
+  // Newest-first — robust to seed order (timestamps are YYYY-MM-DD HH:MM:SS).
+  const list = [...(entries || [])].sort((a, b) =>
+    String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
   if (!list.length) {
     return (
       <div style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 12, background: '#fafbfc', border: '1px dashed var(--border)', borderRadius: 10 }}>
