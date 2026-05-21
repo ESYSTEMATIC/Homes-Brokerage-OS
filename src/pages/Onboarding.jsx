@@ -842,9 +842,26 @@ export const Onboarding = () => {
                       </div>
                     </td>
                     <td style={{textAlign:'right'}} onClick={e => e.stopPropagation()}>
-                      <div className="row-actions" style={{display:'inline-flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                        <button className="btn btn-outline btn-sm" onClick={() => viewApplicant(a)}><Eye size={13}/> View</button>
-                        {!['Activated','Withdrawn'].includes(a.status) && (
+                      <div className="row-actions" style={{display:'inline-flex',alignItems:'center',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                        {['Activated','Withdrawn'].includes(a.status) ? (
+                          /* Terminal stage — read-only status pill keeps the
+                             column visually consistent instead of leaving a gap. */
+                          <span
+                            title="Stage locked — terminal"
+                            style={{
+                              display:'inline-flex', alignItems:'center', gap:5,
+                              height:30, padding:'0 12px', boxSizing:'border-box',
+                              fontSize:11, fontWeight:700, whiteSpace:'nowrap',
+                              background:`${stageColor(a.status)}14`, color:stageColor(a.status),
+                              border:`1px solid ${stageColor(a.status)}55`, borderRadius:999,
+                            }}
+                          >
+                            {a.status === 'Activated' ? <CheckCircle size={12}/> : <XCircle size={12}/>}
+                            {a.status}
+                          </span>
+                        ) : (
+                          /* Active stage — polished pill-select with a colour-
+                             matched chevron, replacing the bare native control. */
                           <select
                             value={a.status}
                             onChange={(e) => {
@@ -856,18 +873,26 @@ export const Onboarding = () => {
                             }}
                             title="Change stage"
                             style={{
-                              padding:'4px 22px 4px 10px',
-                              fontSize:11, fontWeight:700,
-                              background:`${stageColor(a.status)}15`,
+                              appearance:'none', WebkitAppearance:'none', MozAppearance:'none',
+                              height:30, padding:'0 30px 0 12px', boxSizing:'border-box',
+                              fontSize:11, fontWeight:700, fontFamily:'inherit',
                               color:stageColor(a.status),
+                              background:`${stageColor(a.status)}14 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23${stageColor(a.status).slice(1)}' stroke-width='3'><polyline points='6 9 12 15 18 9'/></svg>") right 10px center / 10px no-repeat`,
                               border:`1px solid ${stageColor(a.status)}55`,
-                              borderRadius:6, cursor:'pointer',
-                              height:28,
+                              borderRadius:999, cursor:'pointer', outline:'none',
                             }}
                           >
                             {APPLICATION_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         )}
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => viewApplicant(a)}
+                          title="Open applicant details"
+                          style={{height:30, display:'inline-flex', alignItems:'center', gap:5}}
+                        >
+                          <Eye size={13}/> View
+                        </button>
                       </div>
                     </td>
                   </tr>
