@@ -17,6 +17,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Field, FieldRow, Empty } from '../components/UI';
 import { ExportMenu } from '../components/ExportMenu';
+import { StageNotesThread } from '../components/PipelineNotes';
 
 const ONBOARDING_COLUMNS = [
   { key: 'id',             label: 'ID' },
@@ -1058,8 +1059,12 @@ const Kpi = ({ label, value, icon: Icon, color, tip, onClick, delta, footer }) =
 // ═══════════════════════════════════════════════════════════════════════
 // ApplicantDrawer — 3 tabs (Overview / Timeline / Checklist)
 // ═══════════════════════════════════════════════════════════════════════
-const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers, onActivate, onWithdraw, onAdvance, onStageChange, onReminder, onAutoActivate }) => {
+const ApplicantDrawer = ({ applicant, documents, training, candidates, offers, onActivate, onWithdraw, onAdvance, onStageChange, onReminder, onAutoActivate }) => {
+  const { state } = useApp();
   const [tab, setTab] = useState('overview');
+  // Re-derive the record from context so the drawer (notes, stage, history)
+  // stays live after updates instead of showing the open-time snapshot.
+  const a = (state.onboarding || []).find(x => x.id === applicant.id) || applicant;
   const checklist = computeChecklist(a, documents, training);
   const ready = checklist.done === checklist.total && a.status !== 'Activated' && a.status !== 'Withdrawn';
   const linkedCand  = candidates?.find(c => c.id === a.linkedCandidateId);
@@ -1164,7 +1169,7 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
 
       {/* Tabs */}
       <div style={{display:'flex', gap:0, borderBottom:'1px solid var(--border)'}}>
-        {[['overview','Overview', User], ['timeline','Timeline', Clock], ['checklist','Checklist', ListChecks]].map(([k, label, Icon]) => (
+        {[['overview','Overview', User], ['timeline','Timeline', Clock], ['checklist','Checklist', ListChecks], ['notes','Notes', MessageSquare]].map(([k, label, Icon]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -1185,6 +1190,7 @@ const ApplicantDrawer = ({ applicant: a, documents, training, candidates, offers
       {tab === 'overview'  && <OverviewTab a={a}/>}
       {tab === 'timeline'  && <TimelineTab a={a}/>}
       {tab === 'checklist' && <ChecklistTab a={a} checklist={checklist} onReminder={onReminder}/>}
+      {tab === 'notes'     && <StageNotesThread slice="onboarding" record={a} stageField="status" module="Backoffice"/>}
 
       {/* Action bar */}
       {a.status !== 'Activated' && a.status !== 'Withdrawn' && (

@@ -285,6 +285,9 @@ export const ONBOARDING = [
       { stage: "Documents Pending", at: "2026-05-06T10:00:00", by: "Dina Samir", note: "Awaiting RERA + Education Certificate" },
     ],
     notes: "Referral from Omar Sherif. Onboarding paid by HR.",
+    stageNotes: [
+      { id: "NOTE-app2-a", stage: "Documents Pending", text: "Chased candidate for ID + Education Certificate — promised by end of week.", by: "Dina Samir", at: "2026-05-07T11:00:00" },
+    ],
   },
   {
     id: "APP003", applicant: "Rania Youssef", type: "Agent",
@@ -603,7 +606,11 @@ export const CANDIDATES = [
   { id: "CAN-001", name: "Amira El-Sayed",  job: "Senior Sales Agent", vacancyId: "JOB-001", stage: "Interview", applied: "2024-01-10", interviewer: "Sales Manager", gender: "Female", ageBand: "25-34",
     email: "amira.elsayed@example.com",   phone: "+20 100 333 1001",
     photoDataUrl: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "amira-elsayed.png",
-    resumeName: "amira-elsayed-cv.pdf",   resumeDataUrl: null },
+    resumeName: "amira-elsayed-cv.pdf",   resumeDataUrl: null,
+    stageNotes: [
+      { id: "NOTE-can1-a", stage: "Screening", text: "Phone screen strong — clear communicator, 4 yrs New Cairo off-plan experience.", by: "HR Recruiter", at: "2026-05-09T10:15:00" },
+      { id: "NOTE-can1-b", stage: "Interview", text: "Panel scheduled with Sales Manager. Probe negotiation track record and pipeline size.", by: "HR Recruiter", at: "2026-05-12T09:30:00" },
+    ] },
   { id: "CAN-002", name: "Hassan Nabil",    job: "Senior Sales Agent", vacancyId: "JOB-001", stage: "Screening", applied: "2024-01-12", interviewer: null,            gender: "Male",   ageBand: "25-34",
     email: "hassan.nabil@example.com",    phone: "+20 100 333 1002",
     photoDataUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "hassan-nabil.png",
@@ -611,7 +618,10 @@ export const CANDIDATES = [
   { id: "CAN-003", name: "Fatma Youssef",   job: "Junior Sales Agent", vacancyId: "JOB-002", stage: "Offer",     applied: "2024-01-06", interviewer: "Omar Sherif",   gender: "Female", ageBand: "18-24",
     email: "fatma.youssef@example.com",   phone: "+20 100 333 1003",
     photoDataUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "fatma-youssef.png",
-    resumeName: "fatma-youssef-cv.pdf",   resumeDataUrl: null },
+    resumeName: "fatma-youssef-cv.pdf",   resumeDataUrl: null,
+    stageNotes: [
+      { id: "NOTE-can3-a", stage: "Interview", text: "Junior but highly coachable — Omar recommends fast-tracking to offer.", by: "Omar Sherif", at: "2026-05-05T13:00:00" },
+    ] },
   { id: "CAN-004", name: "Ali Mostafa",     job: "Junior Sales Agent", vacancyId: "JOB-002", stage: "Rejected",  applied: "2024-01-09", interviewer: "Sales Manager", gender: "Male",   ageBand: "18-24",
     email: "ali.mostafa@example.com",     phone: "+20 100 333 1004",
     photoDataUrl: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "ali-mostafa.png",

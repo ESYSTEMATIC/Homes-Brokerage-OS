@@ -16,6 +16,7 @@ import { useApp } from '../context/AppContext';
 import { Field, FieldRow } from './UI';
 import { Plus, Eye, X, FileText, Users, Download } from 'lucide-react';
 import { CANDIDATE_STAGES } from '../data/staticData';
+import { CandidatePipelinePanel } from './PipelineNotes';
 
 const stageColor = (s) =>
   s === 'Offer' ? 'badge-success'
@@ -321,6 +322,9 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
             <b>Rejected:</b> {c.rejectionReason}
           </div>
         )}
+
+        {/* Stage-tagged notes thread + audit activity (SME ask, May 2026) */}
+        <CandidatePipelinePanel candidateId={c.id}/>
       </>
     ),
   });

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
+import { CandidatePipelinePanel } from '../components/PipelineNotes';
 import { Plus, Download, Eye, ChevronRight, X, FileText, CheckCircle2, Send, Award, AlertCircle, Briefcase, Info } from 'lucide-react';
 import { CANDIDATE_STAGES, OFFER_STAGES } from '../data/staticData';
 
@@ -522,6 +523,9 @@ export const RecruitmentPipeline = () => {
             </div>
           );
         })()}
+
+        {/* Stage-tagged notes thread + audit activity (SME ask, May 2026) */}
+        <CandidatePipelinePanel candidateId={c.id}/>
 
         {/* Stage transitions are now handled by the dropdown above. The
             Reject button is kept as a quick action because it captures a
