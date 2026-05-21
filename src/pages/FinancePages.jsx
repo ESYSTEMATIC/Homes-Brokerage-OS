@@ -6,7 +6,7 @@ import { findCommissionPolicy, computeSplit, COMMISSION_SPLIT_DEFAULT } from '..
 import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings, Receipt } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
-const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
+const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Collected'?'badge-success':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
 
 export const FinanceOverview = () => {
   const { state } = useApp();
@@ -207,7 +207,7 @@ export const DealsRevenue = () => {
 };
 
 export const CommissionEngine = () => {
-  const { state, updateItem, openConfirm, openDrawer, toast, persona } = useApp();
+  const { state, updateItem, openConfirm, openModal, openDrawer, toast, persona } = useApp();
   const { q, setQ, filterVals, setFilter, filtered: baseFiltered } = useTableState(state.commEngine, {
     // Search across the deal context (label, deal ID, unit, project, developer)
     // so finance officers can find a row by any one of them.
@@ -280,34 +280,41 @@ export const CommissionEngine = () => {
 
   const splitLine = (c) => `Agent ${fmt(c.agentShare)} · TL ${fmt(c.tlShare)} · Mgr ${fmt(c.managerShare)} · Dir ${fmt(c.directorShare)} · Co ${fmt(c.companyShare)}`;
 
-  const approve = (c) => openConfirm({
-    title: `Approve commission for ${c.deal}?`,
-    message: `Lock pool of ${fmt(c.pool)} · ${splitLine(c)}`,
-    onConfirm: () => {
+  // Approve — captures the claim / reference number (SME finance review,
+  // May 2026): after approval the finance officer records the claim no.
+  const approve = (c) => openModal({
+    title: `Approve commission · ${c.deal}`,
+    subtitle: `Lock pool of ${fmt(c.pool)} · ${splitLine(c)}`,
+    submitLabel: 'Approve commission',
+    body: (
+      <Field label="Claim / reference number" name="referenceNo" required placeholder="e.g. CLM-2026-0142" />
+    ),
+    onSubmit: ({ referenceNo }) => {
+      const ref = (referenceNo || '').trim();
       const history = appendCommHistory(c, {
         action: 'Approved',
         fromStatus: c.status,
         toStatus: 'Approved',
         amount: c.pool,
-        detail: `Pool locked at ${fmt(c.pool)} — ${splitLine(c)}`,
+        detail: `Pool locked at ${fmt(c.pool)} — ${splitLine(c)} · claim ${ref}`,
       });
-      updateItem('commEngine', c.id, { status: 'Approved', approvedAt: new Date().toISOString(), approvedBy: persona?.label, history }, { action: 'Commission Approved', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
-      toast(`${c.deal} approved`);
+      updateItem('commEngine', c.id, { status: 'Approved', approvedAt: new Date().toISOString(), approvedBy: persona?.label, referenceNo: ref, history }, { action: 'Commission Approved', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · claim ${ref} · by ${persona?.label}` });
+      toast(`${c.deal} approved · claim ${ref}`);
     },
   });
   const markPaid = (c) => openConfirm({
-    title: `Mark ${c.deal} as paid?`,
-    message: `Funds released to ${c.agent} and the management chain. This is irreversible.`,
+    title: `Mark ${c.deal} as collected?`,
+    message: `Commission collected & settled — funds released to ${c.agent} and the management chain. This is irreversible.`,
     onConfirm: () => {
       const history = appendCommHistory(c, {
-        action: 'Paid',
+        action: 'Collected',
         fromStatus: c.status,
-        toStatus: 'Paid',
+        toStatus: 'Collected',
         amount: c.pool,
         detail: `Disbursed ${fmt(c.agentShare)} → ${c.agent} · ${fmt(c.tlShare)} → ${c.teamLeader} · ${fmt(c.managerShare)} → ${c.manager} · ${fmt(c.directorShare)} → ${c.director} · ${fmt(c.companyShare)} → Company`,
       });
-      updateItem('commEngine', c.id, { status: 'Paid', paidAt: new Date().toISOString(), paidBy: persona?.label, history }, { action: 'Commission Paid', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
-      toast(`${c.deal} paid`);
+      updateItem('commEngine', c.id, { status: 'Collected', paidAt: new Date().toISOString(), paidBy: persona?.label, history }, { action: 'Commission Collected', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · by ${persona?.label}` });
+      toast(`${c.deal} collected`);
     },
   });
   const view = (c) => {
@@ -369,10 +376,13 @@ export const CommissionEngine = () => {
             ['Commission ID', c.id],
             ['Deal label', c.deal],
             ['Pool', fmt(c.pool)],
+            ['VAT (14%)', fmt(c.vat)],
+            ['Collection Due Date', c.dueDate || '—'],
+            ['Claim / Ref #', c.referenceNo || '—'],
             ['Created', c.createdAt || '—'],
             ['Status', c.status],
-            ['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Paid' ? '—' : 'pending')],
-            ['Paid by', c.paidBy || (c.status === 'Paid' ? '—' : 'pending')],
+            ['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Collected' ? '—' : 'pending')],
+            ['Collected by', c.paidBy || (c.status === 'Collected' ? '—' : 'pending')],
           ].map(([k,v])=>(<div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
         </div>
 
@@ -434,7 +444,7 @@ export const CommissionEngine = () => {
           {Array.isArray(c.history) && c.history.length > 0 ? (
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {[...c.history].reverse().map((h, i) => (
-                <div key={i} style={{display:'flex',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`3px solid ${h.action === 'Paid' ? '#10b981' : h.action === 'Approved' ? 'var(--brand)' : h.action === 'Rejected' ? '#ef4444' : '#94a3b8'}`,fontSize:12,lineHeight:1.5}}>
+                <div key={i} style={{display:'flex',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`3px solid ${h.action === 'Collected' ? '#10b981' : h.action === 'Approved' ? 'var(--brand)' : h.action === 'Rejected' ? '#ef4444' : '#94a3b8'}`,fontSize:12,lineHeight:1.5}}>
                   <div style={{minWidth:140}}>
                     <div style={{fontWeight:700,color:'var(--text-primary)'}}>{h.action}</div>
                     <div style={{fontSize:10,color:'var(--text-tertiary)',fontFamily:'ui-monospace,monospace'}}>{(h.at || '').slice(0,16).replace('T',' ')}</div>
@@ -463,7 +473,7 @@ export const CommissionEngine = () => {
           <div className="data-toolbar-left">
             <input className="data-search" placeholder="Search by Deal ID, unit, project, developer, agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
-              <option value="">All Statuses</option>{['Approved','Pending','Paid','Rejected'].map(s=><option key={s}>{s}</option>)}
+              <option value="">All Statuses</option>{['Pending','Approved','Collected','Rejected'].map(s=><option key={s}>{s}</option>)}
             </select>
             <button
               type="button"
@@ -488,6 +498,9 @@ export const CommissionEngine = () => {
               { key: 'manager',       label: 'Sales Manager' },
               { key: 'director',      label: 'Sales Director' },
               { key: 'pool',          label: 'Pool (EGP)',         format: v => fmt(v) },
+              { key: 'vat',           label: 'VAT 14% (EGP)',      format: v => fmt(v) },
+              { key: 'dueDate',       label: 'Collection Due Date', format: v => v || '—' },
+              { key: 'referenceNo',   label: 'Claim / Ref #',       format: v => v || '—' },
               { key: 'agentShare',    label: 'Agent share',         format: v => fmt(v) },
               { key: 'tlShare',       label: 'TL share',            format: v => fmt(v) },
               { key: 'managerShare',  label: 'Manager share',       format: v => fmt(v) },
@@ -496,7 +509,7 @@ export const CommissionEngine = () => {
               { key: 'status',        label: 'Status' },
               { key: 'createdAt',     label: 'Created' },
               { key: 'approvedAt',    label: 'Approved at' },
-              { key: 'paidAt',        label: 'Paid at' },
+              { key: 'paidAt',        label: 'Collected at' },
             ]}
             filename="commission_engine"
             title="Commission Engine Export"
@@ -576,8 +589,10 @@ export const CommissionEngine = () => {
               <th>Developer / Project</th>
               <th>Agent</th>
               <th>Pool</th>
+              <th>VAT 14%</th>
               <th>Agent</th><th>TL</th><th>Mgr</th><th>Dir</th><th>Co</th>
               <th>Status</th>
+              <th>Due Date</th>
               <th>Created</th>
               <th style={{textAlign:'right'}}>Actions</th>
             </tr></thead>
@@ -609,18 +624,20 @@ export const CommissionEngine = () => {
                 </td>
                 <td>{c.agent}</td>
                 <td className="bold">{fmt(c.pool)}</td>
+                <td className="muted">{fmt(c.vat)}</td>
                 <td>{fmt(c.agentShare)}</td>
                 <td>{fmt(c.tlShare)}</td>
                 <td>{fmt(c.managerShare)}</td>
                 <td>{fmt(c.directorShare)}</td>
                 <td>{fmt(c.companyShare)}</td>
                 <td><span className={`badge ${statusBadge(c.status)}`}>{c.status}</span></td>
+                <td className="muted" style={{fontSize:11,fontFamily:'ui-monospace,monospace'}}>{c.dueDate || '—'}</td>
                 <td className="muted" style={{fontSize:11,fontFamily:'ui-monospace,monospace'}}>{c.createdAt || '—'}</td>
                 <td style={{textAlign:'right'}}><div className="row-actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>view(c)}><Eye size={13}/></button>
                   {c.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>approve(c)}>Approve</button>}
-                  {c.status==='Approved' && <button className="btn btn-success btn-sm" onClick={()=>markPaid(c)}><CheckCircle2 size={13}/> Mark Paid</button>}
-                  {c.status==='Paid' && <span style={{color:'var(--success)',fontWeight:600,fontSize:12}}>Paid ✓</span>}
+                  {c.status==='Approved' && <button className="btn btn-success btn-sm" onClick={()=>markPaid(c)}><CheckCircle2 size={13}/> Mark Collected</button>}
+                  {c.status==='Collected' && <span style={{color:'var(--success)',fontWeight:600,fontSize:12}}>Collected ✓</span>}
                   {c.status==='Rejected' && <span style={{color:'var(--danger)',fontWeight:600,fontSize:12}}>Rejected</span>}
                 </div></td>
               </tr>

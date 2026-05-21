@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, Eye, X, LayoutGrid, List, GripVertical, ShieldCheck, Percent, Check, Paperclip, Home, Lock, Sparkles, CheckCircle2, Search, SlidersHorizontal, Calendar, Ban } from 'lucide-react';
 import { HIERARCHY, canSeeLead, isReadOnly, personaOwnerName, assignableStaff } from '../../data/crmAccess';
-import { DEAL_STAGES_OFFPLAN } from '../../data/staticData';
+import { DEAL_STAGES_OFFPLAN, findCommissionPolicy, computeSplit, vatAmount } from '../../data/staticData';
 import { ExportMenu } from '../../components/ExportMenu';
 import { SplitEditor } from '../FinancialManagement';
 
@@ -350,7 +350,25 @@ export const CrmDeals = () => {
     const patch = lifecyclePatch(d, newStage);
     updateItem('deals', d.id, patch, { action: 'Deal Stage Changed', module: 'CRM', target: d.id, detail: `${d.stage} → ${newStage}` });
     if (patch.commissionLocked && !d.commissionLocked) {
-      toast(`Commission locked at ${d.commission}% — Contract Signed`, 'success');
+      // SME finance review (May 2026): the commission engine is triggered
+      // on contract signing — open a Pending commission record for finance.
+      if (!(state.commEngine || []).some(c => c.dealId === d.id)) {
+        const pool = Math.round((d.value || 0) * (d.commission || 0) / 100);
+        const policy = findCommissionPolicy(state.commissionPolicies || [], d.developer, d.project);
+        const sp = computeSplit(pool, policy?.split);
+        const due = (() => { const x = new Date(); x.setDate(x.getDate() + 90); return x.toISOString().slice(0, 10); })();
+        addItem('commEngine', {
+          deal: d.propertyId || d.id, dealId: d.id,
+          developer: d.developer, project: d.project, unit: d.propertyId || '—',
+          agent: d.owner, pool, status: 'Pending',
+          createdAt: new Date().toISOString().slice(0, 10),
+          dueDate: d.collectionDueDate || due,
+          vat: vatAmount(pool), referenceNo: null,
+          ...sp, teamLeader: null, manager: null, director: null,
+          history: [{ at: new Date().toISOString(), actor: persona.label, action: 'Created', toStatus: 'Pending', amount: pool, detail: `Commission opened on Contract Signed for deal ${d.id}` }],
+        }, 'CE', { action: 'Commission Created', module: 'Finance', target: d.id, detail: `Pool EGP ${fmt(pool)} · triggered by Contract Signed` });
+      }
+      toast(`Commission locked at ${d.commission}% · commission record opened`, 'success');
     } else if (patch.homesAdvanceAvailable && !d.homesAdvanceAvailable) {
       toast(`Homes Advance now available for this deal`, 'info');
     } else if (patch.revenueRecognised && !d.revenueRecognised) {
