@@ -6,6 +6,7 @@ import { findCommissionPolicy, computeSplit, COMMISSION_SPLIT_DEFAULT } from '..
 import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings, Receipt } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
+const sectionLabel = { fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10 };
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Invoiced'?'badge-info':s==='Collected'?'badge-success':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
 
 // ═══════════════════════════════════════════════════════════════
@@ -186,14 +187,108 @@ export const DealsRevenue = () => {
     return true;
   }), [baseFiltered, adv]);
 
-  const view = (d) => openDrawer({
-    title: `Deal ${d.dealId || d.id}`, subtitle: `${d.unit} · ${d.agent}`,
-    content: (<div className="detail-grid">
-      {[['Deal ID',d.dealId || '—'],['Unit',d.unit || '—'],['Developer',d.developer],['Project',d.project || '—'],['Agent',d.agent],['Unit Price',fmt(d.price)],['Company Revenue',fmt(d.revenue)],['Status',d.status]].map(([k,v])=>(
-        <div key={k}><label>{k}</label><div className="v">{v}</div></div>
-      ))}
-    </div>),
-  });
+  // Full deal detail + unified history timeline (SME finance review,
+  // May 2026): the drawer surfaces the linked CRM deal, the commission
+  // breakdown, and a combined timeline (deal audit log + commission log).
+  const view = (d) => {
+    const deal = (state.deals || []).find(x => x.id === d.dealId);
+    const commission = (state.commEngine || []).find(c => c.id === d.id);
+    const norm = (s) => String(s || '').replace('T', ' ');
+    const timeline = [
+      ...(state.audit || []).filter(e => e.target === d.dealId)
+        .map(e => ({ at: e.timestamp, title: e.action, by: e.actor, detail: e.detail, tag: e.module || 'CRM' })),
+      ...((commission?.history) || [])
+        .map(h => ({ at: h.at, title: h.action, by: h.actor, detail: h.detail, tag: 'Commission' })),
+    ].sort((a, b) => norm(b.at).localeCompare(norm(a.at)));
+
+    openDrawer({
+      title: `Deal ${d.dealId || d.id}`,
+      subtitle: `${d.unit || '—'} · ${d.developer || '—'} · ${d.agent}`,
+      content: (
+        <div style={{display:'flex', flexDirection:'column', gap:18}}>
+          {/* Hero */}
+          <div style={{padding:14, background:'#fafbfc', border:'1px solid var(--border)', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center', gap:14}}>
+            <div>
+              <div style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>{d.dealId || d.id}</div>
+              <span className={`badge ${statusBadge(d.status)}`} style={{marginTop:6, display:'inline-block'}}>{d.status}</span>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Company Revenue</div>
+              <div style={{fontSize:18, fontWeight:800, color:'var(--brand)'}}>{fmt(d.revenue)}</div>
+            </div>
+          </div>
+
+          {/* Deal details */}
+          <div>
+            <div style={sectionLabel}>Deal details</div>
+            <div className="detail-grid">
+              {[
+                ['Deal ID', d.dealId || '—'],
+                ['Unit', d.unit || '—'],
+                ['Developer', d.developer || '—'],
+                ['Project', d.project || '—'],
+                ['Lead', deal ? (deal.leadName || deal.lead || '—') : '—'],
+                ['Agent / Owner', d.agent || '—'],
+                ['Team', deal?.team || '—'],
+                ['Stage', deal?.stage || '—'],
+                ['Unit Price', fmt(d.price)],
+                ['Commission rate', deal ? `${deal.commission}%` : '—'],
+                ['Reservation deposit', deal?.reservationDeposit ? fmt(deal.reservationDeposit) : '—'],
+                ['Payment plan', deal?.paymentPlan || '—'],
+                ['Collection due date', deal?.collectionDueDate || commission?.dueDate || '—'],
+                ['Developer collection', deal?.collectionPercent ? `${deal.collectionPercent}%` : '0%'],
+                ['Created', deal?.created || commission?.createdAt || '—'],
+              ].map(([k,v]) => <div key={k}><label>{k}</label><div className="v">{v}</div></div>)}
+            </div>
+          </div>
+
+          {/* Commission & revenue */}
+          {commission && (
+            <div>
+              <div style={sectionLabel}>Commission & revenue</div>
+              <div className="detail-grid">
+                {[
+                  ['Commission pool', fmt(commission.pool)],
+                  ['VAT (14%)', fmt(commission.vat)],
+                  ['Commission status', commission.status],
+                  ['Invoice no', commission.invoiceNo || '—'],
+                  ['Claim / Ref #', commission.referenceNo || '—'],
+                  ['Agent share', fmt(commission.agentShare)],
+                  ['TL share', fmt(commission.tlShare)],
+                  ['Manager share', fmt(commission.managerShare)],
+                  ['Director share', fmt(commission.directorShare)],
+                  ['Company share', fmt(commission.companyShare)],
+                ].map(([k,v]) => <div key={k}><label>{k}</label><div className="v">{v}</div></div>)}
+              </div>
+            </div>
+          )}
+
+          {/* Unified history timeline */}
+          <div>
+            <div style={sectionLabel}>Deal history · {timeline.length} event{timeline.length===1?'':'s'}</div>
+            {timeline.length === 0 ? (
+              <div style={{fontSize:12, color:'var(--text-tertiary)', padding:'10px 12px', background:'#fafbfc', border:'1px dashed var(--border)', borderRadius:8}}>No recorded activity for this deal yet.</div>
+            ) : (
+              <div style={{position:'relative', paddingLeft:22}}>
+                <div style={{position:'absolute', left:7, top:6, bottom:6, width:2, background:'var(--border)'}}/>
+                {timeline.map((e, i) => (
+                  <div key={i} style={{position:'relative', marginBottom:14}}>
+                    <div style={{position:'absolute', left:-21, top:3, width:14, height:14, borderRadius:'50%', background: e.tag==='Commission'||e.tag==='Finance' ? '#10b981' : 'var(--brand)', border:'2px solid #fff', boxShadow:'0 0 0 1px var(--border)'}}/>
+                    <div style={{fontSize:12.5, fontWeight:700, color:'var(--text-primary)'}}>
+                      {e.title}
+                      <span style={{fontSize:9, fontWeight:700, color:'var(--text-tertiary)', marginLeft:6, textTransform:'uppercase', letterSpacing:'.04em'}}>{e.tag}</span>
+                    </div>
+                    <div style={{fontSize:10.5, color:'var(--text-tertiary)', fontFamily:'ui-monospace,monospace', marginTop:1}}>{norm(e.at).slice(0,16)} · {e.by || '—'}</div>
+                    {e.detail && <div style={{fontSize:11.5, color:'var(--text-secondary)', marginTop:3, padding:'6px 10px', background:'#fafbfc', borderRadius:6}}>{e.detail}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+    });
+  };
 
   return (
     <div>
