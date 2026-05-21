@@ -9,6 +9,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
+import { AgentPerformancePanel } from '../components/AgentPerformance';
 import {
   Eye, UserCog, Clock3, Plus, Download, Pause, Play, UserMinus,
   FileText, Phone, Mail, MapPin, Briefcase, Users, Calendar, ShieldCheck,
@@ -178,6 +179,11 @@ export const StaffManagement = () => {
         </div>
 
         <EmployeeDocs employeeName={s.name} documents={state.documents}/>
+
+        {/* Deals performance + conversion analytics — sales reporting line
+            only (SME ask, May 2026). Visible to HR / managers / the Sales
+            Director who can open this drawer. */}
+        {s.department === 'Sales' && <AgentPerformancePanel agentName={s.name}/>}
 
         {/* Admin actions */}
         <div style={{marginTop:18, paddingTop:14, borderTop:'1px solid var(--border)', display:'flex', gap:8, flexWrap:'wrap'}}>

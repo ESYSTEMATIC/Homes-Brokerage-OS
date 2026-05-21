@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Empty } from '../components/UI';
+import { AgentPerformancePanel } from '../components/AgentPerformance';
 import { Eye, UserCog, Download, GraduationCap, FileCheck2, UsersRound, Award, ClipboardList } from 'lucide-react';
 
 // ── Per-agent onboarding profile (Backoffice mirror of the Employee Board view) ──
@@ -154,6 +155,9 @@ const AgentProfileDrawer = ({ a, state, onToggle, onEdit }) => {
           ))}
         </div>
       </div>
+
+      {/* Deals performance + conversion analytics (SME ask, May 2026) */}
+      {a.department === 'Sales' && <AgentPerformancePanel agentName={a.name}/>}
 
       {/* Actions */}
       <div style={{marginTop:18,display:'flex',gap:8,flexWrap:'wrap'}}>

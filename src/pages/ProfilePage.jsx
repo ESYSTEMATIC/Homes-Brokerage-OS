@@ -1,9 +1,14 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { User, Mail, Shield, MapPin, Calendar, Camera, Phone, Briefcase } from 'lucide-react';
+import { AgentPerformancePanel } from '../components/AgentPerformance';
+import { personaOwnerName } from '../data/crmAccess';
 
 export const ProfilePage = () => {
-  const { persona } = useApp();
+  const { persona, personaKey } = useApp();
+  // Sales-track personas map to a deal owner — show their performance
+  // analytics. Non-sales roles have no deals, so the panel is omitted.
+  const agentName = personaOwnerName(personaKey);
 
   return (
     <div className="animate-fade-in">
@@ -94,6 +99,9 @@ export const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Deals performance + conversion analytics (SME ask, May 2026) */}
+      {agentName && <AgentPerformancePanel agentName={agentName} />}
     </div>
   );
 };
