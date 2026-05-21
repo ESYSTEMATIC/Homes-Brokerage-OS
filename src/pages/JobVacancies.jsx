@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
-import { Plus, Download, Eye, Pencil, Globe, Archive } from 'lucide-react';
+import { Plus, Download, Eye, Pencil, Globe, Archive, Users, Filter } from 'lucide-react';
 import { JOB_STATUS } from '../data/staticData';
 
 const statusColor = s => {
@@ -11,6 +11,10 @@ const statusColor = s => {
   if (s === 'Closed') return 'badge-danger';
   return 'badge-info';
 };
+
+// Shared styling for the Advanced filters panel.
+const jvAdvLabel = { display:'block', fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4 };
+const jvAdvInput = { padding:'6px 10px', border:'1px solid var(--border)', borderRadius:7, fontSize:12, fontFamily:'inherit', outline:'none', minWidth:150 };
 
 export const JobVacancies = () => {
   const { state, addItem, updateItem, openModal, openConfirm, toast, writeAudit } = useApp();
@@ -21,6 +25,33 @@ export const JobVacancies = () => {
     searchKeys: ['title', 'department', 'location', 'id'],
     filters: { status: 'status', department: 'department' },
   });
+
+  // ─── Advanced filters — location, type, mode, headcount status ──────
+  const [showAdv, setShowAdv] = useState(false);
+  const [adv, setAdv] = useState({ location: '', type: '', mode: '', headcount: '' });
+  const advActive = !!(adv.location || adv.type || adv.mode || adv.headcount);
+  const clearAdv = () => setAdv({ location: '', type: '', mode: '', headcount: '' });
+  const locationOptions = [...new Set((state.jobs || []).map(j => j.location).filter(Boolean))];
+
+  // Per-vacancy applicant count + headcount status, from live data.
+  const jobMeta = useMemo(() => {
+    const m = {};
+    (state.jobs || []).forEach(j => {
+      const applicants = (state.candidates || []).filter(c => c.vacancyId === j.id).length;
+      const hires = (state.offers || []).filter(o => o.jobId === j.id && ['Accepted', 'Onboarded'].includes(o.stage)).length;
+      const ratio = j.headcount > 0 ? hires / j.headcount : 0;
+      m[j.id] = { applicants, hires, ratio, hcStatus: ratio >= 1 ? 'filled' : ratio >= 0.7 ? 'nearly' : 'open' };
+    });
+    return m;
+  }, [state.jobs, state.candidates, state.offers]);
+
+  const finalFiltered = useMemo(() => filtered.filter(j => {
+    if (adv.location && j.location !== adv.location) return false;
+    if (adv.type && j.type !== adv.type) return false;
+    if (adv.mode && j.mode !== adv.mode) return false;
+    if (adv.headcount && jobMeta[j.id]?.hcStatus !== adv.headcount) return false;
+    return true;
+  }), [filtered, adv, jobMeta]);
 
   const today = () => new Date().toISOString().split('T')[0];
 
@@ -138,16 +169,63 @@ export const JobVacancies = () => {
             <select className="data-select" value={filterVals.department} onChange={e=>setFilter('department', e.target.value)}>
               <option value="">All Departments</option>{[...new Set(state.jobs.map(j=>j.department))].map(d=><option key={d}>{d}</option>)}
             </select>
+            <button
+              className="btn btn-outline"
+              onClick={()=>setShowAdv(v=>!v)}
+              style={advActive ? {borderColor:'var(--brand)', color:'var(--brand)'} : undefined}
+            >
+              <Filter size={14}/> Advanced{advActive ? ' · on' : ''}
+            </button>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-outline" onClick={()=>{exportCSV(`jobs_${today()}`,filtered); toast(`Exported ${filtered.length}`); writeAudit('Export','Jobs CSV','Recruitment');}}><Download size={14}/> Export</button>
+            <button className="btn btn-outline" onClick={()=>{exportCSV(`jobs_${today()}`,finalFiltered); toast(`Exported ${finalFiltered.length}`); writeAudit('Export','Jobs CSV','Recruitment');}}><Download size={14}/> Export</button>
             <button className="btn btn-primary" onClick={()=>openForm(null)}><Plus size={14}/> Create Vacancy</button>
           </div>
         </div>
+
+        {/* Advanced filters panel — location, type, mode, headcount status */}
+        {showAdv && (
+          <div style={{padding:'14px 18px', background:'#fafbfc', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', display:'flex', flexWrap:'wrap', gap:14, alignItems:'flex-end'}}>
+            <div>
+              <label style={jvAdvLabel}>Location</label>
+              <select value={adv.location} onChange={e=>setAdv(a=>({...a,location:e.target.value}))} style={jvAdvInput}>
+                <option value="">Any location</option>
+                {locationOptions.map(l=><option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={jvAdvLabel}>Type</label>
+              <select value={adv.type} onChange={e=>setAdv(a=>({...a,type:e.target.value}))} style={jvAdvInput}>
+                <option value="">Any type</option>
+                {['Full-time','Part-time','Contract','Internship'].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={jvAdvLabel}>Mode</label>
+              <select value={adv.mode} onChange={e=>setAdv(a=>({...a,mode:e.target.value}))} style={jvAdvInput}>
+                <option value="">Any mode</option>
+                {['On-site','Hybrid','Remote'].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={jvAdvLabel}>Headcount status</label>
+              <select value={adv.headcount} onChange={e=>setAdv(a=>({...a,headcount:e.target.value}))} style={jvAdvInput}>
+                <option value="">Any</option>
+                <option value="open">Open (sourcing)</option>
+                <option value="nearly">Nearly filled</option>
+                <option value="filled">Filled</option>
+              </select>
+            </div>
+            <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:10}}>
+              <span style={{fontSize:11, color:'var(--text-tertiary)'}}>{finalFiltered.length} of {filtered.length} shown</span>
+              {advActive && <button className="btn btn-outline btn-sm" onClick={clearAdv}>Clear filters</button>}
+            </div>
+          </div>
+        )}
         <div className="data-scroll">
           <table className="data-table">
             <thead><tr><th>ID</th><th>Title</th><th>Department</th><th>Location</th><th>Type</th><th>Mode</th><th>Headcount</th><th>Applicants</th><th>Hiring Manager</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
-            <tbody>{filtered.map(j=>{
+            <tbody>{finalFiltered.map(j=>{
               /* Audit-finding fix (May 2026): count accepted offers as
                  "hired" against this vacancy so recruiters see the moment
                  a headcount band is filled and can stop sourcing. */
@@ -174,7 +252,16 @@ export const JobVacancies = () => {
                     <div style={{width:`${Math.min(100, Math.round(filledRatio * 100))}%`, height:'100%', background: isFilled ? '#10b981' : filledRatio >= 0.7 ? '#f59e0b' : 'var(--brand)'}}/>
                   </div>
                 </td>
-                <td className="bold">{j.applicants}</td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={()=>navigate(`/backoffice/jobs/${j.id}?focus=candidates`)}
+                    title="View applied candidates for this vacancy"
+                    style={{display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', border:'1px solid var(--border)', borderRadius:999, background:'#fff', cursor:'pointer', fontSize:12, fontWeight:800, color:'var(--brand)'}}
+                  >
+                    <Users size={12}/> {jobMeta[j.id]?.applicants ?? 0}
+                  </button>
+                </td>
                 <td>{j.hiringManager}</td>
                 <td><span className={`badge ${statusColor(j.status)}`}>{j.status}</span></td>
                 <td style={{textAlign:'right'}}><div className="row-actions">
@@ -185,7 +272,7 @@ export const JobVacancies = () => {
               </tr>
             );})}</tbody>
           </table>
-          {filtered.length===0 && <Empty />}
+          {finalFiltered.length===0 && <Empty />}
         </div>
       </div>
     </div>

@@ -14,9 +14,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Field, FieldRow } from './UI';
-import { Plus, Eye, X, FileText, Users, Download } from 'lucide-react';
+import { Plus, Eye, X, FileText, Users, Download, Filter } from 'lucide-react';
 import { CANDIDATE_STAGES } from '../data/staticData';
 import { CandidatePipelinePanel } from './PipelineNotes';
+
+// Shared styling for the Advanced filters panel.
+const vcAdvLabel = { display:'block', fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4 };
+const vcAdvInput = { padding:'6px 10px', border:'1px solid var(--border)', borderRadius:7, fontSize:12, fontFamily:'inherit', outline:'none', minWidth:140 };
 
 const stageColor = (s) =>
   s === 'Offer' ? 'badge-success'
@@ -60,21 +64,39 @@ const StageSelect = ({ value, onChange, disabled }) => {
 export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = false }) => {
   const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
   const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('');
+  const [showAdv, setShowAdv] = useState(false);
+  const [adv, setAdv] = useState({ appliedFrom: '', appliedTo: '', interviewer: '', hasCv: '' });
 
-  // Match candidates by vacancyId (canonical) with legacy fallback to job title.
-  const candidates = (state.candidates || []).filter(c => {
-    if (c.vacancyId) return c.vacancyId === vacancy.id;
-    if (c.job && vacancy.title) return c.job === vacancy.title;
-    return false;
+  // Match candidates by vacancyId (canonical) with legacy fallback to job
+  // title. SME ask (May 2026): hired candidates leave the active pipeline.
+  const candidates = (state.candidates || [])
+    .filter(c => {
+      if (c.vacancyId) return c.vacancyId === vacancy.id;
+      if (c.job && vacancy.title) return c.job === vacancy.title;
+      return false;
+    })
+    .filter(c => c.stage !== 'Hired');
+
+  const pipelineStages = CANDIDATE_STAGES.filter(s => s !== 'Hired');
+  const interviewerOptions = [...new Set(candidates.map(c => c.interviewer).filter(Boolean))];
+  const advActive = !!(adv.appliedFrom || adv.appliedTo || adv.interviewer || adv.hasCv);
+  const clearAdv = () => setAdv({ appliedFrom: '', appliedTo: '', interviewer: '', hasCv: '' });
+
+  const filtered = candidates.filter(c => {
+    if (search &&
+        !c.name.toLowerCase().includes(search.toLowerCase()) &&
+        !c.id.toLowerCase().includes(search.toLowerCase())) return false;
+    if (stageFilter && c.stage !== stageFilter) return false;
+    if (adv.appliedFrom && (c.applied || '') < adv.appliedFrom) return false;
+    if (adv.appliedTo   && (c.applied || '') > adv.appliedTo)   return false;
+    if (adv.interviewer && c.interviewer !== adv.interviewer)   return false;
+    if (adv.hasCv === 'yes' && !c.resumeName) return false;
+    if (adv.hasCv === 'no'  &&  c.resumeName) return false;
+    return true;
   });
 
-  const filtered = candidates.filter(c =>
-    !search ||
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.id.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const counts = CANDIDATE_STAGES.reduce((m, s) => {
+  const counts = pipelineStages.reduce((m, s) => {
     m[s] = candidates.filter(c => c.stage === s).length;
     return m;
   }, {});
@@ -331,7 +353,7 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
 
   // ─── Render ────────────────────────────────────────────────────
   return (
-    <div style={{marginTop: compact ? 14 : 20}}>
+    <div id="vacancy-candidates" style={{marginTop: compact ? 14 : 20, scrollMarginTop: 90}}>
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:10, flexWrap:'wrap'}}>
         <div style={{display:'flex', alignItems:'center', gap:10}}>
           <div style={{width:36, height:36, borderRadius:10, background:'var(--brand-tint)', color:'var(--brand)', display:'flex', alignItems:'center', justifyContent:'center'}}>
@@ -354,21 +376,83 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
             onChange={e => setSearch(e.target.value)}
             style={{padding:'7px 10px', border:'1px solid var(--border)', borderRadius:8, fontSize:12, minWidth:160}}
           />
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setShowAdv(v => !v)}
+            style={(advActive || stageFilter) ? {borderColor:'var(--brand)', color:'var(--brand)'} : undefined}
+            title="Advanced filters"
+          >
+            <Filter size={13}/> Advanced
+          </button>
           <button className="btn btn-primary btn-sm" onClick={newCandidate}>
             <Plus size={13}/> Add Candidate
           </button>
         </div>
       </div>
 
+      {/* Advanced filters — stage, applied-date range, interviewer, CV */}
+      {showAdv && (
+        <div style={{padding:'12px 14px', background:'#fafbfc', border:'1px solid var(--border)', borderRadius:10, marginBottom:12, display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-end'}}>
+          <div>
+            <label style={vcAdvLabel}>Stage</label>
+            <select value={stageFilter} onChange={e=>setStageFilter(e.target.value)} style={vcAdvInput}>
+              <option value="">Any stage</option>
+              {pipelineStages.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={vcAdvLabel}>Applied from</label>
+            <input type="date" value={adv.appliedFrom} onChange={e=>setAdv(a=>({...a,appliedFrom:e.target.value}))} style={vcAdvInput}/>
+          </div>
+          <div>
+            <label style={vcAdvLabel}>Applied to</label>
+            <input type="date" value={adv.appliedTo} onChange={e=>setAdv(a=>({...a,appliedTo:e.target.value}))} style={vcAdvInput}/>
+          </div>
+          <div>
+            <label style={vcAdvLabel}>Interviewer</label>
+            <select value={adv.interviewer} onChange={e=>setAdv(a=>({...a,interviewer:e.target.value}))} style={vcAdvInput}>
+              <option value="">Any</option>
+              {interviewerOptions.map(n=><option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={vcAdvLabel}>CV on file</label>
+            <select value={adv.hasCv} onChange={e=>setAdv(a=>({...a,hasCv:e.target.value}))} style={vcAdvInput}>
+              <option value="">Any</option><option value="yes">Has CV</option><option value="no">No CV</option>
+            </select>
+          </div>
+          <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:10}}>
+            <span style={{fontSize:11, color:'var(--text-tertiary)'}}>{filtered.length} of {candidates.length} shown</span>
+            {(advActive || stageFilter) && (
+              <button className="btn btn-outline btn-sm" onClick={()=>{clearAdv(); setStageFilter('');}}>Clear filters</button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Per-stage KPI strip */}
       {showAnalytics && candidates.length > 0 && (
-        <div style={{display:'grid', gridTemplateColumns:`repeat(${CANDIDATE_STAGES.length}, 1fr)`, gap:6, marginBottom:12}}>
-          {CANDIDATE_STAGES.map(s => (
-            <div key={s} style={{padding:'8px 10px', borderRadius:8, border:`1px solid ${counts[s] > 0 ? 'var(--border)' : '#f1f5f9'}`, background: counts[s] > 0 ? '#fff' : '#fafbfc', textAlign:'center'}}>
-              <div style={{fontSize:9, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>{s}</div>
-              <div style={{fontSize:16, fontWeight:800, color: counts[s] > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)', marginTop:2}}>{counts[s]}</div>
-            </div>
-          ))}
+        <div style={{display:'grid', gridTemplateColumns:`repeat(${pipelineStages.length}, 1fr)`, gap:6, marginBottom:12}}>
+          {pipelineStages.map(s => {
+            const active = stageFilter === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStageFilter(active ? '' : s)}
+                title={active ? 'Clear stage filter' : `Show only ${s} candidates`}
+                style={{
+                  padding:'8px 10px', borderRadius:8, cursor:'pointer',
+                  border:`1px solid ${active ? 'var(--brand)' : counts[s] > 0 ? 'var(--border)' : '#f1f5f9'}`,
+                  background: active ? 'var(--brand-tint)' : counts[s] > 0 ? '#fff' : '#fafbfc',
+                  textAlign:'center',
+                }}
+              >
+                <div style={{fontSize:9, fontWeight:700, color: active ? 'var(--brand)' : 'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>{s}</div>
+                <div style={{fontSize:16, fontWeight:800, color: active ? 'var(--brand)' : counts[s] > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)', marginTop:2}}>{counts[s]}</div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -376,7 +460,7 @@ export const VacancyCandidates = ({ vacancy, showAnalytics = false, compact = fa
         <div style={{padding:'30px 14px', textAlign:'center', background:'#fafbfc', border:'1px dashed var(--border)', borderRadius:10, color:'var(--text-tertiary)', fontSize:12}}>
           {candidates.length === 0
             ? <>No candidates have applied to <b>{vacancy.id}</b> yet. Use Add Candidate to record an application.</>
-            : 'No candidates match the search.'}
+            : 'No candidates match the current search or filters.'}
         </div>
       ) : (
         <div style={{border:'1px solid var(--border)', borderRadius:10, overflow:'hidden'}}>

@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTableState, exportCSV, Field, FieldRow, Empty } from '../components/UI';
 import { CandidatePipelinePanel } from '../components/PipelineNotes';
-import { Plus, Download, Eye, ChevronRight, X, FileText, CheckCircle2, Send, Award, AlertCircle, Briefcase, Info } from 'lucide-react';
+import { Plus, Download, Eye, ChevronRight, X, FileText, CheckCircle2, Send, Award, AlertCircle, Briefcase, Info, Filter } from 'lucide-react';
 import { CANDIDATE_STAGES, OFFER_STAGES } from '../data/staticData';
 
 // Stage <select> — business-team feedback (May 2026): HR moves candidates
@@ -40,17 +40,41 @@ const StageSelectInline = ({ value, onChange }) => {
 const stageColor = s => s==='Offer'?'badge-success':s==='Rejected'?'badge-danger':s==='Interview'?'badge-info':s==='Screening'?'badge-warning':'badge-gray';
 const offerStageColor = s => s==='Accepted'?'badge-success':s==='Declined'||s==='Withdrawn'?'badge-danger':s==='Sent'?'badge-info':s==='Approved'?'badge-info':s==='Pending Approval'?'badge-warning':'badge-gray';
 
+// Shared styling for the Advanced filters panel.
+const advLabel = { display:'block', fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4 };
+const advInput = { padding:'6px 10px', border:'1px solid var(--border)', borderRadius:7, fontSize:12, fontFamily:'inherit', outline:'none', minWidth:150 };
+
 export const RecruitmentPipeline = () => {
   const { state, personaKey, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
   const isSalesDirector = personaKey === 'salesDirector';
   const interviewers = state.staff.filter(s=>['Sales Manager','Team Leader','HR Recruiter'].includes(s.type) || s.department.startsWith('HR')).map(s=>s.name);
 
   const navigate = useNavigate();
-  const { q, setQ, filterVals, setFilter, filtered } = useTableState(state.candidates, {
+  // SME ask (May 2026): hired candidates leave the active pipeline view —
+  // they've completed the funnel and now live as employees.
+  const pipelineCandidates = useMemo(
+    () => (state.candidates || []).filter(c => c.stage !== 'Hired'),
+    [state.candidates],
+  );
+  const { q, setQ, filterVals, setFilter, filtered } = useTableState(pipelineCandidates, {
     searchKeys: ['name', 'job', 'vacancyId', 'id'],
     filters: { stage: 'stage', vacancyId: 'vacancyId' },
   });
   const vacancyById = (state.jobs || []).reduce((m, j) => { m[j.id] = j; return m; }, {});
+
+  // ─── Advanced filters — applied-date range, interviewer, CV-on-file ──
+  const [showAdv, setShowAdv] = useState(false);
+  const [adv, setAdv] = useState({ appliedFrom: '', appliedTo: '', interviewer: '', hasCv: '' });
+  const advActive = !!(adv.appliedFrom || adv.appliedTo || adv.interviewer || adv.hasCv);
+  const clearAdv = () => setAdv({ appliedFrom: '', appliedTo: '', interviewer: '', hasCv: '' });
+  const finalFiltered = useMemo(() => filtered.filter(c => {
+    if (adv.appliedFrom && (c.applied || '') < adv.appliedFrom) return false;
+    if (adv.appliedTo   && (c.applied || '') > adv.appliedTo)   return false;
+    if (adv.interviewer && c.interviewer !== adv.interviewer)   return false;
+    if (adv.hasCv === 'yes' && !c.resumeName) return false;
+    if (adv.hasCv === 'no'  &&  c.resumeName) return false;
+    return true;
+  }), [filtered, adv]);
 
   const today = () => new Date().toISOString().split('T')[0];
 
@@ -619,8 +643,8 @@ export const RecruitmentPipeline = () => {
       />
 
       <div className="kpi-grid kpi-grid-5">
-        {CANDIDATE_STAGES.map(s=>(
-          <div className="kpi-card" key={s}><div><div className="kpi-label">{s}</div><div className="kpi-value">{state.candidates.filter(c=>c.stage===s).length}</div></div><div className={`kpi-icon ${s==='Offer'?'green':s==='Rejected'?'red':s==='Interview'?'blue':'amber'}`}><span style={{fontSize:18}}>👤</span></div></div>
+        {CANDIDATE_STAGES.filter(s=>s!=='Hired').map(s=>(
+          <div className="kpi-card" key={s}><div><div className="kpi-label">{s}</div><div className="kpi-value">{pipelineCandidates.filter(c=>c.stage===s).length}</div></div><div className={`kpi-icon ${s==='Offer'?'green':s==='Rejected'?'red':s==='Interview'?'blue':'amber'}`}><span style={{fontSize:18}}>👤</span></div></div>
         ))}
       </div>
       <div className="data-panel">
@@ -628,22 +652,60 @@ export const RecruitmentPipeline = () => {
           <div className="data-toolbar-left">
             <input className="data-search" placeholder="Search candidates..." value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.stage} onChange={e=>setFilter('stage', e.target.value)}>
-              <option value="">All Stages</option>{CANDIDATE_STAGES.map(s=><option key={s}>{s}</option>)}
+              <option value="">All Stages</option>{CANDIDATE_STAGES.filter(s=>s!=='Hired').map(s=><option key={s}>{s}</option>)}
             </select>
             <select className="data-select" value={filterVals.vacancyId} onChange={e=>setFilter('vacancyId', e.target.value)}>
               <option value="">All Vacancies</option>
               {(state.jobs || []).map(j => <option key={j.id} value={j.id}>{j.id} · {j.title}</option>)}
             </select>
+            <button
+              className="btn btn-outline"
+              onClick={()=>setShowAdv(v=>!v)}
+              style={advActive ? {borderColor:'var(--brand)', color:'var(--brand)'} : undefined}
+            >
+              <Filter size={14}/> Advanced{advActive ? ' · on' : ''}
+            </button>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-outline" onClick={()=>{exportCSV(`candidates_${today()}`,filtered); toast(`Exported ${filtered.length}`); writeAudit('Export','Candidates CSV','Recruitment');}}><Download size={14}/> Export</button>
+            <button className="btn btn-outline" onClick={()=>{exportCSV(`candidates_${today()}`,finalFiltered); toast(`Exported ${finalFiltered.length}`); writeAudit('Export','Candidates CSV','Recruitment');}}><Download size={14}/> Export</button>
             <button className="btn btn-primary" onClick={newCandidate}><Plus size={14}/> Add Candidate</button>
           </div>
         </div>
+
+        {/* Advanced filters panel — applied-date range, interviewer, CV */}
+        {showAdv && (
+          <div style={{padding:'14px 18px', background:'#fafbfc', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', display:'flex', flexWrap:'wrap', gap:14, alignItems:'flex-end'}}>
+            <div>
+              <label style={advLabel}>Applied from</label>
+              <input type="date" value={adv.appliedFrom} onChange={e=>setAdv(a=>({...a,appliedFrom:e.target.value}))} style={advInput}/>
+            </div>
+            <div>
+              <label style={advLabel}>Applied to</label>
+              <input type="date" value={adv.appliedTo} onChange={e=>setAdv(a=>({...a,appliedTo:e.target.value}))} style={advInput}/>
+            </div>
+            <div>
+              <label style={advLabel}>Interviewer</label>
+              <select value={adv.interviewer} onChange={e=>setAdv(a=>({...a,interviewer:e.target.value}))} style={advInput}>
+                <option value="">Any</option>
+                {interviewers.map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={advLabel}>CV on file</label>
+              <select value={adv.hasCv} onChange={e=>setAdv(a=>({...a,hasCv:e.target.value}))} style={advInput}>
+                <option value="">Any</option><option value="yes">Has CV</option><option value="no">No CV</option>
+              </select>
+            </div>
+            <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:10}}>
+              <span style={{fontSize:11, color:'var(--text-tertiary)'}}>{finalFiltered.length} of {filtered.length} shown</span>
+              {advActive && <button className="btn btn-outline btn-sm" onClick={clearAdv}>Clear filters</button>}
+            </div>
+          </div>
+        )}
         <div className="data-scroll">
           <table className="data-table">
             <thead><tr><th>ID</th><th>Name</th><th>Vacancy (source)</th><th>Stage</th><th>Applied</th><th>Interviewer</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
-            <tbody>{filtered.map(c=>{
+            <tbody>{finalFiltered.map(c=>{
               const vac = c.vacancyId ? vacancyById[c.vacancyId] : null;
               return (
               <tr key={c.id}>
@@ -691,7 +753,7 @@ export const RecruitmentPipeline = () => {
               </tr>
             );})}</tbody>
           </table>
-          {filtered.length===0 && <Empty />}
+          {finalFiltered.length===0 && <Empty />}
         </div>
       </div>
 

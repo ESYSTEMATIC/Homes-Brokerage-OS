@@ -5,8 +5,8 @@
 // convenient — too much content for a 520px panel. Promoted to a full
 // page at /backoffice/jobs/:id with the candidate pipeline embedded.
 // ═══════════════════════════════════════════════════════════════════════
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Pencil, Globe, Archive, Briefcase, MapPin, Users, Calendar, Layers, Award } from 'lucide-react';
 import { VacancyCandidates } from '../components/VacancyCandidates';
@@ -35,7 +35,21 @@ const ListBlock = ({ title, items, accent = 'var(--brand)' }) => (
 export const VacancyDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { state, updateItem, openConfirm, toast } = useApp();
+
+  const scrollToCandidates = useCallback(() => {
+    document.getElementById('vacancy-candidates')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Deep-link: ?focus=candidates (from the Job Vacancies list) scrolls
+  // straight to the embedded candidate pipeline.
+  useEffect(() => {
+    if (searchParams.get('focus') === 'candidates') {
+      const t = setTimeout(scrollToCandidates, 200);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, scrollToCandidates]);
 
   const job = (state.jobs || []).find(j => j.id === id);
 
@@ -58,6 +72,7 @@ export const VacancyDetail = () => {
   const acceptedOffers = (state.offers || []).filter(o => o.jobId === job.id && ['Accepted','Onboarded'].includes(o.stage)).length;
   const isFilled = job.headcount > 0 && acceptedOffers >= job.headcount;
   const filledRatio = job.headcount > 0 ? acceptedOffers / job.headcount : 0;
+  const applicantCount = (state.candidates || []).filter(c => c.vacancyId === job.id).length;
 
   const publish = () => openConfirm({
     title: `Publish ${job.title}?`,
@@ -118,26 +133,53 @@ export const VacancyDetail = () => {
             </div>
           </div>
 
-          {/* Headcount card */}
-          <div style={{
-            background:'rgba(255,255,255,0.08)',
-            border:'1px solid rgba(255,255,255,0.18)',
-            borderRadius:12,
-            padding:'14px 18px',
-            minWidth:200,
-          }}>
-            <div style={{fontSize:10, fontWeight:700, color:'rgba(255,255,255,.7)', textTransform:'uppercase', letterSpacing:'.08em'}}>Headcount filled</div>
-            <div style={{fontSize:26, fontWeight:800, marginTop:4, display:'flex', alignItems:'center', gap:8}}>
-              {acceptedOffers}<span style={{fontSize:14, fontWeight:600, color:'rgba(255,255,255,.5)'}}>/ {job.headcount}</span>
-              {isFilled && <span style={{fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:4, background:'#10b981', color:'#fff', letterSpacing:'.05em'}}>FILLED</span>}
-              {!isFilled && filledRatio >= 0.7 && <span style={{fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:4, background:'#f59e0b', color:'#fff', letterSpacing:'.05em'}}>NEARLY</span>}
-            </div>
-            <div style={{height:5, background:'rgba(255,255,255,.15)', borderRadius:3, marginTop:8, overflow:'hidden'}}>
-              <div style={{
-                width:`${Math.min(100, Math.round(filledRatio * 100))}%`,
-                height:'100%',
-                background: isFilled ? '#10b981' : filledRatio >= 0.7 ? '#f59e0b' : 'var(--brand)',
-              }}/>
+          <div style={{display:'flex', gap:12, flexWrap:'wrap'}}>
+            {/* Applicants KPI — clickable, jumps to the candidate pipeline */}
+            <button
+              type="button"
+              onClick={scrollToCandidates}
+              title="View applied candidates"
+              style={{
+                background:'rgba(255,255,255,0.08)',
+                border:'1px solid rgba(255,255,255,0.18)',
+                borderRadius:12,
+                padding:'14px 18px',
+                minWidth:150,
+                textAlign:'left',
+                cursor:'pointer',
+                color:'#fff',
+              }}
+            >
+              <div style={{fontSize:10, fontWeight:700, color:'rgba(255,255,255,.7)', textTransform:'uppercase', letterSpacing:'.08em', display:'flex', alignItems:'center', gap:5}}>
+                <Users size={11}/> Applicants
+              </div>
+              <div style={{fontSize:26, fontWeight:800, marginTop:4}}>{applicantCount}</div>
+              <div style={{fontSize:10, color:'rgba(255,255,255,.6)', marginTop:6, textDecoration:'underline'}}>
+                View candidate pipeline →
+              </div>
+            </button>
+
+            {/* Headcount card */}
+            <div style={{
+              background:'rgba(255,255,255,0.08)',
+              border:'1px solid rgba(255,255,255,0.18)',
+              borderRadius:12,
+              padding:'14px 18px',
+              minWidth:200,
+            }}>
+              <div style={{fontSize:10, fontWeight:700, color:'rgba(255,255,255,.7)', textTransform:'uppercase', letterSpacing:'.08em'}}>Headcount filled</div>
+              <div style={{fontSize:26, fontWeight:800, marginTop:4, display:'flex', alignItems:'center', gap:8}}>
+                {acceptedOffers}<span style={{fontSize:14, fontWeight:600, color:'rgba(255,255,255,.5)'}}>/ {job.headcount}</span>
+                {isFilled && <span style={{fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:4, background:'#10b981', color:'#fff', letterSpacing:'.05em'}}>FILLED</span>}
+                {!isFilled && filledRatio >= 0.7 && <span style={{fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:4, background:'#f59e0b', color:'#fff', letterSpacing:'.05em'}}>NEARLY</span>}
+              </div>
+              <div style={{height:5, background:'rgba(255,255,255,.15)', borderRadius:3, marginTop:8, overflow:'hidden'}}>
+                <div style={{
+                  width:`${Math.min(100, Math.round(filledRatio * 100))}%`,
+                  height:'100%',
+                  background: isFilled ? '#10b981' : filledRatio >= 0.7 ? '#f59e0b' : 'var(--brand)',
+                }}/>
+              </div>
             </div>
           </div>
         </div>
