@@ -200,7 +200,6 @@ export const AgentProfile = () => {
     workSchedule: 'Sun–Thu · 09:00 — 17:00',
     nextReview: '2026-07-15',
     education: personaKey === 'teamLeader' ? 'BSc Civil Engineering, Cairo University' : personaKey === 'agentActive' ? 'BA Marketing, AUC' : 'BBA Business Admin, GUC',
-    rera: persona.mls ? `RERA-${persona.mls.split('-')[1]}` : 'Pending registration',
   };
 
   const teamLabel = personaKey === 'teamLeader' ? 'Alpha (Lead)' : 'Alpha';
@@ -397,8 +396,6 @@ export const AgentProfile = () => {
             <Field2 label="Join Date"     value={hr.joinDate}/>
             <Field2 label="Contract Ends" value={hr.contractEnds}/>
             <Field2 label="Next Review"   value={hr.nextReview}/>
-            {/* RERA is the Egyptian real-estate broker license — sales-track only */}
-            {isSalesTrack && <Field2 label="RERA" value={hr.rera} mono/>}
           </div>
         </Section>
       </div>

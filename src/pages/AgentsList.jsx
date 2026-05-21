@@ -65,11 +65,6 @@ const AgentProfileDrawer = ({ a, state, onToggle, onEdit }) => {
           <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:3}}>{a.title} · {a.department} · {a.branch}</div>
           <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'wrap'}}>
             <span className={`badge ${a.status === 'Active' ? 'badge-success' : a.status === 'Suspended' ? 'badge-danger' : 'badge-warning'}`}>{a.status}</span>
-            {a.rera && (
-              <span style={{fontSize:10, fontWeight:700, color: a.rera.startsWith('RERA') ? '#10b981' : '#f59e0b', background: a.rera.startsWith('RERA') ? '#ecfdf5' : '#fef3c7', padding:'2px 8px', borderRadius:999}}>
-                {a.rera}
-              </span>
-            )}
           </div>
         </div>
       </div>

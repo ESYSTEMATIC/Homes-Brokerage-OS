@@ -42,28 +42,28 @@ export const DEPARTMENTS = [
 export const STAFF = [
   { id: "A001", name: "Ahmed Hassan",    department: "Sales", title: "Senior Sales Executive", branch: "New Cairo",   manager: "Karim Mahmoud", team: "Beta",  status: "Active",   type: "Employee",      email: "ahmed@homesbrokerage.eg", phone: "+20 100 111 0001", joinDate: "2023-06-01",
     photoDataUrl: "https://images.unsplash.com/photo-1542178243-bc20204b769f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "ahmed-hassan.png",  resumeName: "ahmed-hassan-cv.pdf",  resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "29010101******", source: "Careers Page",  rera: "RERA-EG-2024-1101", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "29010101******", source: "Careers Page",  contractType: "Full-time, indefinite" },
   { id: "A002", name: "Fatma Ibrahim",   department: "Sales", title: "Sales Agent",            branch: "6th October", manager: "Omar Sherif",    team: "Alpha", status: "Active",   type: "Employee",      email: "fatma@homesbrokerage.eg", phone: "+20 100 111 0002", joinDate: "2023-07-15",
     photoDataUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "fatma-ibrahim.png", resumeName: "fatma-ibrahim-cv.pdf", resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "29508081******", source: "Referral",       rera: "RERA-EG-2024-1102", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "29508081******", source: "Referral",       contractType: "Full-time, indefinite" },
   { id: "A003", name: "Mohamed Ali",     department: "Sales", title: "Team Leader",            branch: "Sheikh Zayed", manager: "Karim Mahmoud",    team: "Beta", status: "Active",   type: "Team Leader",   email: "mali@homesbrokerage.eg",  phone: "+20 100 111 0003", joinDate: "2022-03-10",
     photoDataUrl: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "mohamed-ali.png",   resumeName: "mohamed-ali-cv.pdf",   resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "28804152******", source: "Direct outreach", rera: "RERA-EG-2023-0871", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "28804152******", source: "Direct outreach", contractType: "Full-time, indefinite" },
   { id: "A004", name: "Nour El-Din",     department: "Sales", title: "Sales Manager",          branch: "New Cairo",   manager: "Tarek Amin",     team: "Alpha", status: "Active",   type: "Sales Manager", email: "nour@homesbrokerage.eg",  phone: "+20 100 111 0004", joinDate: "2021-09-01",
     photoDataUrl: "https://images.unsplash.com/photo-1521119989659-a83eee488004?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "nour-eldin.png",    resumeName: "nour-eldin-cv.pdf",    resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "28012061******", source: "LinkedIn",       rera: "RERA-EG-2021-0312", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "28012061******", source: "LinkedIn",       contractType: "Full-time, indefinite" },
   { id: "A005", name: "Yasmin Adel",     department: "Sales", title: "Sales Agent",            branch: "Heliopolis",  manager: "Mohamed Ali",     team: "Beta",  status: "Suspended",type: "Employee",      email: "yasmin@homesbrokerage.eg", phone: "+20 100 111 0005", joinDate: "2023-11-20",
     photoDataUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "yasmin-adel.png",   resumeName: "yasmin-adel-cv.pdf",   resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "29612031******", source: "LinkedIn",       rera: "Pending verification", contractType: "Full-time, probation" },
+    nationalityCountry: "Egyptian", nationalId: "29612031******", source: "LinkedIn",       contractType: "Full-time, probation" },
   { id: "A006", name: "Karim Mahmoud",   department: "Sales", title: "Sales Manager",          branch: "New Cairo",   manager: "Tarek Amin",     team: "Beta",  status: "Active",   type: "Sales Manager", email: "karim@homesbrokerage.eg", phone: "+20 100 111 0006", joinDate: "2021-05-01",
     photoDataUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "karim-mahmoud.png", resumeName: "karim-mahmoud-cv.pdf", resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "27908111******", source: "Direct outreach", rera: "RERA-EG-2021-0188", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "27908111******", source: "Direct outreach", contractType: "Full-time, indefinite" },
   { id: "A007", name: "Hana Mahmoud",    department: "Sales", title: "Junior Sales",           branch: "6th October", manager: "Omar Sherif",    team: "Alpha", status: "Pending",  type: "Employee",      email: "hana@homesbrokerage.eg",  phone: "+20 100 111 0007", joinDate: "2024-01-10",
     photoDataUrl: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "hana-mahmoud.png",  resumeName: "hana-mahmoud-cv.pdf",  resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "30002171******", source: "Careers Page",   rera: "In progress",         contractType: "Full-time, probation" },
+    nationalityCountry: "Egyptian", nationalId: "30002171******", source: "Careers Page",   contractType: "Full-time, probation" },
   { id: "A008", name: "Omar Sherif",     department: "Sales", title: "Team Leader",            branch: "6th October", manager: "Nour El-Din",    team: "Alpha", status: "Active",   type: "Team Leader",   email: "omar@homesbrokerage.eg",  phone: "+20 100 111 0008", joinDate: "2022-08-15",
     photoDataUrl: "https://images.unsplash.com/photo-1545167622-3a6ac756afa4?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "omar-sherif.png",   resumeName: "omar-sherif-cv.pdf",   resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "28705241******", source: "Referral",       rera: "RERA-EG-2023-0654", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "28705241******", source: "Referral",       contractType: "Full-time, indefinite" },
   // Sales Director — top of the sales hierarchy. Tarek leads Nour El-Din
   // (Alpha team) and Karim Mahmoud (Beta team). The full chain becomes:
   //   Tarek Amin → { Nour El-Din → Omar Sherif → {Fatma, Hana},
@@ -71,7 +71,7 @@ export const STAFF = [
   { id: "A009", name: "Tarek Amin",      department: "Sales", title: "Sales Director",         branch: "New Cairo",   manager: "CEO",            team: null,    status: "Active",   type: "Sales Director", email: "tarek@homesbrokerage.eg", phone: "+20 100 111 0009", joinDate: "2019-04-12",
     photoDataUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "tarek-amin.png",
     resumeName: "tarek-amin-cv.pdf", resumeDataUrl: null,
-    nationalityCountry: "Egyptian", nationalId: "27510020******", source: "Direct outreach", rera: "RERA-EG-2019-0042", contractType: "Full-time, indefinite" },
+    nationalityCountry: "Egyptian", nationalId: "27510020******", source: "Direct outreach", contractType: "Full-time, indefinite" },
 ];
 
 // ── LEADS ──
@@ -265,7 +265,7 @@ export const ONBOARDING = [
       { stage: "Submitted",    at: "2026-05-08T09:00:00", by: "Self-service · Careers form", note: "Application received" },
       { stage: "Under Review", at: "2026-05-09T11:20:00", by: "Dina Samir", note: "Initial screening passed — moving to documents" },
     ],
-    notes: "Strong CV — 4 years at Coldwell Banker. Awaiting RERA + ID upload.",
+    notes: "Strong CV — 4 years at Coldwell Banker. Awaiting ID + Education Certificate upload.",
   },
   {
     id: "APP002", applicant: "Khaled Magdy", type: "Employee",
@@ -282,7 +282,7 @@ export const ONBOARDING = [
     statusHistory: [
       { stage: "Submitted",         at: "2026-05-04T08:30:00", by: "Auto · Offer accepted (OFR-001)", note: "Spawned from accepted offer" },
       { stage: "Under Review",      at: "2026-05-04T14:15:00", by: "Dina Samir", note: "Application picked up" },
-      { stage: "Documents Pending", at: "2026-05-06T10:00:00", by: "Dina Samir", note: "Awaiting RERA + Education Certificate" },
+      { stage: "Documents Pending", at: "2026-05-06T10:00:00", by: "Dina Samir", note: "Awaiting ID + Education Certificate" },
     ],
     notes: "Referral from Omar Sherif. Onboarding paid by HR.",
     stageNotes: [
@@ -367,9 +367,9 @@ export const ONBOARDING = [
     statusHistory: [
       { stage: "Submitted",         at: "2026-04-22T11:00:00", by: "Self-service", note: "Application received" },
       { stage: "Under Review",      at: "2026-04-23T10:30:00", by: "Dina Samir", note: "Screening" },
-      { stage: "Documents Pending", at: "2026-04-24T14:00:00", by: "Dina Samir", note: "Awaiting RERA + ID" },
+      { stage: "Documents Pending", at: "2026-04-24T14:00:00", by: "Dina Samir", note: "Awaiting ID + Education Certificate" },
     ],
-    notes: "STALLED — RERA not received after 23 days. Two reminders sent.",
+    notes: "STALLED — documents not received after 23 days. Two reminders sent.",
   },
   {
     id: "APP007", applicant: "Nadia Gamal", type: "Employee",
@@ -397,15 +397,15 @@ export const ONBOARDING = [
 // slaDays = days an applicant is allowed in this status before HR is warned.
 // owner   = who acts to advance this stage forward.
 export const APPLICATION_STAGE_META = {
-  'Submitted':            { order: 1, color: '#3b82f6', slaDays: 2,  owner: 'HR',      next: 'Under Review',
-                            help: 'Application received. HR triages within 2 business days.' },
-  'Under Review':         { order: 2, color: '#0ea5e9', slaDays: 3,  owner: 'HR',      next: 'Documents Pending',
+  'Submitted':            { order: 1, color: '#3b82f6', slaDays: 1,  owner: 'HR',      next: 'Under Review',
+                            help: 'Application received. HR triages within 1 business day.' },
+  'Under Review':         { order: 2, color: '#0ea5e9', slaDays: 2,  owner: 'HR',      next: 'Documents Pending',
                             help: 'Initial screening — CV review, eligibility check.' },
   'Documents Pending':    { order: 3, color: '#f59e0b', slaDays: 7,  owner: 'Applicant', next: 'Training In Progress',
-                            help: 'Awaiting required documents from applicant (ID, RERA, Education).' },
-  'Training In Progress': { order: 4, color: '#8b5cf6', slaDays: 14, owner: 'Academy', next: 'Final Approval',
+                            help: 'Awaiting required documents from applicant (ID, Education).' },
+  'Training In Progress': { order: 4, color: '#8b5cf6', slaDays: 10, owner: 'Academy', next: 'Final Approval',
                             help: 'Mandatory training enrolled. Auto-advances when all required courses complete.' },
-  'Final Approval':       { order: 5, color: '#06b6d4', slaDays: 3,  owner: 'Director',next: 'Activated',
+  'Final Approval':       { order: 5, color: '#06b6d4', slaDays: 2,  owner: 'Director',next: 'Activated',
                             help: 'All checklist items complete — Sales Director sign-off required before activation.' },
   // Terminal: success — employee record flipped from 'Pending Onboarding' to 'Active'.
   'Activated':            { order: 6, color: '#10b981', slaDays: 0,  owner: 'System',  next: null,
@@ -426,7 +426,6 @@ export const DOCUMENTS = [
   { id: "DOC004", doc: "National ID", type: "Identity", agent: "Ahmed Hassan", date: "2023-12-20", status: "Approved", expires: "2030-12-20" },
   { id: "DOC005", doc: "Brokerage Agreement", type: "Legal", agent: "Yasmin Adel", date: "—", status: "Missing", expires: null },
   { id: "DOC006", doc: "National ID", type: "Identity", agent: "Hana Mahmoud", date: "2024-01-08", status: "Rejected", expires: null },
-  { id: "DOC007", doc: "RERA License", type: "Regulatory", agent: "Mohamed Ali", date: "2024-01-12", status: "Approved", expires: "2026-06-30" },
   { id: "DOC008", doc: "Contract Agreement", type: "Legal", agent: "Omar Sherif", date: "2024-01-05", status: "Approved", expires: "2026-01-05" },
 ];
 
@@ -1385,7 +1384,6 @@ export const AGENT_NOTIFICATIONS = [
   // Document updates
   { id:'N-001', category:'document', text:'Your National ID has been approved', time:'2 hours ago', type:'success' },
   { id:'N-002', category:'document', text:'Please upload your Proof of Address document', time:'3 days ago', type:'warning' },
-  { id:'N-003', category:'document', text:'RERA License expires in 28 days — please renew', time:'1 day ago', type:'warning' },
   // HR updates
   { id:'N-004', category:'hr', text:'Q3 performance review scheduled for 15 July 2026', time:'4 hours ago', type:'info' },
   { id:'N-005', category:'hr', text:'New leave balance: 18 days available', time:'2 days ago', type:'info' },
@@ -1447,7 +1445,6 @@ export const AGENT_DOCS = [
   // `expires` — validity end date. null for non-expiring docs.
   { id:'AD-001', doc:'National ID', type:'Identity', status:'Approved', date:'2024-01-14', expires:'2031-01-14' },
   { id:'AD-002', doc:'Tax Card', type:'Financial', status:'Approved', date:'2024-01-14', expires:'2026-12-31' },
-  { id:'AD-003', doc:'RERA License', type:'Regulatory', status:'Approved', date:'2024-01-12', expires:'2026-06-30' },
   { id:'AD-004', doc:'Brokerage Agreement', type:'Legal', status:'Approved', date:'2024-01-10', expires:'2026-01-10' },
   { id:'AD-005', doc:'Criminal Record', type:'Legal', status:'Approved', date:'2024-01-08', expires:'2025-07-08' },
   { id:'AD-006', doc:'Bank Details', type:'Financial', status:'Approved', date:'2024-01-08', expires:null },

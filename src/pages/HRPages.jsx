@@ -43,11 +43,6 @@ export const EmployeeProfiles = () => {
             <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'wrap'}}>
               <span className={`badge ${s.status === 'Active' ? 'badge-success' : s.status === 'Suspended' ? 'badge-danger' : 'badge-warning'}`}>{s.status}</span>
               <span style={{fontSize:10, fontWeight:700, color:'var(--brand)', background:'#fff', padding:'2px 8px', borderRadius:999, border:'1px solid var(--brand)'}}>{s.type}</span>
-              {s.rera && (
-                <span style={{fontSize:10, fontWeight:700, color: s.rera.startsWith('RERA') ? '#10b981' : '#f59e0b', background: s.rera.startsWith('RERA') ? '#ecfdf5' : '#fef3c7', padding:'2px 8px', borderRadius:999}}>
-                  {s.rera}
-                </span>
-              )}
             </div>
           </div>
         </div>

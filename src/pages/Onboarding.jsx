@@ -124,15 +124,34 @@ const badgeColorForStage = (stage) => {
   return 'badge-info';
 };
 
+// ─── SlaPill — 3-state SLA indicator (SME ask, May 2026) ───────────────
+// Every onboarding stage carries an SLA (slaDays in APPLICATION_STAGE_META).
+// The pill shows whether the record is On track / At risk / Breached based
+// on how long it has sat in its current stage. Terminal stages (slaDays 0)
+// render nothing.
+const SlaPill = ({ days, sla }) => {
+  if (!sla || sla <= 0) return null;
+  const tone = days > sla
+    ? { bg:'#fef2f2', fg:'#dc2626', label:'Breached' }
+    : days >= sla * 0.75
+      ? { bg:'#fffbeb', fg:'#b45309', label:'At risk' }
+      : { bg:'#ecfdf5', fg:'#047857', label:'On track' };
+  return (
+    <span title={`${days}d in stage · ${sla}-day SLA`} style={{
+      padding:'2px 7px', borderRadius:4, fontSize:9, fontWeight:700,
+      background:tone.bg, color:tone.fg, textTransform:'uppercase', letterSpacing:'.04em', whiteSpace:'nowrap',
+    }}>{tone.label} · {sla}d SLA</span>
+  );
+};
+
 // Required documents + training (same as before for checklist computation).
-const REQUIRED_DOCS = ['National ID', 'Education Certificate', 'RERA License', 'Contract Agreement'];
+// RERA License removed system-wide per SME review (May 2026).
+const REQUIRED_DOCS = ['National ID', 'Education Certificate', 'Contract Agreement'];
 const REQUIRED_TRAINING_IDS = ['CRS-001', 'CRS-002', 'CRS-003', 'CRS-004'];
 
 const computeChecklist = (applicant, documents, training) => {
   const applicantDocs = (documents || []).filter(d => d.agent === applicant.applicant);
   const hasAllRequired = REQUIRED_DOCS.every(t => applicantDocs.some(d => d.doc === t && d.status === 'Approved'));
-  const reraDoc = applicantDocs.find(d => d.doc === 'RERA License');
-  const reraOk  = reraDoc?.status === 'Approved';
 
   const completedTraining = (training || []).filter(c => REQUIRED_TRAINING_IDS.includes(c.id) && c.status === 'Completed');
   const trainingPct = Math.round((completedTraining.length / REQUIRED_TRAINING_IDS.length) * 100);
@@ -146,19 +165,17 @@ const computeChecklist = (applicant, documents, training) => {
   const stateMap = {
     application: appReviewed,
     documents:   hasAllRequired,
-    rera:        reraOk,
     training:    trainingPct === 100 || stageOrder >= 5,
     m365:        m365Done,
     welcome:     welcomeDone,
   };
   const done = Object.values(stateMap).filter(Boolean).length;
-  return { state: stateMap, done, total: 6, trainingPct };
+  return { state: stateMap, done, total: 5, trainingPct };
 };
 
 const CHECKLIST_STEPS = [
   { key: 'application', label: 'Application reviewed',         icon: FileText,     owner: 'HR' },
   { key: 'documents',   label: 'Required documents on file',   icon: ShieldCheck,  owner: 'HR' },
-  { key: 'rera',        label: 'RERA license verified',        icon: Briefcase,    owner: 'HR' },
   { key: 'training',    label: 'Mandatory training complete',  icon: GraduationCap, owner: 'Academy' },
   { key: 'm365',        label: 'M365 + CRM access provisioned', icon: KeyRound,    owner: 'IT' },
   { key: 'welcome',     label: 'Welcome kit delivered',        icon: Mail,         owner: 'HR' },
@@ -811,12 +828,9 @@ export const Onboarding = () => {
                     <td className="muted">{a.source || '—'}</td>
                     <td><span className={`badge ${badgeColorForStage(a.status)}`}>{a.status}</span></td>
                     <td>
-                      <div style={{display:'flex', alignItems:'center', gap:6}}>
+                      <div style={{display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
                         <span style={{fontSize:12, fontWeight:600, color: breached ? '#dc2626' : 'var(--text-primary)'}}>{days}d</span>
-                        {breached && <span title={`SLA ${sla}d breached`} style={{
-                          padding:'2px 6px', borderRadius:4, fontSize:9, fontWeight:700,
-                          background:'#fef2f2', color:'#dc2626', textTransform:'uppercase', letterSpacing:'.05em',
-                        }}>SLA</span>}
+                        <SlaPill days={days} sla={sla}/>
                       </div>
                     </td>
                     <td>
@@ -1088,6 +1102,9 @@ const ApplicantDrawer = ({ applicant, documents, training, candidates, offers, o
           </div>
           <div style={{fontSize:12, color:'var(--text-secondary)', marginTop:2}}>{stageMeta(a.status).help}</div>
         </div>
+        {stageMeta(a.status).slaDays > 0 && (
+          <SlaPill days={daysSince(lastStageEntry(a).at)} sla={stageMeta(a.status).slaDays}/>
+        )}
       </div>
 
       {/* Auto-activate banner */}
