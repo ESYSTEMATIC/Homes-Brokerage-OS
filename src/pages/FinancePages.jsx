@@ -8,35 +8,125 @@ import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
 const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Collected'?'badge-success':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
 
+// ═══════════════════════════════════════════════════════════════
+// Finance Dashboard — rebuilt to live data (SME finance review, May 2026)
+//   • KPIs: Gross Revenue · Pending Payouts · Paid Payout Net of VAT ·
+//     Net Revenue (= Commission − VAT − Payouts).
+//   • Total Revenue = Collected + Pending commission pools.
+//   • Filters + date range. Total Expenses and Pending Commission
+//     Overrides intentionally removed.
+// ═══════════════════════════════════════════════════════════════
 export const FinanceOverview = () => {
   const { state } = useApp();
+  const [adv, setAdv] = useState({ dateFrom: '', dateTo: '', developer: '' });
+  const advActive = !!(adv.dateFrom || adv.dateTo || adv.developer);
+  const reset = () => setAdv({ dateFrom: '', dateTo: '', developer: '' });
+
+  const developers = useMemo(
+    () => Array.from(new Set((state.commEngine || []).map(c => c.developer).filter(Boolean))).sort(),
+    [state.commEngine],
+  );
+
+  // Commission records drive every KPI; Rejected rows are excluded.
+  const rows = useMemo(() => (state.commEngine || []).filter(c => {
+    if (c.status === 'Rejected') return false;
+    if (adv.developer && c.developer !== adv.developer) return false;
+    const d = (c.createdAt || '').slice(0, 10);
+    if (adv.dateFrom && d < adv.dateFrom) return false;
+    if (adv.dateTo && d > adv.dateTo) return false;
+    return true;
+  }), [state.commEngine, adv]);
+
+  const payoutOf = (c) => (c.agentShare || 0) + (c.tlShare || 0) + (c.managerShare || 0) + (c.directorShare || 0);
+  const collected = rows.filter(c => c.status === 'Collected');
+  const approved  = rows.filter(c => c.status === 'Approved');
+
+  // Gross Revenue = Total Revenue = Collected + Pending commission pools.
+  const grossRevenue   = rows.reduce((s, c) => s + (c.pool || 0), 0);
+  // Pending Payout = payout owed on Approved (not-yet-collected) commissions.
+  const pendingPayouts = approved.reduce((s, c) => s + payoutOf(c), 0);
+  // Paid Payout Net of VAT = disbursed payout on Collected commissions, less VAT.
+  const paidNetVat     = collected.reduce((s, c) => s + payoutOf(c) - (c.vat || 0), 0);
+  // Net Revenue = Commission − VAT − Payouts (on collected commissions).
+  const commissionC = collected.reduce((s, c) => s + (c.pool || 0), 0);
+  const vatC        = collected.reduce((s, c) => s + (c.vat || 0), 0);
+  const payoutC     = collected.reduce((s, c) => s + payoutOf(c), 0);
+  const netRevenue  = commissionC - vatC - payoutC;
+
+  const byStatus = ['Pending', 'Approved', 'Collected'].map(st => {
+    const set = rows.filter(c => c.status === st);
+    return { st, n: set.length, pool: set.reduce((s, c) => s + (c.pool || 0), 0) };
+  });
+  const maxPool = Math.max(1, ...byStatus.map(b => b.pool));
+
+  const kpis = [
+    { label: 'Gross Revenue',           value: grossRevenue,   icon: 'green', sub: 'Collected + Pending commission' },
+    { label: 'Pending Payouts',         value: pendingPayouts, icon: 'amber', sub: 'Owed on approved commissions' },
+    { label: 'Paid Payout · Net of VAT',value: paidNetVat,     icon: 'blue',  sub: 'Disbursed payout, less 14% VAT' },
+    { label: 'Net Revenue',             value: netRevenue,     icon: 'green', sub: 'Commission − VAT − Payouts' },
+  ];
+
   return (
     <div>
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Financial Mgmt</span><span>&gt;</span><span className="current">Overview</span></div>
-        <h1 className="page-title">Financial Overview</h1>
-        <p className="page-subtitle">Revenue, commissions, and financial health</p>
+        <h1 className="page-title">Finance Dashboard</h1>
+        <p className="page-subtitle">Revenue, commissions, and payouts — live from the Commission Engine</p>
       </div>
-      <div className="kpi-grid kpi-grid-4">
-        <div className="kpi-card"><div><div className="kpi-label">Total Revenue</div><div className="kpi-value" style={{fontSize:20}}>{fmt(790000)}</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>💰</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Total Commission Pool</div><div className="kpi-value" style={{fontSize:20}}>{fmt(1185000)}</div></div><div className="kpi-icon blue"><span style={{fontSize:20}}>📊</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Pending Payouts</div><div className="kpi-value" style={{fontSize:20}}>{fmt(state.agentDues.reduce((s,a)=>s+a.pending,0))}</div></div><div className="kpi-icon amber"><span style={{fontSize:20}}>⏳</span></div></div>
-        <div className="kpi-card"><div><div className="kpi-label">Net Result</div><div className="kpi-value" style={{fontSize:20}}>{fmt(497000)}</div><div className="kpi-change up">↑ Profitable</div></div><div className="kpi-icon green"><span style={{fontSize:20}}>📈</span></div></div>
-      </div>
-      <div className="grid-equal-2">
-        <div className="chart-placeholder"><div className="chart-title">Monthly Revenue Trend</div>
-          <div className="chart-bars">{[45,58,72,65,78,90].map((v,i)=><div key={i} className="chart-bar" style={{background:'rgba(232,103,42,0.2)',height:`${v}%`,borderTop:'3px solid #E8672A'}}/>)}</div>
+
+      {/* Filters + date range */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'flex-end',padding:'14px 16px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:12,marginBottom:18}}>
+        <div className="form-group" style={{margin:0}}>
+          <label>From</label>
+          <input type="date" value={adv.dateFrom} onChange={e=>setAdv({...adv,dateFrom:e.target.value})}/>
         </div>
-        <div className="chart-placeholder"><div className="chart-title">Commission Distribution</div>
-          <div style={{display:'flex',flexDirection:'column',gap:12,flex:1,justifyContent:'center'}}>
-            {[['Agent Share',35],['TL Share',10],['Company Share',55]].map(([l,p])=>(
-              <div key={l} style={{display:'flex',alignItems:'center',gap:12}}>
-                <span style={{width:100,fontSize:12,color:'var(--text-secondary)',textAlign:'right'}}>{l}</span>
-                <div className="progress-bar" style={{flex:1}}><div className="progress-fill blue" style={{width:`${p}%`}}/></div>
-                <span style={{fontSize:12,fontWeight:600}}>{p}%</span>
-              </div>
-            ))}
+        <div className="form-group" style={{margin:0}}>
+          <label>To</label>
+          <input type="date" value={adv.dateTo} onChange={e=>setAdv({...adv,dateTo:e.target.value})}/>
+        </div>
+        <div className="form-group" style={{margin:0,minWidth:180}}>
+          <label>Developer</label>
+          <select value={adv.developer} onChange={e=>setAdv({...adv,developer:e.target.value})}>
+            <option value="">All developers</option>
+            {developers.map(d=><option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:11,color:'var(--text-tertiary)'}}>{rows.length} commission record{rows.length===1?'':'s'} in scope</span>
+          {advActive && <button className="btn btn-outline btn-sm" onClick={reset}><X size={12}/> Reset</button>}
+        </div>
+      </div>
+
+      {/* KPI cards */}
+      <div className="kpi-grid kpi-grid-4">
+        {kpis.map(k => (
+          <div className="kpi-card" key={k.label}>
+            <div>
+              <div className="kpi-label">{k.label}</div>
+              <div className="kpi-value" style={{fontSize:20}}>{fmt(k.value)}</div>
+              <div style={{fontSize:10,color:'var(--text-tertiary)',marginTop:4}}>{k.sub}</div>
+            </div>
+            <div className={`kpi-icon ${k.icon}`}><DollarSign size={20}/></div>
           </div>
+        ))}
+      </div>
+
+      {/* Commission pool by status */}
+      <div className="data-panel" style={{padding:'18px 22px',marginTop:18}}>
+        <div style={{fontSize:13,fontWeight:800,marginBottom:14}}>Commission pool by status</div>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {byStatus.map(b => (
+            <div key={b.st} style={{display:'grid',gridTemplateColumns:'130px 1fr 150px',alignItems:'center',gap:10,fontSize:12}}>
+              <span style={{fontWeight:700,color:'var(--text-secondary)'}}>{b.st} <span style={{color:'var(--text-tertiary)',fontWeight:500}}>· {b.n}</span></span>
+              <div style={{height:16,background:'#f1f5f9',borderRadius:4,overflow:'hidden'}}>
+                <div style={{width:`${Math.round(b.pool/maxPool*100)}%`,height:'100%',background:b.st==='Collected'?'#10b981':b.st==='Approved'?'#3b82f6':'#f59e0b'}}/>
+              </div>
+              <span style={{fontWeight:700,textAlign:'right'}}>{fmt(b.pool)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid var(--border)',fontSize:11,color:'var(--text-tertiary)',lineHeight:1.7}}>
+          Net Revenue = Commission ({fmt(commissionC)}) − VAT ({fmt(vatC)}) − Payouts ({fmt(payoutC)}) = <b style={{color:'var(--text-primary)'}}>{fmt(netRevenue)}</b> · on collected commissions. Commission payouts are processed quarterly.
         </div>
       </div>
     </div>
