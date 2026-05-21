@@ -346,7 +346,7 @@ const FinanceDashboard = () => {
           <div style={{display:'flex', flexDirection:'column', gap:14, padding:'10px 0'}}>
             {[
               { label: 'Pending',   count: ce.filter(c => c.status === 'Pending').length,  color:'#f59e0b' },
-              { label: 'Approved',  count: ce.filter(c => c.status === 'Approved').length, color:'#3b82f6' },
+              { label: 'Invoiced',  count: ce.filter(c => c.status === 'Invoiced').length, color:'#3b82f6' },
               { label: 'Collected', count: collected.length,                               color:'#10b981' },
             ].map(s => (
               <div key={s.label} style={{display:'flex', alignItems:'center', gap:14}}>

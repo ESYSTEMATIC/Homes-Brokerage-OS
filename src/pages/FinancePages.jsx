@@ -50,7 +50,7 @@ export const FinanceOverview = () => {
   const netRevenue       = grossRevenue - vatTotal;                        // revenue net of VAT
   const netResult        = netRevenue - payoutTotal;                       // company keep after payouts
 
-  const byStatus = ['Pending', 'Approved', 'Collected'].map(st => {
+  const byStatus = ['Pending', 'Invoiced', 'Collected'].map(st => {
     const set = rows.filter(c => c.status === st);
     return { st, n: set.length, pool: set.reduce((s, c) => s + (c.pool || 0), 0) };
   });
@@ -116,7 +116,7 @@ export const FinanceOverview = () => {
             <div key={b.st} style={{display:'grid',gridTemplateColumns:'130px 1fr 150px',alignItems:'center',gap:10,fontSize:12}}>
               <span style={{fontWeight:700,color:'var(--text-secondary)'}}>{b.st} <span style={{color:'var(--text-tertiary)',fontWeight:500}}>· {b.n}</span></span>
               <div style={{height:16,background:'#f1f5f9',borderRadius:4,overflow:'hidden'}}>
-                <div style={{width:`${Math.round(b.pool/maxPool*100)}%`,height:'100%',background:b.st==='Collected'?'#10b981':b.st==='Approved'?'#3b82f6':'#f59e0b'}}/>
+                <div style={{width:`${Math.round(b.pool/maxPool*100)}%`,height:'100%',background:b.st==='Collected'?'#10b981':b.st==='Invoiced'?'#3b82f6':'#f59e0b'}}/>
               </div>
               <span style={{fontWeight:700,textAlign:'right'}}>{fmt(b.pool)}</span>
             </div>
@@ -307,7 +307,7 @@ export const CommissionEngine = () => {
   // window to common audit periods (This month / Last month / Q1 / etc).
   const [showAdv, setShowAdv] = useState(false);
   const [adv, setAdv] = useState({
-    dateField: 'createdAt', // createdAt | approvedAt | paidAt
+    dateField: 'createdAt', // createdAt | invoicedAt | paidAt
     dateFrom: '',
     dateTo: '',
     minPool: '',
@@ -367,48 +367,30 @@ export const CommissionEngine = () => {
 
   const splitLine = (c) => `Agent ${fmt(c.agentShare)} · TL ${fmt(c.tlShare)} · Mgr ${fmt(c.managerShare)} · Dir ${fmt(c.directorShare)} · Co ${fmt(c.companyShare)}`;
 
-  // Approve — captures the claim / reference number (SME finance review,
-  // May 2026): after approval the finance officer records the claim no.
-  const approve = (c) => openModal({
-    title: `Approve commission · ${c.deal}`,
-    subtitle: `Lock pool of ${fmt(c.pool)} · ${splitLine(c)}`,
-    submitLabel: 'Approve commission',
-    body: (
-      <Field label="Claim / reference number" name="referenceNo" required placeholder="e.g. CLM-2026-0142" />
-    ),
-    onSubmit: ({ referenceNo }) => {
-      const ref = (referenceNo || '').trim();
-      const history = appendCommHistory(c, {
-        action: 'Approved',
-        fromStatus: c.status,
-        toStatus: 'Approved',
-        amount: c.pool,
-        detail: `Pool locked at ${fmt(c.pool)} — ${splitLine(c)} · claim ${ref}`,
-      });
-      updateItem('commEngine', c.id, { status: 'Approved', approvedAt: new Date().toISOString(), approvedBy: persona?.label, referenceNo: ref, history }, { action: 'Commission Approved', module: 'Finance', target: c.deal, detail: `${fmt(c.pool)} · claim ${ref} · by ${persona?.label}` });
-      toast(`${c.deal} approved · claim ${ref}`);
-    },
-  });
-  // Invoice — SME finance review (May 2026): an approved commission must be
-  // invoiced before it can be collected. Records the invoice number and
-  // moves the record to 'Invoiced'.
+  // Invoice — SME finance review (May 2026). The commission lifecycle is
+  // Pending → Invoiced → Collected: a pending commission is invoiced (the
+  // invoice + claim number are recorded), then later marked collected.
   const invoiceCommission = (c) => openModal({
     title: `Generate invoice · ${c.deal}`,
-    subtitle: `Pool ${fmt(c.pool)} · VAT ${fmt(c.vat)} · claim ${c.referenceNo || '—'}`,
+    subtitle: `Pool ${fmt(c.pool)} · VAT ${fmt(c.vat)} · ${splitLine(c)}`,
     submitLabel: 'Issue invoice',
     body: (
-      <Field label="Invoice number" name="invoiceNo" required placeholder="e.g. INV-2026-0517" />
+      <>
+        <Field label="Invoice number" name="invoiceNo" required placeholder="e.g. INV-2026-0517" />
+        <Field label="Claim / reference number" name="referenceNo" placeholder="e.g. CLM-2026-0142" />
+      </>
     ),
-    onSubmit: ({ invoiceNo }) => {
+    onSubmit: ({ invoiceNo, referenceNo }) => {
       const inv = (invoiceNo || '').trim();
+      const ref = (referenceNo || '').trim();
       const history = appendCommHistory(c, {
         action: 'Invoiced',
         fromStatus: c.status,
         toStatus: 'Invoiced',
         amount: c.pool,
-        detail: `Invoice ${inv} issued — pool ${fmt(c.pool)} + VAT ${fmt(c.vat)}`,
+        detail: `Invoice ${inv} issued — pool ${fmt(c.pool)} + VAT ${fmt(c.vat)}${ref ? ` · claim ${ref}` : ''}`,
       });
-      updateItem('commEngine', c.id, { status: 'Invoiced', invoiceNo: inv, invoicedAt: new Date().toISOString(), invoicedBy: persona?.label, history }, { action: 'Commission Invoiced', module: 'Finance', target: c.deal, detail: `Invoice ${inv} · ${fmt(c.pool)}` });
+      updateItem('commEngine', c.id, { status: 'Invoiced', invoiceNo: inv, referenceNo: ref || c.referenceNo || null, invoicedAt: new Date().toISOString(), invoicedBy: persona?.label, history }, { action: 'Commission Invoiced', module: 'Finance', target: c.deal, detail: `Invoice ${inv} · ${fmt(c.pool)} · by ${persona?.label}` });
       toast(`${c.deal} invoiced · ${inv}`);
     },
   });
@@ -524,7 +506,7 @@ export const CommissionEngine = () => {
             ['Invoice No', c.invoiceNo || '—'],
             ['Created', c.createdAt || '—'],
             ['Status', c.status],
-            ['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Collected' ? '—' : 'pending')],
+            ['Invoiced by', c.invoicedBy || (c.status === 'Invoiced' || c.status === 'Collected' ? '—' : 'pending')],
             ['Collected by', c.paidBy || (c.status === 'Collected' ? '—' : 'pending')],
           ].map(([k,v])=>(<div key={k}><label>{k}</label><div className="v">{v}</div></div>))}
         </div>
@@ -587,7 +569,7 @@ export const CommissionEngine = () => {
           {Array.isArray(c.history) && c.history.length > 0 ? (
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {[...c.history].reverse().map((h, i) => (
-                <div key={i} style={{display:'flex',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`3px solid ${h.action === 'Collected' ? '#10b981' : h.action === 'Approved' ? 'var(--brand)' : h.action === 'Rejected' ? '#ef4444' : '#94a3b8'}`,fontSize:12,lineHeight:1.5}}>
+                <div key={i} style={{display:'flex',gap:10,padding:'10px 12px',background:'#fafbfc',border:'1px solid var(--border)',borderRadius:8,borderLeft:`3px solid ${h.action === 'Collected' ? '#10b981' : h.action === 'Invoiced' ? 'var(--brand)' : h.action === 'Rejected' ? '#ef4444' : '#94a3b8'}`,fontSize:12,lineHeight:1.5}}>
                   <div style={{minWidth:140}}>
                     <div style={{fontWeight:700,color:'var(--text-primary)'}}>{h.action}</div>
                     <div style={{fontSize:10,color:'var(--text-tertiary)',fontFamily:'ui-monospace,monospace'}}>{(h.at || '').slice(0,16).replace('T',' ')}</div>
@@ -616,7 +598,7 @@ export const CommissionEngine = () => {
           <div className="data-toolbar-left">
             <input className="data-search" placeholder="Search by Deal ID, unit, project, developer, agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
-              <option value="">All Statuses</option>{['Pending','Approved','Invoiced','Collected','Rejected'].map(s=><option key={s}>{s}</option>)}
+              <option value="">All Statuses</option>{['Pending','Invoiced','Collected','Rejected'].map(s=><option key={s}>{s}</option>)}
             </select>
             <button
               type="button"
@@ -652,7 +634,7 @@ export const CommissionEngine = () => {
               { key: 'companyShare',  label: 'Company share',       format: v => fmt(v) },
               { key: 'status',        label: 'Status' },
               { key: 'createdAt',     label: 'Created' },
-              { key: 'approvedAt',    label: 'Approved at' },
+              { key: 'invoicedAt',    label: 'Invoiced at' },
               { key: 'paidAt',        label: 'Collected at' },
             ]}
             filename="commission_engine"
@@ -693,8 +675,8 @@ export const CommissionEngine = () => {
                 <label>Date field</label>
                 <select value={adv.dateField} onChange={e=>setAdv({...adv, dateField: e.target.value})}>
                   <option value="createdAt">Created</option>
-                  <option value="approvedAt">Approved</option>
-                  <option value="paidAt">Paid</option>
+                  <option value="invoicedAt">Invoiced</option>
+                  <option value="paidAt">Collected</option>
                 </select>
               </div>
               <div className="form-group" style={{margin:0}}>
@@ -779,8 +761,7 @@ export const CommissionEngine = () => {
                 <td className="muted" style={{fontSize:11,fontFamily:'ui-monospace,monospace'}}>{c.createdAt || '—'}</td>
                 <td style={{textAlign:'right'}}><div className="row-actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>view(c)}><Eye size={13}/></button>
-                  {c.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>approve(c)}>Approve</button>}
-                  {c.status==='Approved' && <button className="btn btn-primary btn-sm" onClick={()=>invoiceCommission(c)}><Receipt size={13}/> Generate Invoice</button>}
+                  {c.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>invoiceCommission(c)}><Receipt size={13}/> Generate Invoice</button>}
                   {c.status==='Invoiced' && <button className="btn btn-success btn-sm" onClick={()=>markPaid(c)}><CheckCircle2 size={13}/> Mark Collected</button>}
                   {c.status==='Collected' && <span style={{color:'var(--success)',fontWeight:600,fontSize:12}}>Collected ✓</span>}
                   {c.status==='Rejected' && <span style={{color:'var(--danger)',fontWeight:600,fontSize:12}}>Rejected</span>}

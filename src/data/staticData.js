@@ -1133,12 +1133,12 @@ const _historyFor = (ce, splits) => {
     `Agent ${_eg(splits.agentShare)} · TL ${_eg(splits.tlShare)} · ` +
     `Mgr ${_eg(splits.managerShare)} · Dir ${_eg(splits.directorShare)} · ` +
     `Co ${_eg(splits.companyShare)}`;
-  const approved = {
+  const invoiced = {
     at: _dt(ce.createdAt, 3, 14, 15),
-    actor: _DIR,
-    action: 'Approved',
+    actor: 'Finance Officer',
+    action: 'Invoiced',
     fromStatus: 'Pending',
-    toStatus: 'Approved',
+    toStatus: 'Invoiced',
     amount: ce.pool,
     detail: `Pool locked at ${_eg(ce.pool)} — ${splitLine}`,
   };
@@ -1146,7 +1146,7 @@ const _historyFor = (ce, splits) => {
     at: _dt(ce.createdAt, 10, 11, 0),
     actor: 'Finance Officer',
     action: 'Collected',
-    fromStatus: 'Approved',
+    fromStatus: 'Invoiced',
     toStatus: 'Collected',
     amount: ce.pool,
     detail:
@@ -1164,8 +1164,8 @@ const _historyFor = (ce, splits) => {
     toStatus: 'Rejected',
     detail: 'Rejected at finance review — split or supporting documents flagged.',
   };
-  if (ce.status === 'Approved') return [created, approved];
-  if (ce.status === 'Collected') return [created, approved, paid];
+  if (ce.status === 'Invoiced') return [created, invoiced];
+  if (ce.status === 'Collected') return [created, invoiced, paid];
   if (ce.status === 'Rejected') return [created, rejected];
   return [created]; // Pending
 };
@@ -1181,7 +1181,7 @@ const _enrichCE = (rows) => rows.map((ce) => {
   // linked deal so the Commission Engine and the Deals pages always agree.
   const _ld = (DEALS || []).find(d => d.id === ce.dealId);
   const history = _historyFor(ce, splits);
-  const approvedEntry = history.find(h => h.action === 'Approved');
+  const invoicedEntry = history.find(h => h.action === 'Invoiced');
   const paidEntry     = history.find(h => h.action === 'Collected');
   const rejectedEntry = history.find(h => h.action === 'Rejected');
   return {
@@ -1194,8 +1194,8 @@ const _enrichCE = (rows) => rows.map((ce) => {
     manager: _MGR,
     director: _DIR,
     history,
-    approvedAt: approvedEntry?.at  || null,
-    approvedBy: approvedEntry?.actor || null,
+    invoicedAt: invoicedEntry?.at  || null,
+    invoicedBy: invoicedEntry?.actor || null,
     paidAt:     paidEntry?.at      || null,
     paidBy:     paidEntry?.actor   || null,
     rejectedAt: rejectedEntry?.at  || null,
@@ -1204,7 +1204,8 @@ const _enrichCE = (rows) => rows.map((ce) => {
     // figure (14%) and a collection due date (quarterly horizon).
     dueDate: ce.dueDate || _addDays(ce.createdAt, 90),
     vat: ce.vat != null ? ce.vat : vatAmount(ce.pool),
-    referenceNo: ce.referenceNo || null,
+    referenceNo: ce.referenceNo || ((ce.status === 'Invoiced' || ce.status === 'Collected') ? `CLM-2026-${String(ce.id).replace(/\D/g,'').padStart(4,'0')}` : null),
+    invoiceNo: ce.invoiceNo || ((ce.status === 'Invoiced' || ce.status === 'Collected') ? `INV-2026-${String(ce.id).replace(/\D/g,'').padStart(4,'0')}` : null),
   };
 });
 
@@ -1217,31 +1218,31 @@ const _enrichCE = (rows) => rows.map((ce) => {
 // The legacy `deal` field is preserved as a display label (it carries the
 // unit code in the old format) so toasts/search continue to work.
 export const COMM_ENGINE = _enrichCE([
-  { id:'CE-01', deal:'PH-BAD-A101',  dealId:'D-601', developer:'Palm Hills',     project:'Badya',                  unit:'A101',   agent:'Ahmed Hassan',  pool:135000, status:'Approved', createdAt:'2026-04-12' },
+  { id:'CE-01', deal:'PH-BAD-A101',  dealId:'D-601', developer:'Palm Hills',     project:'Badya',                  unit:'A101',   agent:'Ahmed Hassan',  pool:135000, status:'Invoiced', createdAt:'2026-04-12' },
   { id:'CE-02', deal:'EM-VIL-B205',  dealId:'D-602', developer:'Emaar',          project:'Mivida',                 unit:'B205',   agent:'Fatma Ibrahim', pool:186000, status:'Pending',  createdAt:'2026-05-14' },
   { id:'CE-03', deal:'MV-IC-C310',   dealId:'D-603', developer:'Mountain View',  project:'Mountain View iCity',    unit:'C310',   agent:'Mohamed Ali',   pool:114000, status:'Collected',     createdAt:'2026-03-22' },
-  { id:'CE-04', deal:'ORA-ZED-D102', dealId:'D-501', developer:'Ora',            project:'ZED East',               unit:'D102',   agent:'Sara Nabil',    pool:153000, status:'Approved', createdAt:'2026-04-30' },
+  { id:'CE-04', deal:'ORA-ZED-D102', dealId:'D-501', developer:'Ora',            project:'ZED East',               unit:'D102',   agent:'Sara Nabil',    pool:153000, status:'Invoiced', createdAt:'2026-04-30' },
   { id:'CE-05', deal:'CE-NC-E201',   dealId:'D-604', developer:'Cleopatra Group',project:'Cleopatra New Cairo',    unit:'E201',   agent:'Dina Samir',    pool:87000,  status:'Pending',  createdAt:'2026-05-16' },
   { id:'CE-06', deal:'TM-OW-F305',   dealId:'D-605', developer:'Talaat Moustafa',project:'Open Sky',               unit:'F305',   agent:'Ahmed Hassan',  pool:234000, status:'Collected',     createdAt:'2026-02-18' },
-  { id:'CE-07', deal:'SD-EST-G110',  dealId:null,    developer:'Sodic',          project:'Eastown Residences',     unit:'G110',   agent:'Mohamed Ali',   pool:276000, status:'Approved', createdAt:'2026-05-02' },
+  { id:'CE-07', deal:'SD-EST-G110',  dealId:null,    developer:'Sodic',          project:'Eastown Residences',     unit:'G110',   agent:'Mohamed Ali',   pool:276000, status:'Invoiced', createdAt:'2026-05-02' },
   // ─── Expansion seed (May 2026) ───
-  { id:'CE-08', deal:'PH-NC-V101',   dealId:'D-504', developer:'Palm Hills',     project:'Palm Hills New Cairo',   unit:'V101',   agent:'Fatma Ibrahim', pool:396000, status:'Approved', createdAt:'2026-04-05' },
+  { id:'CE-08', deal:'PH-NC-V101',   dealId:'D-504', developer:'Palm Hills',     project:'Palm Hills New Cairo',   unit:'V101',   agent:'Fatma Ibrahim', pool:396000, status:'Invoiced', createdAt:'2026-04-05' },
   { id:'CE-09', deal:'HP-TH-B304',   dealId:'D-502', developer:'Hyde Park',      project:'Hyde Park',              unit:'TH-B304',agent:'Fatma Ibrahim', pool:372000, status:'Pending',  createdAt:'2026-05-10' },
-  { id:'CE-10', deal:'MR-CH-12',     dealId:'D-516', developer:'Emaar',          project:'Marassi',                unit:'CH-12',  agent:'Fatma Ibrahim', pool:510000, status:'Approved', createdAt:'2026-04-18' },
+  { id:'CE-10', deal:'MR-CH-12',     dealId:'D-516', developer:'Emaar',          project:'Marassi',                unit:'CH-12',  agent:'Fatma Ibrahim', pool:510000, status:'Invoiced', createdAt:'2026-04-18' },
   { id:'CE-11', deal:'HB-CH-A12',    dealId:'D-503', developer:'Palm Hills',     project:'Hacienda Bay',           unit:'CH-A12', agent:'Hana Mahmoud',  pool:708750, status:'Pending',  createdAt:'2026-05-15' },
   { id:'CE-12', deal:'MV-DX-44',     dealId:'D-606', developer:'Mountain View',  project:'Mountain View iCity',    unit:'DX-44',  agent:'Ahmed Hassan',  pool:276000, status:'Collected',     createdAt:'2026-01-25' },
   { id:'CE-13', deal:'SW-V-08',      dealId:'D-519', developer:'Sodic',          project:'Sodic West',             unit:'V-08',   agent:'Fatma Ibrahim', pool:324450, status:'Collected',     createdAt:'2026-02-08' },
   { id:'CE-14', deal:'CH-A-110',     dealId:'D-517', developer:'Better Home',    project:'Capital Heights',        unit:'A-110',  agent:'Omar Sherif',   pool:122400, status:'Pending',  createdAt:'2026-05-17' },
   { id:'CE-15', deal:'MV-V-201',     dealId:'D-512', developer:'Mountain View',  project:'Mountain View iCity',    unit:'V-201',  agent:'Ahmed Hassan',  pool:257400, status:'Pending',  createdAt:'2026-05-09' },
-  { id:'CE-16', deal:'ET-A-301',     dealId:'D-523', developer:'Sodic',          project:'Eastown Residences',     unit:'A-301',  agent:'Fatma Ibrahim', pool:417450, status:'Approved', createdAt:'2026-04-22' },
-  { id:'CE-17', deal:'PP-TW-15',     dealId:'D-607', developer:'Palm Hills',     project:'Palm Parks',             unit:'TW-15',  agent:'Ahmed Hassan',  pool:345000, status:'Approved', createdAt:'2026-04-28' },
-  { id:'CE-18', deal:'CFC-A-410',    dealId:'D-521', developer:'Al-Futtaim',     project:'Cairo Festival City',    unit:'A-410',  agent:'Omar Sherif',   pool:234000, status:'Approved', createdAt:'2026-05-04' },
+  { id:'CE-16', deal:'ET-A-301',     dealId:'D-523', developer:'Sodic',          project:'Eastown Residences',     unit:'A-301',  agent:'Fatma Ibrahim', pool:417450, status:'Invoiced', createdAt:'2026-04-22' },
+  { id:'CE-17', deal:'PP-TW-15',     dealId:'D-607', developer:'Palm Hills',     project:'Palm Parks',             unit:'TW-15',  agent:'Ahmed Hassan',  pool:345000, status:'Invoiced', createdAt:'2026-04-28' },
+  { id:'CE-18', deal:'CFC-A-410',    dealId:'D-521', developer:'Al-Futtaim',     project:'Cairo Festival City',    unit:'A-410',  agent:'Omar Sherif',   pool:234000, status:'Invoiced', createdAt:'2026-05-04' },
   { id:'CE-19', deal:'MR-PH-08',     dealId:'D-527', developer:'Emaar',          project:'Marassi',                unit:'PH-08',  agent:'Hana Mahmoud',  pool:660000, status:'Pending',  createdAt:'2026-05-13' },
-  { id:'CE-20', deal:'ZH-A-105',     dealId:'D-608', developer:'Sodic',          project:'Zayed Heights',          unit:'A-105',  agent:'Ahmed Hassan',  pool:101250, status:'Approved', createdAt:'2026-04-10' },
+  { id:'CE-20', deal:'ZH-A-105',     dealId:'D-608', developer:'Sodic',          project:'Zayed Heights',          unit:'A-105',  agent:'Ahmed Hassan',  pool:101250, status:'Invoiced', createdAt:'2026-04-10' },
   { id:'CE-21', deal:'TS-CH-22',     dealId:'D-526', developer:'Roya',           project:'Telal Sokhna',           unit:'CH-22',  agent:'Hana Mahmoud',  pool:210000, status:'Collected',     createdAt:'2026-03-05' },
-  { id:'CE-22', deal:'CG-A-308',     dealId:'D-609', developer:'Emaar',          project:'Cairo Gate',             unit:'A-308',  agent:'Fatma Ibrahim', pool:279000, status:'Approved', createdAt:'2026-04-24' },
+  { id:'CE-22', deal:'CG-A-308',     dealId:'D-609', developer:'Emaar',          project:'Cairo Gate',             unit:'A-308',  agent:'Fatma Ibrahim', pool:279000, status:'Invoiced', createdAt:'2026-04-24' },
   { id:'CE-23', deal:'AR-A-505',     dealId:'D-610', developer:'Sodic',          project:'Allegria',               unit:'A-505',  agent:'Omar Sherif',   pool:108000, status:'Collected',     createdAt:'2026-02-12' },
-  { id:'CE-24', deal:'HP-A-220',     dealId:'D-515', developer:'Hyde Park',      project:'Hyde Park',              unit:'A-220',  agent:'Ahmed Hassan',  pool:294000, status:'Approved', createdAt:'2026-05-06' },
+  { id:'CE-24', deal:'HP-A-220',     dealId:'D-515', developer:'Hyde Park',      project:'Hyde Park',              unit:'A-220',  agent:'Ahmed Hassan',  pool:294000, status:'Invoiced', createdAt:'2026-05-06' },
   // One rejected example so the timeline + filters demo the Rejected path.
   { id:'CE-25', deal:'PH-V-A305',    dealId:'D-611', developer:'Palm Hills',     project:'Palm Hills New Cairo',   unit:'V-A305', agent:'Mohamed Ali',   pool:198000, status:'Rejected', createdAt:'2026-05-08' },
 ]);
