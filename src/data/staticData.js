@@ -1177,6 +1177,9 @@ const _addDays = (iso, n) => { const d = new Date(iso); if (isNaN(d.getTime())) 
 // (one line per deal) without losing the audit-grade history.
 const _enrichCE = (rows) => rows.map((ce) => {
   const splits = _split(ce.pool);
+  // SME finance review (May 2026): keep Deal ID + Unit identical to the
+  // linked deal so the Commission Engine and the Deals pages always agree.
+  const _ld = (DEALS || []).find(d => d.id === ce.dealId);
   const history = _historyFor(ce, splits);
   const approvedEntry = history.find(h => h.action === 'Approved');
   const paidEntry     = history.find(h => h.action === 'Collected');
@@ -1184,6 +1187,9 @@ const _enrichCE = (rows) => rows.map((ce) => {
   return {
     ...ce,
     ...splits,
+    unit: _ld?.propertyId || ce.unit,
+    developer: _ld?.developer || ce.developer,
+    project: _ld?.project || ce.project,
     teamLeader: _TL,
     manager: _MGR,
     director: _DIR,

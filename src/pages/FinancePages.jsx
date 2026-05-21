@@ -6,7 +6,7 @@ import { findCommissionPolicy, computeSplit, COMMISSION_SPLIT_DEFAULT } from '..
 import { Eye, CheckCircle2, DollarSign, SlidersHorizontal, X, Calendar, Settings, Receipt } from 'lucide-react';
 
 const fmt = v => 'EGP ' + (v||0).toLocaleString();
-const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Collected'?'badge-success':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
+const statusBadge = s => s==='Approved'?'badge-success':s==='Pending'?'badge-warning':s==='Invoiced'?'badge-info':s==='Collected'?'badge-success':s==='Paid'?'badge-info':s==='Cleared'?'badge-success':s==='Unpaid'?'badge-danger':s==='Partial'?'badge-warning':'badge-gray';
 
 // ═══════════════════════════════════════════════════════════════
 // Finance Dashboard — rebuilt to live data (SME finance review, May 2026)
@@ -389,6 +389,29 @@ export const CommissionEngine = () => {
       toast(`${c.deal} approved · claim ${ref}`);
     },
   });
+  // Invoice — SME finance review (May 2026): an approved commission must be
+  // invoiced before it can be collected. Records the invoice number and
+  // moves the record to 'Invoiced'.
+  const invoiceCommission = (c) => openModal({
+    title: `Generate invoice · ${c.deal}`,
+    subtitle: `Pool ${fmt(c.pool)} · VAT ${fmt(c.vat)} · claim ${c.referenceNo || '—'}`,
+    submitLabel: 'Issue invoice',
+    body: (
+      <Field label="Invoice number" name="invoiceNo" required placeholder="e.g. INV-2026-0517" />
+    ),
+    onSubmit: ({ invoiceNo }) => {
+      const inv = (invoiceNo || '').trim();
+      const history = appendCommHistory(c, {
+        action: 'Invoiced',
+        fromStatus: c.status,
+        toStatus: 'Invoiced',
+        amount: c.pool,
+        detail: `Invoice ${inv} issued — pool ${fmt(c.pool)} + VAT ${fmt(c.vat)}`,
+      });
+      updateItem('commEngine', c.id, { status: 'Invoiced', invoiceNo: inv, invoicedAt: new Date().toISOString(), invoicedBy: persona?.label, history }, { action: 'Commission Invoiced', module: 'Finance', target: c.deal, detail: `Invoice ${inv} · ${fmt(c.pool)}` });
+      toast(`${c.deal} invoiced · ${inv}`);
+    },
+  });
   const markPaid = (c) => openConfirm({
     title: `Mark ${c.deal} as collected?`,
     message: `Commission collected & settled — funds released to ${c.agent} and the management chain. This is irreversible.`,
@@ -458,6 +481,38 @@ export const CommissionEngine = () => {
           )}
         </div>
 
+        {/* Deal history — the linked deal's full audit trail, readable by
+            every backoffice role that can open this commission record
+            (SME finance review, May 2026). */}
+        {c.dealId && (() => {
+          const dealEvents = (state.audit || []).filter(e => e.target === c.dealId);
+          return (
+            <div style={{padding:'12px 14px', borderRadius:10, background:'#fff', border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:8, display:'inline-flex', alignItems:'center', gap:6}}>
+                <Receipt size={12}/> Deal history · {c.dealId}
+              </div>
+              {dealEvents.length === 0 ? (
+                <div style={{fontSize:12, color:'var(--text-tertiary)'}}>No recorded activity for this deal yet.</div>
+              ) : (
+                <div style={{display:'flex', flexDirection:'column', gap:7}}>
+                  {dealEvents.map((e, i) => (
+                    <div key={e.id || i} style={{display:'flex', gap:10, padding:'8px 10px', background:'#fafbfc', border:'1px solid var(--border)', borderRadius:7, fontSize:12, lineHeight:1.5}}>
+                      <div style={{minWidth:130}}>
+                        <div style={{fontWeight:700}}>{e.action}</div>
+                        <div style={{fontSize:10, color:'var(--text-tertiary)', fontFamily:'ui-monospace,monospace'}}>{e.timestamp}</div>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div><b>{e.actor}</b>{e.module ? ` · ${e.module}` : ''}</div>
+                        {e.detail && <div style={{color:'var(--text-secondary)', marginTop:2}}>{e.detail}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="detail-grid">
           {[
             ['Commission ID', c.id],
@@ -466,6 +521,7 @@ export const CommissionEngine = () => {
             ['VAT (14%)', fmt(c.vat)],
             ['Collection Due Date', c.dueDate || '—'],
             ['Claim / Ref #', c.referenceNo || '—'],
+            ['Invoice No', c.invoiceNo || '—'],
             ['Created', c.createdAt || '—'],
             ['Status', c.status],
             ['Approved by', c.approvedBy || (c.status === 'Approved' || c.status === 'Collected' ? '—' : 'pending')],
@@ -560,7 +616,7 @@ export const CommissionEngine = () => {
           <div className="data-toolbar-left">
             <input className="data-search" placeholder="Search by Deal ID, unit, project, developer, agent…" value={q} onChange={e=>setQ(e.target.value)} />
             <select className="data-select" value={filterVals.status} onChange={e=>setFilter('status', e.target.value)}>
-              <option value="">All Statuses</option>{['Pending','Approved','Collected','Rejected'].map(s=><option key={s}>{s}</option>)}
+              <option value="">All Statuses</option>{['Pending','Approved','Invoiced','Collected','Rejected'].map(s=><option key={s}>{s}</option>)}
             </select>
             <button
               type="button"
@@ -588,6 +644,7 @@ export const CommissionEngine = () => {
               { key: 'vat',           label: 'VAT 14% (EGP)',      format: v => fmt(v) },
               { key: 'dueDate',       label: 'Collection Due Date', format: v => v || '—' },
               { key: 'referenceNo',   label: 'Claim / Ref #',       format: v => v || '—' },
+              { key: 'invoiceNo',     label: 'Invoice No',          format: v => v || '—' },
               { key: 'agentShare',    label: 'Agent share',         format: v => fmt(v) },
               { key: 'tlShare',       label: 'TL share',            format: v => fmt(v) },
               { key: 'managerShare',  label: 'Manager share',       format: v => fmt(v) },
@@ -723,7 +780,8 @@ export const CommissionEngine = () => {
                 <td style={{textAlign:'right'}}><div className="row-actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>view(c)}><Eye size={13}/></button>
                   {c.status==='Pending' && <button className="btn btn-primary btn-sm" onClick={()=>approve(c)}>Approve</button>}
-                  {c.status==='Approved' && <button className="btn btn-success btn-sm" onClick={()=>markPaid(c)}><CheckCircle2 size={13}/> Mark Collected</button>}
+                  {c.status==='Approved' && <button className="btn btn-primary btn-sm" onClick={()=>invoiceCommission(c)}><Receipt size={13}/> Generate Invoice</button>}
+                  {c.status==='Invoiced' && <button className="btn btn-success btn-sm" onClick={()=>markPaid(c)}><CheckCircle2 size={13}/> Mark Collected</button>}
                   {c.status==='Collected' && <span style={{color:'var(--success)',fontWeight:600,fontSize:12}}>Collected ✓</span>}
                   {c.status==='Rejected' && <span style={{color:'var(--danger)',fontWeight:600,fontSize:12}}>Rejected</span>}
                 </div></td>
