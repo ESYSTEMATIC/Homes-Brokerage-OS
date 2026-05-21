@@ -43,8 +43,8 @@ export const BackofficeLayout = ({ children }) => {
   // Audit Logs and Executive Dashboard are cross-functional / governance
   // surfaces and no longer belong to Finance.
   //
-  // 'inbox' is a new access key — Director Inbox unions HR offers +
-  // Finance commissions + Deal overrides, so it lives with roles that own
+  // 'inbox' is a new access key — Director Inbox unions Finance
+  // commissions + Deal overrides, so it lives with roles that own
   // cross-functional approval queues (Super Admin, Director, Executive),
   // not with everyone who has 'data' read access.
   const accessMatrix = {
@@ -129,7 +129,6 @@ export const BackofficeLayout = ({ children }) => {
             <>
               <Link to="/backoffice/recruitment"><Users size={16}/>Candidate Pipeline</Link>
               <Link to="/backoffice/jobs"><Briefcase size={16}/>Job Vacancies</Link>
-              <Link to="/backoffice/offers"><FileText size={16}/>Offers</Link>
             </>
           )}
 

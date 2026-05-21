@@ -38,12 +38,12 @@ export const JobVacancies = () => {
     const m = {};
     (state.jobs || []).forEach(j => {
       const applicants = (state.candidates || []).filter(c => c.vacancyId === j.id).length;
-      const hires = (state.offers || []).filter(o => o.jobId === j.id && ['Accepted', 'Onboarded'].includes(o.stage)).length;
+      const hires = (state.candidates || []).filter(c => (c.vacancyId === j.id || c.job === j.title) && c.stage === 'Hired').length;
       const ratio = j.headcount > 0 ? hires / j.headcount : 0;
       m[j.id] = { applicants, hires, ratio, hcStatus: ratio >= 1 ? 'filled' : ratio >= 0.7 ? 'nearly' : 'open' };
     });
     return m;
-  }, [state.jobs, state.candidates, state.offers]);
+  }, [state.jobs, state.candidates]);
 
   const finalFiltered = useMemo(() => filtered.filter(j => {
     if (adv.location && j.location !== adv.location) return false;
@@ -98,7 +98,7 @@ export const JobVacancies = () => {
         <Field label="Benefits (one per line)" name="benefits" type="textarea" rows={4} placeholder="Competitive base salary + uncapped commission&#10;Health insurance for employee + family&#10;…" defaultValue={listToText(existing?.benefits)} />
 
         {/* Salary band — HR-internal, governs offer creation */}
-        <div style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginTop:18, marginBottom:6}}>Salary band (HR-internal · governs offers)</div>
+        <div style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginTop:18, marginBottom:6}}>Salary band (HR-internal · governs hiring)</div>
         <FieldRow>
           <Field label="Min (EGP / month)" name="salaryMin" type="number" placeholder="e.g. 18000" defaultValue={existing?.salaryBand?.min} />
           <Field label="Max (EGP / month)" name="salaryMax" type="number" placeholder="e.g. 28000" defaultValue={existing?.salaryBand?.max} />
@@ -226,14 +226,12 @@ export const JobVacancies = () => {
           <table className="data-table">
             <thead><tr><th>ID</th><th>Title</th><th>Department</th><th>Location</th><th>Type</th><th>Mode</th><th>Headcount</th><th>Applicants</th><th>Hiring Manager</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>{finalFiltered.map(j=>{
-              /* Audit-finding fix (May 2026): count accepted offers as
-                 "hired" against this vacancy so recruiters see the moment
-                 a headcount band is filled and can stop sourcing. */
-              // Count both 'Accepted' (in onboarding) and 'Onboarded' (joined)
-              // so the vacancy stays 'filled' once people complete onboarding.
-              const acceptedOffers = (state.offers || []).filter(o => o.jobId === j.id && ['Accepted','Onboarded'].includes(o.stage)).length;
-              const filledRatio = j.headcount > 0 ? acceptedOffers / j.headcount : 0;
-              const isFilled = j.headcount > 0 && acceptedOffers >= j.headcount;
+              /* Headcount-filled = candidates on this vacancy who reached
+                 the 'Hired' stage, so recruiters see the moment a headcount
+                 band is filled and can stop sourcing. */
+              const hiredCount = (state.candidates || []).filter(c => (c.vacancyId === j.id || c.job === j.title) && c.stage === 'Hired').length;
+              const filledRatio = j.headcount > 0 ? hiredCount / j.headcount : 0;
+              const isFilled = j.headcount > 0 && hiredCount >= j.headcount;
               return (
               <tr key={j.id} style={isFilled ? {background:'#f0fdf4'} : undefined}>
                 <td className="muted">{j.id}</td>
@@ -244,7 +242,7 @@ export const JobVacancies = () => {
                 <td>{j.mode}</td>
                 <td>
                   <div style={{display:'flex', alignItems:'center', gap:6}}>
-                    <span className="bold">{acceptedOffers}/{j.headcount}</span>
+                    <span className="bold">{hiredCount}/{j.headcount}</span>
                     {isFilled && <span style={{fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:4, background:'#10b981', color:'#fff', letterSpacing:'.05em'}}>FILLED</span>}
                     {!isFilled && filledRatio >= 0.7 && <span title="Almost filled" style={{fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:4, background:'#f59e0b', color:'#fff', letterSpacing:'.05em'}}>NEARLY</span>}
                   </div>

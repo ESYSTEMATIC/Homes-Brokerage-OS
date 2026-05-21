@@ -9,7 +9,7 @@
 //   • Bulk actions (activate · withdraw · remind) via row checkboxes.
 //   • Drawer with 3 tabs (Overview / Timeline / Checklist).
 //   • Auto-progression banner when checklist hits 100 %.
-//   • Employee record ACTIVATION on Activate (candidate was approved upstream).
+//   • Employee record CREATED + activated on Activate (candidate hired upstream).
 //   • Candidate→Onboarding linkage banner.
 // ═══════════════════════════════════════════════════════════════════════
 import React, { useState, useMemo, useEffect } from 'react';
@@ -31,7 +31,6 @@ const ONBOARDING_COLUMNS = [
   { key: 'targetStartDate',label: 'Target Start' },
   { key: 'hiringManager',  label: 'Hiring Manager' },
   { key: 'directHire',     label: 'Direct hire', format: v => v ? 'Yes' : 'No' },
-  { key: 'linkedOfferId',  label: 'Offer ID', format: v => v || '—' },
 ];
 import {
   FileText, Clock, CheckCircle, XCircle, Plus, Download, Eye, ChevronRight,
@@ -78,7 +77,7 @@ const buildCvDataUrl = (a) => {
       <h1>${esc(a.applicant)}</h1>
       <div class="role">${role} · ${dept}</div>
       <div class="contact">${esc(a.email || '—')} · ${esc(a.phone || '—')} · ${branch}</div>
-      ${a.directHire ? '<div class="pill">DIRECT HIRE</div>' : a.linkedOfferId ? '<div class="pill" style="background:#dcfce7;color:#166534">OFFER ' + esc(a.linkedOfferId) + '</div>' : ''}
+      ${a.directHire ? '<div class="pill">DIRECT HIRE</div>' : ''}
     </div>
   </div>
 
@@ -93,7 +92,6 @@ const buildCvDataUrl = (a) => {
   <div class="row"><b>Hiring Manager:</b> <span>${esc(a.hiringManager || '—')}</span></div>
   <div class="row"><b>Source:</b> <span>${esc(a.source || '—')}</span></div>
   ${a.linkedCandidateId ? `<div class="row"><b>Candidate ID:</b> <span>${esc(a.linkedCandidateId)}</span></div>` : ''}
-  ${a.linkedOfferId    ? `<div class="row"><b>Offer ID:</b>     <span>${esc(a.linkedOfferId)}</span></div>` : ''}
 
   <h2>Notes from Recruiter</h2>
   <div class="row"><span>${esc(a.notes || 'No recruiter notes recorded yet.')}</span></div>
@@ -184,11 +182,11 @@ const CHECKLIST_STEPS = [
 // Onboarding-record provenance — aligned with the hiring flow (May 2026):
 // the SOURCE is the originating vacancy ID, plus two non-vacancy values
 // for paths that bypass the careers funnel.
-//   • <vacancy ID>      — auto-spawned from an accepted offer on this vacancy
-//   • 'Direct Hire'     — HR created the onboarding directly (no offer)
+//   • <vacancy ID>      — auto-spawned when a candidate on this vacancy was hired
+//   • 'Direct Hire'     — HR created the onboarding directly (no candidate record)
 //   • 'Internal Transfer'— moved internally between teams / branches
-// The source is read-only when set from offer-accept; HR picks it manually
-// only when filing a direct hire / transfer.
+// The source is set automatically when a candidate is hired; HR picks it
+// manually only when filing a direct hire / transfer.
 const NON_VACANCY_SOURCES = ['Direct Hire', 'Internal Transfer'];
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -311,11 +309,11 @@ export const Onboarding = () => {
     const history = [...(a.statusHistory || []), newEntry];
     const patch = { status: stage, statusHistory: history };
     if (stage === 'Activated') {
-      // Business rule (May 2026): the employee record is created upstream
-      // when the candidate accepts the HR offer (status='Pending Onboarding').
-      // 'Activated' here ACTIVATES that record (status → 'Active') — it does
-      // NOT approve a candidate. Direct-hire / legacy rows without an
-      // employeeId still get a new staff record so the flow stays robust.
+      // Business rule (May 2026): a hired candidate has NO system account
+      // while in onboarding. 'Activated' is the step that CREATES the
+      // Employee record and sets it 'Active' (system credentials, CRM
+      // access, M365 mailbox). Legacy / direct-hire rows that already
+      // carry an employeeId just get that record flipped to 'Active'.
       let empId = a.employeeId;
       if (empId) {
         updateItem('staff', empId, { status: 'Active', linkedOnboardingId: a.id, activatedAt: nowISO() }, {
@@ -325,9 +323,8 @@ export const Onboarding = () => {
           detail: `${a.applicant} · onboarding ${a.id} completed (activated)`,
         });
       } else {
-        // Fallback: no upstream employee record (direct hire or legacy seed).
-        const fallbackId = `A${String((state.staff || []).length + 1).padStart(3, '0')}`;
-        addItem('staff', {
+        // Primary path: create the Employee record now, Active from day one.
+        const emp = addItem('staff', {
           name: a.applicant,
           department: a.department,
           title: a.requestedRole || 'Sales Agent',
@@ -341,37 +338,27 @@ export const Onboarding = () => {
           photoDataUrl: a.photoDataUrl || null,
           photoName: a.photoName || null,
           linkedOnboardingId: a.id,
-          linkedOfferId:      a.linkedOfferId || null,
           linkedCandidateId:  a.linkedCandidateId || null,
         }, 'A', {
           action: 'Employee Created',
           module: 'Backoffice',
           target: a.id,
-          detail: `${a.applicant} · direct-hire fallback · from onboarding ${a.id}`,
+          detail: `${a.applicant} · employee record created on onboarding ${a.id} activation`,
         });
-        empId = fallbackId;
+        empId = emp.id;
         patch.employeeId = empId;
       }
 
-      // 2) Cascade to the linked candidate → 'Hired' so they don't sit at
-      //    'Offer' in the recruitment pipeline forever.
+      // Link the freshly-created employee record back to the candidate so
+      // the lifecycle chain (Candidate → Onboarding → Employee) resolves.
+      // The candidate is already at the 'Hired' stage — set when the
+      // onboarding was spawned — so this only attaches the employee id.
       if (a.linkedCandidateId) {
-        updateItem('candidates', a.linkedCandidateId, { stage: 'Hired', hiredAt: nowISO(), hiredEmployeeId: empId }, {
-          action: 'Candidate Hired',
+        updateItem('candidates', a.linkedCandidateId, { stage: 'Hired', hiredEmployeeId: empId }, {
+          action: 'Employee Record Linked',
           module: 'Recruitment',
           target: a.linkedCandidateId,
-          detail: `Auto-cascade from onboarding ${a.id} activation · employee ${empId}`,
-        });
-      }
-      // 3) Cascade to the linked offer → 'Onboarded' so the offer record
-      //    closes out cleanly and stops appearing in the 'Accepted, awaiting
-      //    onboarding' bucket.
-      if (a.linkedOfferId) {
-        updateItem('offers', a.linkedOfferId, { stage: 'Onboarded', onboardedAt: nowISO(), linkedOnboardingId: a.id, linkedEmployeeId: empId }, {
-          action: 'Offer Onboarded',
-          module: 'Recruitment',
-          target: a.linkedOfferId,
-          detail: `Cascade from onboarding ${a.id} · employee ${empId}`,
+          detail: `Employee ${empId} created from onboarding ${a.id}`,
         });
       }
     } else if (stage === 'Withdrawn' && a.employeeId) {
@@ -393,23 +380,23 @@ export const Onboarding = () => {
     });
     toast(stage === 'Activated'
       ? (a.employeeId
-          ? `${a.applicant} activated · employee ${a.employeeId} → Active · candidate → Hired · offer → Onboarded`
-          : `${a.applicant} activated · employee created · candidate → Hired · offer → Onboarded`)
+          ? `${a.applicant} activated · employee ${a.employeeId} → Active`
+          : `${a.applicant} activated · employee record created & Active`)
       : `${a.applicant} → ${stage}`);
   };
 
   const activate = (a) => openConfirm({
     title: `Activate ${a.applicant}?`,
     message: a.employeeId
-      ? `Employee ${a.employeeId} (currently Pending Onboarding) will be activated (status → Active). The candidate moves to Hired and the offer closes as Onboarded. Audit-logged.`
-      : `An Employee record will be created and activated (no upstream offer link — direct-hire fallback). Audit-logged.`,
+      ? `Employee ${a.employeeId} will be activated (status → Active) with system credentials, CRM access and an M365 mailbox. Audit-logged.`
+      : `An Employee record will be created and activated (system credentials, CRM access, M365 mailbox). Audit-logged.`,
     confirmLabel: a.employeeId ? 'Activate employee' : 'Create & activate employee',
     onConfirm: () => pushStatus(a, 'Activated', 'HR Recruiter', 'Activated'),
   });
 
   const withdraw = (a) => openModal({
     title: `Withdraw ${a.applicant}`,
-    subtitle: 'Onboarding will close without activation. The candidate was already approved upstream — this only records that activation did not complete.',
+    subtitle: 'Onboarding will close without activation. The candidate was already hired upstream — this only records that activation did not complete.',
     submitLabel: 'Mark withdrawn',
     danger: true,
     body: <Field label="Reason" name="reason" type="textarea" required placeholder="e.g. candidate declined start date, role restructured, failed background check" />,
@@ -458,22 +445,22 @@ export const Onboarding = () => {
   };
 
   // ─── Direct-hire bypass modal ─────────────────────────────────
-  // The canonical onboarding entry point is the offer-accept flow on the
-  // Recruitment Pipeline (candidate → offer → accepted → onboarding
-  // auto-created). This button is a manual bypass for special cases —
-  // executive direct hires, internal transfers, partner placements — where
-  // there was no public Careers application. The form warns HR before they
-  // proceed and writes "Direct hire (bypassed recruitment)" into the
-  // statusHistory so the source is auditable.
+  // The canonical onboarding entry point is the recruitment pipeline:
+  // moving a candidate to the 'Hired' stage auto-creates the onboarding
+  // record. This button is a manual bypass for special cases — executive
+  // direct hires, internal transfers, partner placements — where there was
+  // no public Careers application. The form warns HR before they proceed
+  // and writes "Direct hire (bypassed recruitment)" into the statusHistory
+  // so the source is auditable.
   const newApplication = () => openModal({
     title: 'Direct Hire · Bypass Recruitment',
-    subtitle: 'For special cases only · the normal flow is Candidate → Offer Accepted → auto-spawn onboarding',
+    subtitle: 'For special cases only · the normal flow is Candidate → Hired → auto-spawn onboarding',
     submitLabel: 'Create onboarding (bypass)',
     danger: true,
     body: (
       <>
         <div style={{padding:'10px 12px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:8, fontSize:12, color:'#92400e', marginBottom:16, lineHeight:1.5}}>
-          <b>Heads up:</b> Onboarding usually begins automatically when a candidate accepts their offer in the Recruitment Pipeline.
+          <b>Heads up:</b> Onboarding usually begins automatically when a candidate is moved to the Hired stage in the Recruitment Pipeline.
           Use this form only for direct hires that didn't go through the public Careers application (executive direct hires, internal transfers, partner placements). The audit log will record "Direct hire (bypassed recruitment)" on the resulting record.
         </div>
         <FieldRow>
@@ -514,10 +501,10 @@ export const Onboarding = () => {
         ...data,
         date: today(),
         status: 'Submitted',
-        linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+        linkedCandidateId: null, employeeId: null,
         directHire: true, // flag so the row can be visually marked as bypass
         statusHistory: [
-          { stage: 'Submitted', at: nowISO(), by: 'HR Recruiter', note: 'Direct hire (bypassed recruitment) — no offer accepted in the system' },
+          { stage: 'Submitted', at: nowISO(), by: 'HR Recruiter', note: 'Direct hire (bypassed recruitment) — no candidate record in the system' },
         ],
       }, 'APP', {
         action: 'Application Submitted',
@@ -537,7 +524,6 @@ export const Onboarding = () => {
       documents={state.documents}
       training={state.training}
       candidates={state.candidates}
-      offers={state.offers}
       onActivate={() => activate(a)}
       onWithdraw={() => withdraw(a)}
       onAdvance={() => advanceStage(a)}
@@ -551,13 +537,13 @@ export const Onboarding = () => {
     <div className="animate-fade-in">
       <div className="page-header">
         <h1 className="page-title">Onboarding & Applications</h1>
-        <p className="page-subtitle">Starts when a candidate accepts their offer · ends when the Employee record is created</p>
+        <p className="page-subtitle">Starts when a candidate is hired · ends when the Employee record is created</p>
       </div>
 
       {/* ─── Flow explainer banner ────────────────────────────
-          Makes the candidate/offer/onboarding boundary explicit so HR doesn't
+          Makes the candidate/onboarding boundary explicit so HR doesn't
           conflate the Recruitment Pipeline (no system account yet) with
-          Onboarding (account journey begins after offer accepted). */}
+          Onboarding (account journey begins after the candidate is hired). */}
       <div style={{
         display:'flex', alignItems:'center', gap:14,
         padding:'14px 18px', marginBottom:18,
@@ -568,7 +554,7 @@ export const Onboarding = () => {
           <ListChecks size={18}/>
         </div>
         <div style={{flex:1, fontSize:12, color:'#1e3a8a', lineHeight:1.55}}>
-          <b>How onboarding starts:</b> a candidate has <b>no system account</b> while they're in the Recruitment Pipeline. Once they accept their offer there, an Employee record is created with <b>status&nbsp;= Pending&nbsp;Onboarding</b> and an onboarding application is spawned here. The final <b>Activate</b> step flips that record to <b>Active</b> (system credentials, CRM access, M365 mailbox provisioned). No re-approval happens here — the candidate decision was already made.
+          <b>How onboarding starts:</b> a candidate has <b>no system account</b> while they're in the Recruitment Pipeline. Once they're moved to the <b>Hired</b> stage there, an onboarding application is spawned here automatically. The final <b>Activate</b> step <b>creates the Employee record</b> as <b>Active</b> (system credentials, CRM access, M365 mailbox provisioned). No re-approval happens here — the hiring decision was already made.
           <span style={{color:'#1e40af', marginLeft:6, fontStyle:'italic'}}>Direct Hire bypass below is reserved for special cases.</span>
         </div>
       </div>
@@ -704,7 +690,7 @@ export const Onboarding = () => {
             <button
               className="btn btn-outline"
               onClick={newApplication}
-              title="Bypass the candidate / offer flow — only for direct executive hires, internal transfers, or partner placements"
+              title="Bypass the recruitment pipeline — only for direct executive hires, internal transfers, or partner placements"
               style={{borderStyle:'dashed'}}
             >
               <Plus size={14}/> Direct Hire (bypass)
@@ -803,13 +789,13 @@ export const Onboarding = () => {
                           <div className="bold" style={{display:'flex', alignItems:'center', gap:6}}>
                             {a.applicant}
                             {a.directHire && (
-                              <span title="Direct hire — bypassed recruitment / offer flow" style={{fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'#fef3c7', color:'#92400e', textTransform:'uppercase', letterSpacing:'.05em'}}>
+                              <span title="Direct hire — bypassed the recruitment pipeline" style={{fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'#fef3c7', color:'#92400e', textTransform:'uppercase', letterSpacing:'.05em'}}>
                                 Direct
                               </span>
                             )}
-                            {a.linkedOfferId && (
-                              <span title={`Spawned from offer ${a.linkedOfferId}`} style={{fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'#ecfdf5', color:'#065f46', textTransform:'uppercase', letterSpacing:'.05em'}}>
-                                Offer
+                            {a.linkedCandidateId && !a.directHire && (
+                              <span title={`Spawned when candidate ${a.linkedCandidateId} was hired`} style={{fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'#ecfdf5', color:'#065f46', textTransform:'uppercase', letterSpacing:'.05em'}}>
+                                Hired
                               </span>
                             )}
                           </div>
@@ -1100,7 +1086,7 @@ const Kpi = ({ label, value, icon: Icon, color, tip, onClick, delta, footer }) =
 // ═══════════════════════════════════════════════════════════════════════
 // ApplicantDrawer — 3 tabs (Overview / Timeline / Checklist)
 // ═══════════════════════════════════════════════════════════════════════
-const ApplicantDrawer = ({ applicant, documents, training, candidates, offers, onActivate, onWithdraw, onAdvance, onStageChange, onReminder, onAutoActivate }) => {
+const ApplicantDrawer = ({ applicant, documents, training, candidates, onActivate, onWithdraw, onAdvance, onStageChange, onReminder, onAutoActivate }) => {
   const { state } = useApp();
   const [tab, setTab] = useState('overview');
   // Re-derive the record from context so the drawer (notes, stage, history)
@@ -1109,7 +1095,6 @@ const ApplicantDrawer = ({ applicant, documents, training, candidates, offers, o
   const checklist = computeChecklist(a, documents, training);
   const ready = checklist.done === checklist.total && a.status !== 'Activated' && a.status !== 'Withdrawn';
   const linkedCand  = candidates?.find(c => c.id === a.linkedCandidateId);
-  const linkedOffer = offers?.find(o => o.id === a.linkedOfferId);
 
   return (
     <div style={{display:'flex', flexDirection:'column', gap:16}}>
@@ -1153,7 +1138,7 @@ const ApplicantDrawer = ({ applicant, documents, training, candidates, offers, o
       {/* Cross-flow lifecycle chain — links to every related record so
           HR / auditors can walk the chain without leaving the page.
           Renders even after activation (employee record link appears
-          once the staff record is created upstream at offer-accept). */}
+          once the staff record is created at activation). */}
       <div style={{
         padding:'12px 14px', borderRadius:10, background:'#eff6ff', border:'1px solid #bfdbfe',
         display:'flex', flexDirection:'column', gap:8,
@@ -1171,25 +1156,12 @@ const ApplicantDrawer = ({ applicant, documents, training, candidates, offers, o
             >
               Candidate · {linkedCand.id} ({linkedCand.name}){linkedCand.stage ? ` · ${linkedCand.stage}` : ''}
             </a>
-          ) : (
-            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11}}>Candidate · — (no link)</span>
-          )}
-          <ChevronRight size={12} color="#94a3b8"/>
-          {linkedOffer ? (
-            <a
-              href={`#/backoffice/recruitment`}
-              onClick={(e) => { e.preventDefault(); window.location.hash = '#/backoffice/recruitment'; }}
-              style={{padding:'5px 10px',background:'#fff',border:'1px solid #bfdbfe',borderRadius:999,color:'#1e40af',textDecoration:'none',fontWeight:600}}
-              title={`View offer ${linkedOffer.id} in Recruitment Pipeline`}
-            >
-              Offer · {linkedOffer.id} (EGP {linkedOffer.salaryMonthly?.toLocaleString()}/mo · {linkedOffer.stage})
-            </a>
           ) : a.directHire ? (
             <span style={{padding:'5px 10px',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:999,color:'#92400e',fontSize:11,fontWeight:700}}>
-              Direct hire (no offer)
+              Direct hire (no candidate)
             </span>
           ) : (
-            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11}}>Offer · — (no link)</span>
+            <span style={{padding:'5px 10px',color:'var(--text-tertiary)',fontSize:11}}>Candidate · — (no link)</span>
           )}
           <ChevronRight size={12} color="#94a3b8"/>
           <span style={{padding:'5px 10px',background: a.status === 'Activated' ? '#dcfce7' : 'var(--brand-tint)',border:`1px solid ${a.status === 'Activated' ? '#86efac' : 'rgba(232,103,42,.25)'}`,borderRadius:999,color: a.status === 'Activated' ? '#166534' : 'var(--brand)',fontWeight:700,fontSize:12}}>

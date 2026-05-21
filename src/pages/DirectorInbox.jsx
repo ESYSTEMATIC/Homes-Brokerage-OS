@@ -3,16 +3,16 @@
 // ───────────────────────────────────────────────────────────────────────
 // Audit-finding fix (May 2026): the auditor's #1 cross-role recommendation
 // was a single page where the Director / Executive can see every item
-// awaiting their approval — HR offers, Finance commissions, Deal overrides —
-// without bouncing between three modules. This page unions all three sources
-// into one age-sorted list with inline approve / reject and a quick-link to
+// awaiting their approval — Finance commissions and Deal overrides —
+// without bouncing between modules. This page unions both sources into
+// one age-sorted list with inline approve / reject and a quick-link to
 // the underlying record.
 // ═══════════════════════════════════════════════════════════════════════
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import {
-  Inbox, ShieldCheck, Percent, BadgeDollarSign, UserPlus, Filter, ChevronRight,
+  Inbox, ShieldCheck, Percent, BadgeDollarSign, Filter, ChevronRight,
   AlertTriangle, CheckCircle2, X, Clock,
 } from 'lucide-react';
 
@@ -25,30 +25,13 @@ const daysAgo = (iso) => {
 export const DirectorInbox = () => {
   const { state, updateItem, toast, writeAudit, persona, personaKey, openModal } = useApp();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState('all'); // all | offers | commissions | overrides
+  const [filter, setFilter] = useState('all'); // all | commissions | overrides
 
   // ─── Build the consolidated queue ──────────────────────────────
   const queue = useMemo(() => {
     const rows = [];
 
-    // 1) HR offers awaiting Director approval
-    (state.offers || []).filter(o => o.stage === 'Pending Approval').forEach(o => {
-      rows.push({
-        kind: 'offer',
-        id: o.id,
-        title: `Offer to ${o.candidateName}`,
-        subtitle: `${o.jobTitle} · EGP ${fmt(o.salaryMonthly)}/mo`,
-        meta: `Drafted by ${o.draftedBy || 'HR'}`,
-        ageDays: daysAgo(o.approvedAt || o.sentAt || (state.audit || []).find(a => a.target === o.id)?.timestamp),
-        value: o.salaryMonthly,
-        record: o,
-        photoDataUrl: o.photoDataUrl,
-        actor: o.candidateName,
-        link: `/backoffice/recruitment?openOffer=${o.id}`,
-      });
-    });
-
-    // 2) Finance commissions pending approval
+    // 1) Finance commissions pending approval
     (state.commEngine || []).filter(c => c.status === 'Pending').forEach(c => {
       rows.push({
         kind: 'commission',
@@ -64,7 +47,7 @@ export const DirectorInbox = () => {
       });
     });
 
-    // 3) Deal commission overrides — Director only sees the ones that
+    // 2) Deal commission overrides — Director only sees the ones that
     //    cleared the Manager stage. Pending-Manager rows stay in the
     //    Sales Manager's queue (or the CrmDeals override queue button).
     (state.deals || []).filter(d => d.commissionOverride?.status === 'Pending Director').forEach(d => {
@@ -83,47 +66,11 @@ export const DirectorInbox = () => {
     });
 
     return rows.sort((a, b) => b.ageDays - a.ageDays);
-  }, [state.offers, state.commEngine, state.deals, state.audit]);
+  }, [state.commEngine, state.deals, state.audit]);
 
-  const filtered = filter === 'all' ? queue : queue.filter(r => r.kind === filter || (filter === 'offers' && r.kind === 'offer') || (filter === 'commissions' && r.kind === 'commission') || (filter === 'overrides' && r.kind === 'override'));
+  const filtered = filter === 'all' ? queue : queue.filter(r => r.kind === filter || (filter === 'commissions' && r.kind === 'commission') || (filter === 'overrides' && r.kind === 'override'));
 
   // ─── Decision handlers ─────────────────────────────────────────
-  const decideOffer = (row, decision) => {
-    const o = row.record;
-    let comment = '';
-    openModal({
-      title: `${decision === 'approve' ? 'Approve' : 'Reject'} offer · ${o.id}`,
-      subtitle: `${o.candidateName} · ${o.jobTitle}`,
-      submitLabel: decision === 'approve' ? 'Approve' : 'Reject',
-      body: (
-        <div style={{display:'flex', flexDirection:'column', gap:14}}>
-          <div style={{padding:'10px 12px', background:'#f8fafc', borderRadius:8, fontSize:12}}>
-            <b>Salary:</b> EGP {fmt(o.salaryMonthly)}/mo · <b>Start:</b> {o.startDate}<br/>
-            <b>Reports to:</b> {o.reportingTo}<br/>
-            <b>HR notes:</b> {o.notes || '—'}
-          </div>
-          <div>
-            <label style={{fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.05em'}}>Your comment <span style={{color:'var(--danger)'}}>*</span></label>
-            <textarea defaultValue="" onChange={e => { comment = e.target.value; }} placeholder={decision === 'approve' ? 'Why are you approving?' : 'Why are you rejecting?'} style={{width:'100%', minHeight:80, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:8, fontSize:13, fontFamily:'inherit', marginTop:6, resize:'vertical'}}/>
-          </div>
-        </div>
-      ),
-      onSubmit: () => {
-        if (!comment.trim()) { toast('Comment required for audit trail', 'error'); return false; }
-        const next = decision === 'approve' ? 'Approved' : 'Declined';
-        updateItem('offers', o.id, {
-          stage: next,
-          approvedBy: decision === 'approve' ? persona.label : o.approvedBy,
-          approvedAt: decision === 'approve' ? new Date().toISOString() : o.approvedAt,
-          declinedAt: decision === 'reject' ? new Date().toISOString() : null,
-          decisionComment: comment.trim(),
-        });
-        writeAudit(`Offer ${next}`, o.id, 'Backoffice', `By ${persona.label} · "${comment.trim()}"`);
-        toast(`Offer ${next.toLowerCase()}`, decision === 'approve' ? 'success' : 'info');
-      },
-    });
-  };
-
   const decideCommission = (row, decision) => {
     const c = row.record;
     // Every commission-engine state change appends a transaction entry
@@ -212,13 +159,11 @@ export const DirectorInbox = () => {
   };
 
   const KIND_META = {
-    offer:      { color: '#8b5cf6', icon: UserPlus,         label: 'HR Offer' },
     commission: { color: '#16a34a', icon: BadgeDollarSign,  label: 'Commission' },
     override:   { color: '#E8672A', icon: Percent,          label: 'Override' },
   };
 
   const counts = {
-    offers:      queue.filter(r => r.kind === 'offer').length,
     commissions: queue.filter(r => r.kind === 'commission').length,
     overrides:   queue.filter(r => r.kind === 'override').length,
   };
@@ -228,14 +173,13 @@ export const DirectorInbox = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Backoffice</span><span>&gt;</span><span className="current">Director Inbox</span></div>
         <h1 className="page-title">Director Inbox</h1>
-        <p className="page-subtitle">Consolidated approval queue across HR · Finance · Deals — sorted by age</p>
+        <p className="page-subtitle">Consolidated approval queue across Finance · Deals — sorted by age</p>
       </div>
 
       {/* KPI strip */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:16, marginBottom:20}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16, marginBottom:20}}>
         {[
           ['Total awaiting',     queue.length,            '#0f172a', Inbox],
-          ['HR offers',          counts.offers,           KIND_META.offer.color,      KIND_META.offer.icon],
           ['Commissions',        counts.commissions,      KIND_META.commission.color, KIND_META.commission.icon],
           ['Overrides',          counts.overrides,        KIND_META.override.color,   KIND_META.override.icon],
         ].map(([label, value, color, Ico]) => (
@@ -256,7 +200,6 @@ export const DirectorInbox = () => {
         <Filter size={14} color="var(--text-tertiary)"/>
         {[
           ['all',         `All (${queue.length})`,           '#0f172a'],
-          ['offers',      `HR Offers (${counts.offers})`,    KIND_META.offer.color],
           ['commissions', `Commissions (${counts.commissions})`, KIND_META.commission.color],
           ['overrides',   `Overrides (${counts.overrides})`, KIND_META.override.color],
         ].map(([k, lbl, c]) => (
@@ -304,7 +247,6 @@ export const DirectorInbox = () => {
                   <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>{row.meta}</div>
                 </div>
                 <div style={{display:'flex', gap:6, flexShrink:0}}>
-                  {row.kind === 'offer'      && <><button className="btn btn-sm btn-brand"  onClick={() => decideOffer(row, 'approve')}><CheckCircle2 size={13}/> Approve…</button><button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={() => decideOffer(row, 'reject')}><X size={13}/> Reject…</button></>}
                   {row.kind === 'commission' && <><button className="btn btn-sm btn-brand"  onClick={() => decideCommission(row, 'approve')}><CheckCircle2 size={13}/> Approve</button><button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={() => decideCommission(row, 'reject')}><X size={13}/> Reject</button></>}
                   {row.kind === 'override'   && <><button className="btn btn-sm btn-brand"  onClick={() => decideOverride(row, 'approve')}><CheckCircle2 size={13}/> Approve…</button><button className="btn btn-sm btn-outline" style={{color:'var(--danger)'}} onClick={() => decideOverride(row, 'reject')}><X size={13}/> Reject…</button></>}
                   <button className="btn btn-sm btn-outline" onClick={() => navigate(row.link)} title="Open the underlying record"><ChevronRight size={13}/></button>

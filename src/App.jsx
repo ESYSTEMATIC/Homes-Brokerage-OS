@@ -18,7 +18,6 @@ import { TrainingCompliance } from './pages/TrainingCompliance';
 import { FinancialManagement } from './pages/FinancialManagement';
 import { HRPayroll } from './pages/HRPayroll';
 import { RecruitmentPipeline } from './pages/RecruitmentPipeline';
-import { Offers } from './pages/Offers';
 import { JobVacancies } from './pages/JobVacancies';
 import { VacancyDetail } from './pages/VacancyDetail';
 import { AuditLogs } from './pages/AuditLogs';
@@ -310,7 +309,9 @@ const AppRoutes = () => {
                   URL as a redirect so old links / bookmarks still work. */}
               <Route path="/hr/profiles" element={<Navigate to="/backoffice/staff" replace />} />
               <Route path="/recruitment" element={<RecruitmentPipeline />} />
-              <Route path="/offers" element={<Offers />} />
+              {/* Offers retired as a standalone entity (May 2026) — an offer
+                  is now just the candidate's 'Offer' hiring stage. */}
+              <Route path="/offers" element={<Navigate to="/backoffice/recruitment" replace />} />
               <Route path="/jobs" element={<JobVacancies />} />
               <Route path="/jobs/:id" element={<VacancyDetail />} />
               {/* Listings, unit types, cities and area lookups are sourced from

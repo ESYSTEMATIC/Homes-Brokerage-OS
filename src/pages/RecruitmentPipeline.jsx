@@ -44,7 +44,7 @@ const advLabel = { display:'block', fontSize:10, fontWeight:700, color:'var(--te
 const advInput = { padding:'6px 10px', border:'1px solid var(--border)', borderRadius:7, fontSize:12, fontFamily:'inherit', outline:'none', minWidth:150 };
 
 export const RecruitmentPipeline = () => {
-  const { state, addItem, updateItem, openModal, openDrawer, toast, writeAudit } = useApp();
+  const { state, addItem, updateItem, openModal, openDrawer, openConfirm, toast, writeAudit } = useApp();
   const interviewers = state.staff.filter(s=>['Sales Manager','Team Leader','HR Recruiter'].includes(s.type) || s.department.startsWith('HR')).map(s=>s.name);
 
   const navigate = useNavigate();
@@ -143,75 +143,59 @@ export const RecruitmentPipeline = () => {
   });
 
   // ───────────────────────────────────────────────────────────────
-  // Offer workflow (HR drafts → Sales Director approves → Sent → Accepted)
-  // Salary stays in this HR-internal surface — never on the agent profile.
+  // Hire a candidate. "Offer" is just a pipeline stage now — there is no
+  // standalone offer entity. Moving a candidate to "Hired" commits the
+  // hire and auto-spawns their Onboarding application (linked to the
+  // candidate + vacancy). The Employee record is created later, when HR
+  // activates that onboarding. No employee record or intro call is created
+  // here — the flow is intentionally kept simple.
   // ───────────────────────────────────────────────────────────────
-  const matchingBand = (jobTitle) => {
-    const j = state.jobs.find(x => x.title === jobTitle);
-    return j?.salaryBand || null;
-  };
-
-  const draftOffer = (c) => {
-    const band = matchingBand(c.job);
-    const midpoint = band ? Math.round((band.min + band.max) / 2) : 15000;
-    openModal({
-      title: `Draft Offer Letter — ${c.name}`,
-      subtitle: band ? `Band: EGP ${band.min.toLocaleString()}–${band.max.toLocaleString()} / month` : 'No salary band on file',
-      submitLabel: 'Save draft + send for approval',
-      body: (
-        <>
-          <FieldRow>
-            <Field label="Job Title" name="jobTitle" defaultValue={c.job} required />
-            <Field label="Start date" name="startDate" type="date" defaultValue={(() => { const d = new Date(); d.setDate(d.getDate() + 21); return d.toISOString().slice(0,10); })()} required />
-          </FieldRow>
-          <FieldRow>
-            <Field label="Salary (EGP / month)" name="salaryMonthly" type="number" defaultValue={midpoint} required />
-            <Field label="Probation (months)" name="probationMonths" type="number" defaultValue={3} required />
-          </FieldRow>
-          <Field label="Commission structure" name="commission" type="textarea" placeholder="e.g. Uncapped, 0.5% of deal value at Standard Collection (10%)" defaultValue={band?.commission || ''} />
-          <Field label="Sign-on / bonuses" name="bonus" type="textarea" placeholder="e.g. EGP 5,000 sign-on after probation" />
-          <FieldRow>
-            <Field label="Work schedule" name="workSchedule" defaultValue="Sun–Thu, 9am–6pm" />
-            <Field label="Reports to" name="reportingTo" defaultValue={state.staff.find(s => s.type === 'Sales Manager')?.name || ''} />
-          </FieldRow>
-          <Field label="HR Notes" name="notes" type="textarea" placeholder="Reasoning for salary placement, fast-track flags, etc." />
-        </>
-      ),
-      onSubmit: (data) => {
-        const sal = Number(data.salaryMonthly);
-        const outOfBand = band && (sal < band.min || sal > band.max);
-        const offer = addItem('offers', {
-          candidateId: c.id, candidateName: c.name,
-          // Carry the candidate's photo through to the offer so HR, the
-          // Director, and the offer-letter preview all show the same person.
-          photoDataUrl: c.photoDataUrl || null, photoName: c.photoName || null,
-          jobId: state.jobs.find(j => j.title === c.job)?.id,
-          jobTitle: data.jobTitle, salaryMonthly: sal, currency: 'EGP',
-          commission: data.commission, bonus: data.bonus,
-          benefits: ["Health insurance", "Microsoft 365", "Homes Academy"],
-          startDate: data.startDate, probationMonths: Number(data.probationMonths),
-          workSchedule: data.workSchedule, reportingTo: data.reportingTo,
-          contractType: 'Full-time, indefinite',
-          stage: 'Pending Approval',
-          draftedBy: 'HR Recruiter',
-          approvedBy: null, approvedAt: null, sentAt: null, expiresAt: null,
-          outOfBand,
-          notes: data.notes,
-        }, 'OFR', {
-          action: 'Offer Drafted', module: 'Recruitment', target: c.id,
-          detail: `${data.jobTitle} · EGP ${sal.toLocaleString()}/mo · pending Sales Director approval${outOfBand ? ' · OUT OF BAND' : ''}`
+  const hireCandidate = (c) => {
+    const vac = c.vacancyId ? vacancyById[c.vacancyId] : (state.jobs || []).find(j => j.title === c.job);
+    const existing = (state.onboarding || []).find(a => a.linkedCandidateId === c.id);
+    openConfirm({
+      title: `Hire ${c.name}?`,
+      message: existing
+        ? `${c.name} moves to Hired. An onboarding application (${existing.id}) already exists and stays linked.`
+        : `${c.name} moves to Hired and an Onboarding application is created automatically. The Employee record is created when HR activates that onboarding.`,
+      confirmLabel: 'Confirm hire',
+      onConfirm: () => {
+        updateItem('candidates', c.id, { stage: 'Hired', hiredAt: today() }, {
+          action: 'Candidate Hired', module: 'Recruitment', target: c.id,
+          detail: `${c.stage} → Hired`,
         });
-        updateItem('candidates', c.id, { stage: 'Offer' });
-        toast(`Offer ${offer.id} drafted${outOfBand ? ' (out-of-band — director must justify)' : ''}`, outOfBand ? 'warning' : 'success');
+        if (existing) { toast(`${c.name} → Hired`); return; }
+        const now = new Date().toISOString();
+        const app = addItem('onboarding', {
+          applicant: c.name, type: 'Agent', date: today(), status: 'Submitted',
+          department: vac?.department || 'Sales',
+          branch: vac?.location || 'New Cairo',
+          photoDataUrl: c.photoDataUrl || null, photoName: c.photoName || null,
+          resumeName: c.resumeName || null, resumeDataUrl: c.resumeDataUrl || null,
+          phone: c.phone || '', email: c.email || '',
+          requestedRole: c.job || vac?.title || 'Sales Agent',
+          targetStartDate: null,
+          hiringManager: vac?.hiringManager || 'TBD',
+          source: c.vacancyId || vac?.id || 'Recruitment',
+          linkedCandidateId: c.id, employeeId: null,
+          statusHistory: [
+            { stage: 'Submitted', at: now, by: `Auto · Candidate hired (${c.id})`, note: `Spawned when ${c.name} was moved to the Hired stage` },
+          ],
+          notes: '',
+        }, 'APP', {
+          action: 'Onboarding Application Created', module: 'Backoffice', target: c.id,
+          detail: `Auto-spawned when ${c.name} was hired`,
+        });
+        toast(`${c.name} hired · onboarding ${app.id} created`);
       },
     });
   };
 
   // Business-team feedback (May 2026): HR moves candidates via stage
   // dropdown, not auto-advance. The function now accepts an arbitrary
-  // target stage. Interview prompts for an interviewer; Offer launches the
-  // draft-offer flow; Rejected prompts for a reason; everything else is a
-  // direct write to the audit log.
+  // target stage. Interview prompts for an interviewer; Hired confirms the
+  // hire + spawns onboarding; Rejected prompts for a reason; everything
+  // else (incl. the Offer stage) is a direct write to the audit log.
   const changeStage = (c, newStage) => {
     if (newStage === c.stage) return;
 
@@ -252,8 +236,29 @@ export const RecruitmentPipeline = () => {
       return;
     }
 
+    if (newStage === 'Hired' && c.stage !== 'Hired') {
+      hireCandidate(c);
+      return;
+    }
+
+    // Offer is a plain pipeline stage — no offer entity — but the move is
+    // captured with a mandatory-friendly note so the offer decision stays
+    // logged in the candidate audit trail.
     if (newStage === 'Offer' && c.stage !== 'Offer') {
-      draftOffer(c);
+      openModal({
+        title: `Move ${c.name} to Offer`,
+        subtitle: 'Add a note for the audit trail — offer terms, salary band, start date, etc.',
+        submitLabel: 'Move to Offer',
+        body: <Field label="Offer note" name="note" type="textarea" placeholder="Logged in the candidate audit trail (optional)" />,
+        onSubmit: ({ note }) => {
+          const n = (note || '').trim();
+          updateItem('candidates', c.id, { stage: 'Offer' }, {
+            action: 'Candidate Stage Change', module: 'Recruitment', target: c.id,
+            detail: `${c.stage} → Offer${n ? ` · ${n}` : ''}`,
+          });
+          toast(`${c.name} → Offer`);
+        },
+      });
       return;
     }
 
@@ -337,7 +342,6 @@ export const RecruitmentPipeline = () => {
             pills that jump to each linked record. Renders for every
             candidate so the recruiter can spot which step they're at. */}
         {(() => {
-          const linkedOffer     = (state.offers || []).find(o => o.candidateId === c.id);
           const linkedOnboarding = (state.onboarding || []).find(a => a.linkedCandidateId === c.id);
           const linkedEmployee  = linkedOnboarding?.employeeId
             ? (state.staff || []).find(s => s.id === linkedOnboarding.employeeId)
@@ -351,14 +355,6 @@ export const RecruitmentPipeline = () => {
                 <span style={{padding:'5px 10px', background:'var(--brand-tint)', border:'1px solid rgba(232,103,42,.25)', borderRadius:999, color:'var(--brand)', fontWeight:700}}>
                   Candidate · {c.id} ({c.stage})
                 </span>
-                <ChevronRight size={12} color="#94a3b8"/>
-                {linkedOffer ? (
-                  <span style={{padding:'5px 10px', background:'#fff', border:'1px solid #bfdbfe', borderRadius:999, color:'#1e40af', fontWeight:600}} title={`Offer ${linkedOffer.id} · ${linkedOffer.stage}`}>
-                    Offer · {linkedOffer.id} ({linkedOffer.stage})
-                  </span>
-                ) : (
-                  <span style={{padding:'5px 10px', color:'var(--text-tertiary)', fontSize:11, fontStyle:'italic'}}>Offer · not drafted</span>
-                )}
                 <ChevronRight size={12} color="#94a3b8"/>
                 {linkedOnboarding ? (
                   <a href="#/backoffice/onboarding" onClick={(e) => { e.preventDefault(); navigate(`/backoffice/onboarding?stage=${encodeURIComponent(linkedOnboarding.status)}`); }} style={{padding:'5px 10px', background:'#fff', border:'1px solid #bfdbfe', borderRadius:999, color:'#1e40af', textDecoration:'none', fontWeight:600}} title="Open in Onboarding pipeline">
@@ -418,18 +414,19 @@ export const RecruitmentPipeline = () => {
   // X/Y FILLED badge and per-stage KPI strip). Funnel + time-to-fill are
   // the analytics that add value here.
 
-  // Time-to-fill: average days from applied → offer per role.
+  // Time-to-fill: average days from applied → hired per role.
   const timeToFill = (() => {
     const out = {};
-    state.jobs.forEach(j => {
-      const offered = (state.offers || []).filter(o => o.jobId === j.id && ['Approved','Sent','Accepted'].includes(o.stage));
-      if (!offered.length) return;
-      const days = offered.map(o => {
-        const cand = state.candidates.find(c => c.id === o.candidateId);
-        if (!cand) return 0;
-        const a = new Date(cand.applied), b = new Date(o.approvedAt || o.sentAt || new Date());
+    (state.jobs || []).forEach(j => {
+      const hired = (state.candidates || []).filter(c =>
+        c.stage === 'Hired' && (c.vacancyId === j.id || c.job === j.title));
+      if (!hired.length) return;
+      const days = hired.map(c => {
+        if (!c.applied || !c.hiredAt) return null;
+        const a = new Date(c.applied), b = new Date(c.hiredAt);
         return Math.max(0, Math.round((b - a) / 86400000));
-      });
+      }).filter(d => d !== null);
+      if (!days.length) return;
       out[j.title] = Math.round(days.reduce((s, d) => s + d, 0) / days.length);
     });
     return out;
@@ -593,9 +590,8 @@ export const RecruitmentPipeline = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// RecruitmentAnalytics — funnel chart, source ROI, time-to-fill,
-// diversity stats. All client-side derived from state.candidates +
-// state.offers + state.jobs.
+// RecruitmentAnalytics — funnel chart, time-to-fill, diversity stats.
+// All client-side derived from state.candidates + state.jobs.
 // ═══════════════════════════════════════════════════════════════
 const stageColors = {
   Applied:   '#3b82f6',
@@ -666,7 +662,7 @@ const RecruitmentAnalytics = ({ funnel, conversionPct, timeToFill, diversity }) 
               ))}
             </div>
           ) : (
-            <p style={{fontSize:11, color:'var(--text-tertiary)', fontStyle:'italic', marginBottom:14}}>No offers yet — advance candidates to Offer stage.</p>
+            <p style={{fontSize:11, color:'var(--text-tertiary)', fontStyle:'italic', marginBottom:14}}>No hires yet — move candidates to the Hired stage.</p>
           )}
 
           <h4 style={{fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8}}>Diversity</h4>

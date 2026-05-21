@@ -66,12 +66,12 @@ export const VacancyDetail = () => {
     );
   }
 
-  // Headcount accounting — counts both 'Accepted' (in onboarding) and
-  // 'Onboarded' (joined) offers so a vacancy doesn't appear to lose
-  // headcount once people complete onboarding.
-  const acceptedOffers = (state.offers || []).filter(o => o.jobId === job.id && ['Accepted','Onboarded'].includes(o.stage)).length;
-  const isFilled = job.headcount > 0 && acceptedOffers >= job.headcount;
-  const filledRatio = job.headcount > 0 ? acceptedOffers / job.headcount : 0;
+  // Headcount accounting — counts candidates on this vacancy who reached
+  // the 'Hired' stage. "Offer" is just a pipeline stage; the hire is only
+  // committed once the candidate is moved to 'Hired'.
+  const hiredCount = (state.candidates || []).filter(c => (c.vacancyId === job.id || c.job === job.title) && c.stage === 'Hired').length;
+  const isFilled = job.headcount > 0 && hiredCount >= job.headcount;
+  const filledRatio = job.headcount > 0 ? hiredCount / job.headcount : 0;
   const applicantCount = (state.candidates || []).filter(c => c.vacancyId === job.id).length;
 
   const publish = () => openConfirm({
@@ -169,7 +169,7 @@ export const VacancyDetail = () => {
             }}>
               <div style={{fontSize:10, fontWeight:700, color:'rgba(255,255,255,.7)', textTransform:'uppercase', letterSpacing:'.08em'}}>Headcount filled</div>
               <div style={{fontSize:26, fontWeight:800, marginTop:4, display:'flex', alignItems:'center', gap:8}}>
-                {acceptedOffers}<span style={{fontSize:14, fontWeight:600, color:'rgba(255,255,255,.5)'}}>/ {job.headcount}</span>
+                {hiredCount}<span style={{fontSize:14, fontWeight:600, color:'rgba(255,255,255,.5)'}}>/ {job.headcount}</span>
                 {isFilled && <span style={{fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:4, background:'#10b981', color:'#fff', letterSpacing:'.05em'}}>FILLED</span>}
                 {!isFilled && filledRatio >= 0.7 && <span style={{fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:4, background:'#f59e0b', color:'#fff', letterSpacing:'.05em'}}>NEARLY</span>}
               </div>

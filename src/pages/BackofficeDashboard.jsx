@@ -4,7 +4,7 @@
 // Each Backoffice persona lands on a tailored view:
 //   • Super Admin    → broad operational overview (legacy generic)
 //   • Sales Director → cross-team rollup + approvals
-//   • HR Recruiter   → recruitment funnel, candidates, offers, onboarding
+//   • HR Recruiter   → recruitment funnel, candidates, hiring stages, onboarding
 //   • Finance Officer→ revenue + commissions + payouts
 //   • Executive/CEO  → strategic KPIs + top deals + funnel
 //   • System Admin   → users, roles, master data, audit
@@ -182,14 +182,14 @@ const HrDashboard = () => {
   const navigate = useNavigate();
 
   const candidates = state.candidates || [];
-  const offers     = state.offers || [];
   const onboarding = state.onboarding || [];
   const jobs       = state.jobs || [];
 
   const openVacancies = jobs.filter(j => j.status === 'Published');
   const candidatesActive = candidates.filter(c => c.stage !== 'Rejected');
-  const offersInFlight   = offers.filter(o => ['Pending Approval','Approved','Sent'].includes(o.stage));
-  const offersAccepted   = offers.filter(o => o.stage === 'Accepted').length;
+  // "Offer" is a candidate pipeline stage — not a standalone entity.
+  const candidatesInOffer = candidates.filter(c => c.stage === 'Offer');
+  const hiredTotal        = candidates.filter(c => c.stage === 'Hired').length;
   const onboardingActive = onboarding.filter(a => !['Activated','Withdrawn'].includes(a.status));
   const onboardingStalled = onboardingActive.filter(a => {
     const last = a.statusHistory?.[a.statusHistory.length - 1]?.at || a.date + 'T00:00:00';
@@ -202,11 +202,11 @@ const HrDashboard = () => {
   // longer exists — the vacancy IS the source. Per-vacancy applicant
   // counts live on the Job Vacancies list and each vacancy detail page.
 
-  // Stage funnel
-  const stageOrder = ['Applied','Screening','Interview','Offer','Rejected'];
+  // Stage funnel — full candidate pipeline incl. the Offer + Hired stages.
+  const stageOrder = ['Applied','Screening','Interview','Offer','Hired','Rejected'];
   const stageCounts = stageOrder.map(s => ({
     label: s, value: candidates.filter(c => c.stage === s).length,
-    color: s === 'Offer' ? '#10b981' : s === 'Rejected' ? '#94a3b8' : '#0ea5e9',
+    color: s === 'Hired' ? '#10b981' : s === 'Offer' ? '#f59e0b' : s === 'Rejected' ? '#94a3b8' : '#0ea5e9',
   }));
   const maxStage = Math.max(...stageCounts.map(s => s.value), 1);
 
@@ -214,15 +214,15 @@ const HrDashboard = () => {
     <div>
       <Header
         title="HR & Recruitment Dashboard"
-        subtitle="Vacancies · candidates · offers · onboarding pipeline"
+        subtitle="Vacancies · candidates · hiring stages · onboarding pipeline"
         role="HR Recruiter"
       />
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18, marginTop:18}}>
         <KpiCard label="Open vacancies"    value={openVacancies.length}     icon={Briefcase}    color="#3b82f6" footer={`Headcount: ${openVacancies.reduce((s,j) => s + (j.headcount || 0), 0)}`} onClick={() => navigate('/backoffice/jobs')}/>
         <KpiCard label="Candidates"        value={candidatesActive.length}  icon={Users}        color="#8b5cf6" footer={`${candidates.length} total · ${candidates.filter(c => c.stage === 'Interview').length} in interview`} onClick={() => navigate('/backoffice/recruitment')}/>
-        <KpiCard label="Offers in flight"  value={offersInFlight.length}    icon={FileText}     color="#f59e0b" footer={`${offers.filter(o => o.stage === 'Pending Approval').length} pending director`} onClick={() => navigate('/backoffice/recruitment')}/>
-        <KpiCard label="Hires this month"  value={hiresThisMonth}            icon={CheckCircle2} color="#10b981" footer={`${offersAccepted} offers accepted`}/>
+        <KpiCard label="In Offer stage"    value={candidatesInOffer.length} icon={FileText}     color="#f59e0b" footer="Candidates at the Offer stage" onClick={() => navigate('/backoffice/recruitment')}/>
+        <KpiCard label="Hires this month"  value={hiresThisMonth}            icon={CheckCircle2} color="#10b981" footer={`${hiredTotal} candidates hired total`}/>
         <KpiCard label="Onboarding stalled" value={onboardingStalled.length} icon={AlertTriangle} color="#dc2626" footer={`${onboardingActive.length} active applicants`} onClick={() => navigate('/backoffice/onboarding')}/>
       </div>
 
@@ -256,18 +256,18 @@ const HrDashboard = () => {
           onSeeAll={() => navigate('/backoffice/onboarding')}
         />
         <ListPanel
-          title="Offers queue"
-          subtitle="Pending approval · awaiting candidate response"
+          title="Candidates in Offer stage"
+          subtitle="Awaiting a hire decision"
           icon={FileText}
-          items={offersInFlight.slice(0,5).map(o => ({
-            key: o.id, title: o.candidateName,
-            subtitle: `${o.id} · ${o.jobTitle} · ${o.stage}`,
-            meta: `EGP ${o.salaryMonthly?.toLocaleString()}/mo`, metaColor:'#10b981',
-            urgent: o.outOfBand,
-            photoDataUrl: o.photoDataUrl,
-            initials: (o.candidateName || '').split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase(),
+          items={candidatesInOffer.slice(0,5).map(c => ({
+            key: c.id, title: c.name,
+            subtitle: `${c.id} · ${c.job} · Offer`,
+            meta: c.applied, metaColor:'var(--text-tertiary)',
+            photoDataUrl: c.photoDataUrl,
+            initials: (c.name || '').split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase(),
           }))}
-          emptyText="No offers in flight."
+          emptyText="No candidates in the Offer stage."
+          onItemClick={() => navigate('/backoffice/recruitment')}
           onSeeAll={() => navigate('/backoffice/recruitment')}
         />
       </div>
@@ -530,7 +530,6 @@ const SalesDirectorOverview = () => {
   const deals = state.deals || [];
   const totalSales = deals.reduce((s,d) => s + (d.value || 0), 0);
   const revenue = totalSales * 0.02;
-  const offerApprovals = (state.offers || []).filter(o => o.stage === 'Pending Approval').length;
   const finalApprovals = (state.onboarding || []).filter(a => a.status === 'Final Approval').length;
   const overrides = (state.commEngine || []).filter(c => c.status === 'Pending').length;
 
@@ -545,26 +544,23 @@ const SalesDirectorOverview = () => {
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18, marginTop:18}}>
         <KpiCard label="Total sales"       value={fmtM(totalSales)}   icon={TrendingUp}   color="#10b981" footer={`${deals.length} deals across teams`}/>
         <KpiCard label="Company revenue"   value={fmtM(revenue)}      icon={DollarSign}   color="#E8672A" footer="2% on closed sales"/>
-        <KpiCard label="Offer approvals"   value={offerApprovals}     icon={FileText}     color="#f59e0b" footer="HR offers awaiting sign-off" onClick={() => navigate('/backoffice/recruitment')}/>
         <KpiCard label="Final approvals"   value={finalApprovals}     icon={CheckCircle2} color="#0ea5e9" footer="Onboarding director sign-off" onClick={() => navigate('/backoffice/onboarding')}/>
         <KpiCard label="Commission overrides" value={overrides}       icon={ShieldCheck}  color="#8b5cf6" footer="Pending your review" onClick={() => navigate('/backoffice/finance/commission')}/>
       </div>
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
         <ListPanel
-          title="Offers awaiting approval"
-          subtitle="HR-drafted offers ready for your sign-off"
-          icon={FileText}
-          items={(state.offers || []).filter(o => o.stage === 'Pending Approval').slice(0,5).map(o => ({
-            key: o.id, title: o.candidateName,
-            subtitle: `${o.id} · ${o.jobTitle} · ${o.stage}`,
-            meta: `EGP ${o.salaryMonthly?.toLocaleString()}/mo`, metaColor:'#10b981',
-            urgent: o.outOfBand,
-            photoDataUrl: o.photoDataUrl,
-            initials: (o.candidateName || '').split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase(),
+          title="Commission overrides"
+          subtitle="Override requests awaiting your decision"
+          icon={ShieldCheck}
+          items={(state.commEngine || []).filter(c => c.status === 'Pending').slice(0,5).map(c => ({
+            key: c.id, title: `${c.id} · ${c.developer || c.deal || '—'}`,
+            subtitle: `Pool EGP ${(c.pool || 0).toLocaleString()} · ${c.agent || '—'}`,
+            meta: 'Pending', metaColor:'#f59e0b',
+            urgent: true,
           }))}
-          emptyText="No offers awaiting approval."
-          onSeeAll={() => navigate('/backoffice/recruitment')}
+          emptyText="No override requests pending."
+          onSeeAll={() => navigate('/backoffice/finance/commission')}
         />
         <ListPanel
           title="Final onboarding approvals"

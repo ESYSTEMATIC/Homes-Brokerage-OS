@@ -45,9 +45,9 @@ export const CrmTeam = () => {
   // Root of the org chart — the signed-in manager's own staff record.
   const rootMember = (state.staff || []).find(s => s.name === myName);
 
-  // Intro calls I own — auto-spawned by Recruitment when offers are accepted.
+  // Intro calls I own — scheduled for new hires entering onboarding.
   // Visible to whichever manager was set as the call's owner (typically the
-  // candidate's reportingTo / hiringManager).
+  // new hire's reporting line / hiring manager).
   const myIntroCalls = useMemo(() => {
     const all = (state.introCalls || []).filter(c => c.owner === myName);
     const STATUS_ORDER = { 'Scheduled': 0, 'No-Show': 1, 'Cancelled': 2, 'Completed': 3 };
@@ -214,7 +214,7 @@ export const CrmTeam = () => {
         })}
       />
 
-      {/* Intro Calls panel — auto-spawned when offers are accepted.
+      {/* Intro Calls panel — scheduled for new hires in onboarding.
           Shows every record where the signed-in manager is the owner. */}
       {myIntroCalls.length > 0 && (
         <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'18px 22px',marginTop:24}}>

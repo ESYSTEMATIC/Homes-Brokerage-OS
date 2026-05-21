@@ -245,9 +245,9 @@ export const TASKS = [
 
 // ── ONBOARDING APPLICATIONS ──
 // Rich applicant record. statusHistory[] is the immutable timeline used
-// by the drawer Timeline tab. linkedCandidateId / linkedOfferId connect
-// records to the Recruitment pipeline. employeeId is populated when the
-// applicant is approved and a Staff record is created.
+// by the drawer Timeline tab. linkedCandidateId connects records to the
+// Recruitment pipeline. employeeId is populated when the onboarding is
+// activated and a Staff record is created.
 export const ONBOARDING = [
   {
     id: "APP001", applicant: "Mona Fawzy", type: "Agent",
@@ -260,7 +260,7 @@ export const ONBOARDING = [
     targetStartDate: "2026-06-15",
     hiringManager: "Nour El-Din",
     source: "Careers Page",
-    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    linkedCandidateId: null, employeeId: null,
     statusHistory: [
       { stage: "Submitted",    at: "2026-05-08T09:00:00", by: "Self-service · Careers form", note: "Application received" },
       { stage: "Under Review", at: "2026-05-09T11:20:00", by: "Dina Samir", note: "Initial screening passed — moving to documents" },
@@ -278,7 +278,7 @@ export const ONBOARDING = [
     targetStartDate: "2026-06-01",
     hiringManager: "Omar Sherif",
     source: "Referral",
-    linkedCandidateId: "CAN-003", linkedOfferId: "OFR-001", employeeId: null,
+    linkedCandidateId: "CAN-003", employeeId: null,
     statusHistory: [
       { stage: "Submitted",         at: "2026-05-04T08:30:00", by: "Auto · Offer accepted (OFR-001)", note: "Spawned from accepted offer" },
       { stage: "Under Review",      at: "2026-05-04T14:15:00", by: "Dina Samir", note: "Application picked up" },
@@ -300,7 +300,7 @@ export const ONBOARDING = [
     targetStartDate: "2026-05-30",
     hiringManager: "Nour El-Din",
     source: "LinkedIn",
-    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    linkedCandidateId: null, employeeId: null,
     statusHistory: [
       { stage: "Submitted",            at: "2026-05-02T09:45:00", by: "Self-service",    note: "Application received" },
       { stage: "Under Review",         at: "2026-05-03T10:00:00", by: "Dina Samir",      note: "Screening passed" },
@@ -320,7 +320,7 @@ export const ONBOARDING = [
     targetStartDate: "2026-05-01",
     hiringManager: "CEO",
     source: "Direct outreach",
-    linkedCandidateId: null, linkedOfferId: null, employeeId: "A013",
+    linkedCandidateId: null, employeeId: "A013",
     statusHistory: [
       { stage: "Submitted",            at: "2026-04-15T08:00:00", by: "HR",         note: "Application received" },
       { stage: "Under Review",         at: "2026-04-16T09:00:00", by: "Dina Samir", note: "Fast-track approved" },
@@ -342,7 +342,7 @@ export const ONBOARDING = [
     targetStartDate: "2026-05-25",
     hiringManager: "Nour El-Din",
     source: "Referral",
-    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    linkedCandidateId: null, employeeId: null,
     statusHistory: [
       { stage: "Submitted",            at: "2026-04-30T09:00:00", by: "HR", note: "Application received" },
       { stage: "Under Review",         at: "2026-05-01T10:00:00", by: "Dina Samir", note: "Screening" },
@@ -363,7 +363,7 @@ export const ONBOARDING = [
     targetStartDate: "2026-05-30",
     hiringManager: "Omar Sherif",
     source: "Careers Page",
-    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    linkedCandidateId: null, employeeId: null,
     statusHistory: [
       { stage: "Submitted",         at: "2026-04-22T11:00:00", by: "Self-service", note: "Application received" },
       { stage: "Under Review",      at: "2026-04-23T10:30:00", by: "Dina Samir", note: "Screening" },
@@ -382,7 +382,7 @@ export const ONBOARDING = [
     targetStartDate: null,
     hiringManager: "Dina Samir",
     source: "LinkedIn",
-    linkedCandidateId: null, linkedOfferId: null, employeeId: null,
+    linkedCandidateId: null, employeeId: null,
     statusHistory: [
       { stage: "Submitted",    at: "2026-04-10T09:00:00", by: "HR", note: "Application received" },
       { stage: "Under Review", at: "2026-04-11T10:00:00", by: "Dina Samir", note: "Screening" },
@@ -669,158 +669,13 @@ export const CANDIDATES = [
     resumeName: "inji-adel-cv.pdf",       resumeDataUrl: null },
 ];
 
-// ── OFFERS ── HR drafts → Sales Director approves → Sent → Accepted/Rejected
-// Lifecycle: Draft → Pending Approval → Approved → Sent → (Accepted | Declined | Withdrawn)
-// Added 'Onboarded' (May 2026) as the final terminal stage after the
-// onboarding flow approves the new hire. This closes the loop:
-// Accepted → onboarding spawned → Approved by HR → offer flips to
-// 'Onboarded'. Reports counting filled headcount include both
-// 'Accepted' (in onboarding) and 'Onboarded' (joined) so a vacancy
-// doesn't appear to lose headcount once people complete onboarding.
-export const OFFER_STAGES = ['Draft', 'Pending Approval', 'Approved', 'Sent', 'Accepted', 'Onboarded', 'Declined', 'Withdrawn'];
-
-export const OFFERS = [
-  {
-    id: "OFR-001", candidateId: "CAN-003", candidateName: "Fatma Youssef",
-    photoDataUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "fatma-youssef.png",
-    jobId: "JOB-002", jobTitle: "Junior Sales Agent",
-    salaryMonthly: 13500, currency: "EGP",
-    commission: "0.5% of deal value after onboarding completion",
-    bonus: "Annual top-performer trip + EGP 5,000 sign-on after probation",
-    benefits: ["Health insurance (probation)", "Microsoft 365", "Homes Academy", "Transport allowance"],
-    startDate: "2026-06-01", probationMonths: 3,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Omar Sherif (Team Leader)",
-    contractType: "Full-time, indefinite",
-    stage: "Sent",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: "Tarek Hassan (Sales Director)",
-    approvedAt: "2026-05-14",
-    sentAt: "2026-05-15",
-    expiresAt: "2026-05-22",
-    notes: "Strong impression from Omar's interview — fast-track. Junior band top-end."
-  },
-  {
-    id: "OFR-002", candidateId: "CAN-001", candidateName: "Amira El-Sayed",
-    photoDataUrl: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "amira-elsayed.png",
-    jobId: "JOB-001", jobTitle: "Senior Sales Agent",
-    salaryMonthly: 23000, currency: "EGP",
-    commission: "Uncapped — 0.8% of deal value · Homes Advance at 5% collection trigger",
-    bonus: "EGP 10,000 sign-on after RERA license activated",
-    benefits: ["Health insurance + family", "Microsoft 365", "Homes Academy", "Transport allowance", "Annual top-performer trip"],
-    startDate: "2026-06-15", probationMonths: 3,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Nour El-Din (Sales Manager)",
-    contractType: "Full-time, indefinite",
-    stage: "Pending Approval",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: null, approvedAt: null, sentAt: null,
-    expiresAt: null,
-    notes: "Mid-band — strong interview but limited RERA history."
-  },
-  // ─── Expansion seed (May 2026) ───
-  {
-    id: "OFR-003", candidateId: "CAN-010", candidateName: "Heba Naguib",
-    photoDataUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "heba-naguib.png",
-    jobId: "JOB-003", jobTitle: "Sales Manager",
-    salaryMonthly: 38000, currency: "EGP",
-    commission: "0.6% of team-attributed deal value + override on Closed Won",
-    bonus: "EGP 25,000 sign-on after probation + quarterly performance bonus",
-    benefits: ["Health insurance + family", "Microsoft 365", "Homes Academy", "Transport allowance", "Annual top-performer trip", "Company car allowance"],
-    startDate: "2026-07-01", probationMonths: 6,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Tarek Amin (Sales Director)",
-    contractType: "Full-time, indefinite",
-    stage: "Approved",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: "Tarek Amin (Sales Director)",
-    approvedAt: "2026-05-15",
-    sentAt: null,
-    expiresAt: "2026-05-25",
-    notes: "Strong candidate, 10y experience at Coldwell Banker Egypt. Approved Friday — sending Monday."
-  },
-  {
-    id: "OFR-004", candidateId: "CAN-012", candidateName: "Aya Magdy",
-    photoDataUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "aya-magdy.png",
-    jobId: "JOB-005", jobTitle: "Finance Analyst",
-    salaryMonthly: 27500, currency: "EGP",
-    commission: "—",
-    bonus: "EGP 10,000 sign-on after probation",
-    benefits: ["Health insurance", "Microsoft 365", "Homes Academy"],
-    startDate: "2026-06-15", probationMonths: 3,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Khaled Magdy (Finance Manager)",
-    contractType: "Full-time, indefinite",
-    stage: "Accepted",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: "Tarek Amin (Sales Director)",
-    approvedAt: "2026-05-08",
-    sentAt: "2026-05-09",
-    acceptedAt: "2026-05-12",
-    expiresAt: "2026-05-16",
-    notes: "Accepted within 3 days. Onboarding spawned (APP-008)."
-  },
-  {
-    id: "OFR-005", candidateId: "CAN-011", candidateName: "Ramy Fawzy",
-    photoDataUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "ramy-fawzy.png",
-    jobId: "JOB-004", jobTitle: "Marketing Lead",
-    salaryMonthly: 34000, currency: "EGP",
-    commission: "Quarterly campaign-performance bonus",
-    bonus: "EGP 15,000 sign-on after probation",
-    benefits: ["Health insurance + family", "Microsoft 365", "Homes Academy", "Transport allowance"],
-    startDate: "2026-07-01", probationMonths: 3,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Tarek Amin (Sales Director)",
-    contractType: "Full-time, indefinite",
-    stage: "Draft",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: null, approvedAt: null, sentAt: null,
-    expiresAt: null,
-    notes: "Draft pending — waiting on final sign-off from Marketing budget review."
-  },
-  {
-    id: "OFR-006", candidateId: "CAN-007", candidateName: "Sherif Mostafa",
-    photoDataUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "sherif-mostafa.png",
-    jobId: "JOB-001", jobTitle: "Senior Sales Agent",
-    salaryMonthly: 21000, currency: "EGP",
-    commission: "Uncapped — 0.8% of deal value · Homes Advance at 5% collection trigger",
-    bonus: "EGP 10,000 sign-on after RERA license activated",
-    benefits: ["Health insurance", "Microsoft 365", "Homes Academy", "Transport allowance"],
-    startDate: "2026-06-22", probationMonths: 3,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Omar Sherif (Team Leader)",
-    contractType: "Full-time, indefinite",
-    stage: "Sent",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: "Tarek Amin (Sales Director)",
-    approvedAt: "2026-05-14",
-    sentAt: "2026-05-15",
-    expiresAt: "2026-05-23",
-    notes: "Strong sales track record, 4y experience. Mid-band offer with stretch on commission."
-  },
-  {
-    id: "OFR-007", candidateId: "CAN-008", candidateName: "Mariam Helmy",
-    photoDataUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop&crop=faces&auto=format&q=80", photoName: "mariam-helmy.png",
-    jobId: "JOB-002", jobTitle: "Junior Sales Agent",
-    salaryMonthly: 12500, currency: "EGP",
-    commission: "0.4% of deal value after onboarding completion",
-    bonus: "EGP 5,000 sign-on after probation",
-    benefits: ["Health insurance (probation)", "Microsoft 365", "Homes Academy"],
-    startDate: "2026-06-15", probationMonths: 3,
-    workSchedule: "Sun–Thu, 9am–6pm",
-    reportingTo: "Omar Sherif (Team Leader)",
-    contractType: "Full-time, indefinite",
-    stage: "Declined",
-    draftedBy: "Dina Samir (HR Recruiter)",
-    approvedBy: "Tarek Amin (Sales Director)",
-    approvedAt: "2026-05-10",
-    sentAt: "2026-05-11",
-    declinedAt: "2026-05-14",
-    declineReason: "Accepted competing offer with higher base salary",
-    expiresAt: "2026-05-18",
-    notes: "Declined — competing offer EGP 14k. Recommend revisiting band."
-  }
-];
+// ── OFFERS (retired May 2026) ──
+// An employment offer is no longer a standalone entity. "Offer" is simply a
+// stage in the candidate hiring pipeline (Applied → Screening → Interview →
+// Offer → Hired). Moving a candidate to Hired auto-spawns their onboarding
+// application. This empty export is kept only so the legacy `offers` state
+// slice initialises cleanly — nothing reads from or writes to it.
+export const OFFERS = [];
 
 // Salary band reference matrix (governance — bands by role family + level)
 // HR cannot draft an offer outside these bands without Sales Director justification.

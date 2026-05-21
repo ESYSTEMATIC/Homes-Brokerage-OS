@@ -393,7 +393,6 @@ const SalesDirectorDashboard = () => {
   const deals = state.deals || [];
   const totalSales = deals.reduce((s,d) => s + (d.value || 0), 0);
   const revenue = totalSales * 0.02;
-  const offerApprovalQueue = (state.offers || []).filter(o => o.stage === 'Pending Approval').length;
   const overrideQueue = (state.commEngine || []).filter(c => c.status === 'Pending').length;
   const finalApproval = (state.onboarding || []).filter(a => a.status === 'Final Approval').length;
 
@@ -402,7 +401,7 @@ const SalesDirectorDashboard = () => {
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18}}>
         <KpiCard label="Total sales"      value={fmtM(totalSales)}   icon={TrendingUp}   color="#10b981" footer={`${deals.length} deals across teams`}/>
         <KpiCard label="Company revenue"  value={fmtM(revenue)}       icon={DollarSign}   color="#E8672A" footer="2% commission on sales"/>
-        <KpiCard label="Offer approvals"  value={offerApprovalQueue}  icon={FileText}     color="#f59e0b" footer="HR offers awaiting your sign-off" onClick={() => navigate('/backoffice/recruitment')}/>
+        <KpiCard label="Commission overrides" value={overrideQueue}   icon={ShieldCheck}  color="#f59e0b" footer="Override requests pending your sign-off" onClick={() => navigate('/backoffice/finance/commission')}/>
         <KpiCard label="Final approvals"  value={finalApproval}       icon={CheckCircle2} color="#0ea5e9" footer="Applicants ready for director sign-off" onClick={() => navigate('/backoffice/onboarding')}/>
       </div>
 
@@ -455,19 +454,19 @@ const HrRecruiterDashboard = () => {
   const navigate = useNavigate();
 
   const candidates = state.candidates || [];
-  const offers = state.offers || [];
   const onboarding = state.onboarding || [];
   const openVacancies = (state.jobs || []).filter(j => j.status === 'Published').length;
   const candidatesActive = candidates.filter(c => c.stage !== 'Rejected').length;
-  const offersPending = offers.filter(o => o.stage === 'Pending Approval' || o.stage === 'Approved' || o.stage === 'Sent').length;
+  // "Offer" is a candidate pipeline stage — not a standalone entity.
+  const candidatesInOffer = candidates.filter(c => c.stage === 'Offer');
   const onboardingActive = onboarding.filter(a => !['Activated','Withdrawn'].includes(a.status)).length;
 
   return (
-    <RoleShell title="HR Recruiter Cockpit" subtitle="Vacancies · candidates · offers · onboarding">
+    <RoleShell title="HR Recruiter Cockpit" subtitle="Vacancies · candidates · hiring stages · onboarding">
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18}}>
         <KpiCard label="Open vacancies"   value={openVacancies}     icon={FileText}     color="#3b82f6" footer="Published roles on Careers"     onClick={() => navigate('/backoffice/jobs')}/>
         <KpiCard label="Candidates"       value={candidatesActive}  icon={Users}        color="#8b5cf6" footer={`${candidates.length} total · pipeline`} onClick={() => navigate('/backoffice/recruitment')}/>
-        <KpiCard label="Offers in flight" value={offersPending}     icon={FileText}     color="#f59e0b" footer="Pending Approval · Approved · Sent" onClick={() => navigate('/backoffice/recruitment')}/>
+        <KpiCard label="In Offer stage"   value={candidatesInOffer.length} icon={FileText} color="#f59e0b" footer="Candidates at the Offer stage" onClick={() => navigate('/backoffice/recruitment')}/>
         <KpiCard label="Onboarding"       value={onboardingActive}  icon={ListChecks}   color="#10b981" footer="Active applicants in pipeline"   onClick={() => navigate('/backoffice/onboarding')}/>
       </div>
 
@@ -487,17 +486,16 @@ const HrRecruiterDashboard = () => {
           onItemClick={() => navigate('/backoffice/onboarding')}
         />
         <ListPanel
-          title="Offer queue"
-          subtitle="Offers in approval or response window"
+          title="Candidates in Offer stage"
+          subtitle="Awaiting a hire decision"
           icon={FileText}
-          items={offers.filter(o => !['Accepted','Declined','Withdrawn'].includes(o.stage)).slice(0,5).map(o => ({
-            key: o.id, title: o.candidateName,
-            subtitle: `${o.id} · ${o.jobTitle} · ${o.stage}`,
-            meta: fmtEGP(o.salaryMonthly) + '/mo', metaColor:'#10b981',
-            urgent: o.outOfBand,
+          items={candidatesInOffer.slice(0,5).map(c => ({
+            key: c.id, title: c.name,
+            subtitle: `${c.id} · ${c.job} · Offer`,
+            meta: c.applied, metaColor:'var(--text-secondary)',
             icon: <FileText size={14}/>,
           }))}
-          emptyText="No active offers."
+          emptyText="No candidates in the Offer stage."
           onItemClick={() => navigate('/backoffice/recruitment')}
         />
       </div>
@@ -761,14 +759,14 @@ const SuperAdminDashboard = () => {
   const apps = (state.onboarding || []).filter(a => !['Activated','Withdrawn'].includes(a.status)).length;
   const docs = (state.documents || []).filter(d => d.status === 'Pending Review' || d.status === 'Missing').length;
   const audit = (state.audit || []).length;
-  const offers = (state.offers || []).filter(o => o.stage === 'Pending Approval').length;
+  const inOffer = (state.candidates || []).filter(c => c.stage === 'Offer').length;
 
   return (
     <RoleShell title="Super Admin Cockpit" subtitle="Aggregate operational visibility across the platform">
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:18}}>
         <KpiCard label="Active applications"  value={apps}   icon={ListChecks}  color="#3b82f6" footer="In onboarding pipeline"        onClick={() => navigate('/backoffice/onboarding?tab=active')}/>
         <KpiCard label="Documents to review"  value={docs}   icon={FileText}    color="#f59e0b" footer="Pending or missing"             onClick={() => navigate('/backoffice/documents?status=pending')}/>
-        <KpiCard label="Offers pending"       value={offers} icon={ShieldCheck} color="#8b5cf6" footer="Awaiting director approval"    onClick={() => navigate('/backoffice/recruitment?stage=offer')}/>
+        <KpiCard label="In Offer stage"       value={inOffer} icon={ShieldCheck} color="#8b5cf6" footer="Candidates at the Offer stage"  onClick={() => navigate('/backoffice/recruitment')}/>
         <KpiCard label="Audit events"         value={audit}  icon={Activity}    color="#10b981" footer="System-wide activity log"     onClick={() => navigate('/backoffice/audit')}/>
       </div>
 
