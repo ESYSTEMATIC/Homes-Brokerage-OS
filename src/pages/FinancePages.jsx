@@ -39,19 +39,16 @@ export const FinanceOverview = () => {
 
   const payoutOf = (c) => (c.agentShare || 0) + (c.tlShare || 0) + (c.managerShare || 0) + (c.directorShare || 0);
   const collected = rows.filter(c => c.status === 'Collected');
-  const approved  = rows.filter(c => c.status === 'Approved');
 
-  // Gross Revenue = Total Revenue = Collected + Pending commission pools.
-  const grossRevenue   = rows.reduce((s, c) => s + (c.pool || 0), 0);
-  // Pending Payout = payout owed on Approved (not-yet-collected) commissions.
-  const pendingPayouts = approved.reduce((s, c) => s + payoutOf(c), 0);
-  // Paid Payout Net of VAT = disbursed payout on Collected commissions, less VAT.
-  const paidNetVat     = collected.reduce((s, c) => s + payoutOf(c) - (c.vat || 0), 0);
-  // Net Revenue = Commission − VAT − Payouts (on collected commissions).
-  const commissionC = collected.reduce((s, c) => s + (c.pool || 0), 0);
-  const vatC        = collected.reduce((s, c) => s + (c.vat || 0), 0);
-  const payoutC     = collected.reduce((s, c) => s + payoutOf(c), 0);
-  const netRevenue  = commissionC - vatC - payoutC;
+  // Company income KPIs (SME review — company KPIs, income-focused, no
+  // expenses). Income ladder: Gross Revenue → Net Revenue (less VAT) →
+  // Net Result (less commission payouts).
+  const grossRevenue     = rows.reduce((s, c) => s + (c.pool || 0), 0);   // commission income billed
+  const collectedRevenue = collected.reduce((s, c) => s + (c.pool || 0), 0); // actually realized
+  const vatTotal         = rows.reduce((s, c) => s + (c.vat || 0), 0);
+  const payoutTotal      = rows.reduce((s, c) => s + payoutOf(c), 0);
+  const netRevenue       = grossRevenue - vatTotal;                        // revenue net of VAT
+  const netResult        = netRevenue - payoutTotal;                       // company keep after payouts
 
   const byStatus = ['Pending', 'Approved', 'Collected'].map(st => {
     const set = rows.filter(c => c.status === st);
@@ -60,10 +57,10 @@ export const FinanceOverview = () => {
   const maxPool = Math.max(1, ...byStatus.map(b => b.pool));
 
   const kpis = [
-    { label: 'Gross Revenue',           value: grossRevenue,   icon: 'green', sub: 'Collected + Pending commission' },
-    { label: 'Pending Payouts',         value: pendingPayouts, icon: 'amber', sub: 'Owed on approved commissions' },
-    { label: 'Paid Payout · Net of VAT',value: paidNetVat,     icon: 'blue',  sub: 'Disbursed payout, less 14% VAT' },
-    { label: 'Net Revenue',             value: netRevenue,     icon: 'green', sub: 'Commission − VAT − Payouts' },
+    { label: 'Gross Revenue',     value: grossRevenue,     icon: 'green', sub: 'Total commission income billed' },
+    { label: 'Collected Revenue', value: collectedRevenue, icon: 'blue',  sub: `Actually realized · ${collected.length} deal${collected.length===1?'':'s'}` },
+    { label: 'Net Revenue',       value: netRevenue,       icon: 'green', sub: 'Gross Revenue − 14% VAT' },
+    { label: 'Net Result',        value: netResult,        icon: 'green', sub: 'After commission payouts' },
   ];
 
   return (
@@ -71,7 +68,7 @@ export const FinanceOverview = () => {
       <div className="page-header">
         <div className="page-breadcrumb"><span>Dashboard</span><span>&gt;</span><span>Financial Mgmt</span><span>&gt;</span><span className="current">Overview</span></div>
         <h1 className="page-title">Finance Dashboard</h1>
-        <p className="page-subtitle">Revenue, commissions, and payouts — live from the Commission Engine</p>
+        <p className="page-subtitle">Company income KPIs — live from the Commission Engine</p>
       </div>
 
       {/* Filters + date range */}
@@ -126,7 +123,7 @@ export const FinanceOverview = () => {
           ))}
         </div>
         <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid var(--border)',fontSize:11,color:'var(--text-tertiary)',lineHeight:1.7}}>
-          Net Revenue = Commission ({fmt(commissionC)}) − VAT ({fmt(vatC)}) − Payouts ({fmt(payoutC)}) = <b style={{color:'var(--text-primary)'}}>{fmt(netRevenue)}</b> · on collected commissions. Commission payouts are processed quarterly.
+          Income ladder · Gross Revenue {fmt(grossRevenue)} − VAT {fmt(vatTotal)} = Net Revenue {fmt(netRevenue)} − Payouts {fmt(payoutTotal)} = <b style={{color:'var(--text-primary)'}}>Net Result {fmt(netResult)}</b>. Of the gross, <b style={{color:'var(--text-primary)'}}>{fmt(collectedRevenue)}</b> is actually collected — the rest is income on paper. Commission payouts are processed quarterly.
         </div>
       </div>
     </div>
