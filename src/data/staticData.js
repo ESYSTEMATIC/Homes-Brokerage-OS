@@ -875,6 +875,13 @@ export const COMMISSION_POLICIES = _withPolicyHistory([
   // the resulting pool is divided across Agent / Team Leader / Sales
   // Manager / Sales Director / Company. Every field is editable from
   // System Admin → Financial Management → Commission Policies.
+  //
+  // ── Default policy (SME finance review, May 2026) ──
+  // The fallback any deal uses when its developer / project has no specific
+  // policy on file — so there is always a clearly-defined commission policy.
+  { id: "COM-000", developer: "All developers", project: "All projects (default)", rate: 2.0, override: false, status: "Active", isDefault: true,
+    releaseStage: "Standard Collection (10%)",
+    split: { ...COMMISSION_SPLIT_DEFAULT } },
   { id: "COM-001", developer: "Palm Hills",      project: "Palm Hills New Cairo", rate: 2.0, override: false, status: "Active",
     split: { agent: 33.33, tl: 10, manager: 5, director: 3, company: 48.67 } },
   { id: "COM-002", developer: "Ora",             project: "ZED East",             rate: 2.0, override: false, status: "Active",
@@ -891,12 +898,16 @@ export const COMMISSION_POLICIES = _withPolicyHistory([
 ]);
 
 // Look up the active policy that should apply to a (developer, project)
-// pair. Returns null if there's no exact match — callers should fall back
-// to COMMISSION_SPLIT_DEFAULT. Used by the deal pipeline + commission
-// engine creation paths so every new pool is split per the configured
-// policy automatically.
-export const findCommissionPolicy = (policies, developer, project) =>
-  (policies || []).find(p => p.developer === developer && p.project === project && p.status === 'Active') || null;
+// pair. Falls back to the marked default policy (isDefault) so there is
+// always a defined policy; returns null only if even the default is
+// missing. Used by the deal pipeline + commission engine creation paths
+// so every new pool is split per the configured policy automatically.
+export const findCommissionPolicy = (policies, developer, project) => {
+  const list = policies || [];
+  return list.find(p => p.developer === developer && p.project === project && p.status === 'Active')
+    || list.find(p => p.isDefault && p.status === 'Active')
+    || null;
+};
 
 // Compute the per-persona split from a pool using a policy's percentages.
 // The company share is computed as the residual so any rounding error
@@ -910,6 +921,22 @@ export const computeSplit = (pool, split = COMMISSION_SPLIT_DEFAULT) => {
   const companyShare  = (pool || 0) - agentShare - tlShare - managerShare - directorShare;
   return { agentShare, tlShare, managerShare, directorShare, companyShare };
 };
+
+// ── FINANCE CONFIG ──
+// Finance-wide constants — single source of truth (SME finance review,
+// May 2026).
+//   vatRate                 Egypt standard VAT applied to commission (%).
+//   payoutCycle             commission payouts are processed quarterly.
+//   commissionReleaseStage  the sales team is only paid once the developer
+//                           reaches this collection stage on the deal.
+export const FINANCE_CONFIG = {
+  vatRate: 14,
+  payoutCycle: 'Quarterly',
+  commissionReleaseStage: 'Standard Collection (10%)',
+};
+
+// VAT on a commission base — commission figures are VAT-exclusive.
+export const vatAmount = (base) => Math.round((base || 0) * FINANCE_CONFIG.vatRate / 100);
 
 // ── AUDIT LOGS ──
 export const AUDIT_LOGS = [
@@ -1312,6 +1339,7 @@ export const PAYOUT_CYCLES = [
   { id:'PC-001', name:'Monthly Agent Payout', frequency:'Monthly', nextDate:'2024-02-01', status:'Active' },
   { id:'PC-002', name:'Quarterly TL Bonus', frequency:'Quarterly', nextDate:'2024-04-01', status:'Active' },
   { id:'PC-003', name:'Annual Performance', frequency:'Annually', nextDate:'2025-01-01', status:'Scheduled' },
+  { id:'PC-004', name:'Quarterly Commission Payout', frequency:'Quarterly', nextDate:'2026-07-01', status:'Active' },
 ];
 
 export const EXPENSE_CATEGORIES = [
